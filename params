@@ -1,0 +1,50 @@
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+!     pom2k parameters file
+!
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+C      mode     =    2
+      iproblem =   11
+!!      days     =    0.100
+!!      days     =    1.100
+      days     =  365.000
+      prtd1    =    1.000
+      swtch    =    5.000
+      prtd2    =   30.000
+      dte      =   48.
+C      isplit   =   60
+      title    = "TEST_RaSBC.ipol"
+!!      title    = "DBG_RaSBC.RST"
+!!      title    = "DBG_RaSBC"
+C      nadv     =    2
+      nbct     =    3
+      nbcs     =    3
+C      tprni    =     .1
+C      z0b      =    1.e0
+C      kl1      =    2
+C      umol     =    2.e-5
+      hmax     = 5000.
+!!      nread    =    1 !!
+C      time0    =  180.
+C      DBG      = .true.
+      dbg_lvl  =    0
+      dbg_off  =    1   ! Debug time offset, days
+      bkp_gap  =    1
+C      BC       =   0
+C      aam_init =   50.e0
+C
+C   Path and domain settings
+C
+      pth_wrk  = "/home/rincewnd/POM/"
+      pth_grd  = "grd/"
+      pth_flx  = "in/"
+      pth_bry  = "in/"
+      pth_out  = "out/"	! Terminate the output path with slash or leave empty to output to working directory.
+      pth_bkp  = "out/bkp/"
+!!      ptf_rst  = "bkp/DBG_RaSBC.restart.bkp"
+      ptf_rst  = "bkp/TEST_RaSBC.surfRAD_pt1.restart.bkp"
+      pfx_dmn  = "PACO-15_"
+      pth_dbg  = "dbg/"
+!!      pfx_dbg  = "RST0"
+!!      pfx_dbg  = "RST1"
