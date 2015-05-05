@@ -867,6 +867,15 @@ C-----------------------------------------------------------------------
 C
 C     Initial conditions:
 C
+!     Update boundary conditions:
+      call upd_mnth
+      if (nbct.eq.2.or.nbct.eq.4) call flux(3)                 ! rwnd: swrad
+      if (nbct.eq.1.or.nbct.eq.2.or.nbct.eq.4) call flux(4)    ! rwnd: wtsurf
+      if (nbct.eq.3.or.nbct.eq.4) call bry(43)                 ! 43 - SST and SSS
+      call flux(52)     ! rwnd: wusurf
+      call bry(2)       ! rwnd: el
+      call bry(3)       !     : u & ua
+      call bry(4)       !     : ts
 C     Select print statements in printall as desired:
 C
       call ic2ncdf                  ! rwnd:
@@ -957,8 +966,8 @@ C     wssurf, swrad and vflux.
           call debug_write_xy(wusurf, "wusurf", dbg_step)
           call debug_write_xy(wvsurf, "wvsurf", dbg_step)
           call debug_write_xy(elb,    "elb",    dbg_step)
-          call debug_write_xz(uabs,   "uabs",   dbg_step)
-          call debug_write_xz(vabs,   "vabs",   dbg_step)
+          call debug_write_x(uabs,   "uabs",   dbg_step)
+          call debug_write_x(vabs,   "vabs",   dbg_step)
           call debug_write_xz(ubs,    "ubs",    dbg_step)
           call debug_write_xz(vbs,    "vbs",    dbg_step)
           call debug_write_xz(tbs,    "tbs",    dbg_step)
@@ -7799,6 +7808,7 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
       rmean = rho   ! remove the line to avoid rmean overriding
+
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -7990,16 +8000,16 @@ C
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELB",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELF",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ET",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ETB",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ETF",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "T_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "S_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "U_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "V_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "ELS",
+     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_nw",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_ew",
@@ -8220,21 +8230,21 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
      $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELB", varid) )
-!        call check( nf90_put_var(ncid, varid, elb, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELF", varid) )
-!        call check( nf90_put_var(ncid, varid, elf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "ET", varid) )
-!        call check( nf90_put_var(ncid, varid, et, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "ETB", varid) )
-!        call check( nf90_put_var(ncid, varid, etb, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "ETF", varid) )
-!        call check( nf90_put_var(ncid, varid, etf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
+        call check( nf90_inq_varid(ncid, "T_S", varid) )
+        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "S_S", varid) )
+        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "U_S", varid) )
+        call check( nf90_put_var(ncid, varid, ubs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "V_S", varid) )
+        call check( nf90_put_var(ncid, varid, vbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "ELS", varid) )
+        call check( nf90_put_var(ncid, varid, els, (/1,1,ptime/)
+     $   ,(/im,1/)) )
 !        call check( nf90_inq_varid(ncid, "aux1", varid) )
 !        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
 !     $   ,(/im,jm,kb,1/)) )
@@ -8357,7 +8367,7 @@ C
             rf_wtsur = m
 C
             filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_frc.nc"
+     $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
             call check( nf90_inq_varid(ncid, "shflux", varid) )
             if (m.ne.1) then
@@ -8412,7 +8422,7 @@ C
             rf_swrad = m
 C
             filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_frc.nc"
+     $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
             call check( nf90_inq_varid(ncid, "swrad", varid) )
             if (m.ne.1) then
@@ -8442,7 +8452,7 @@ C
             rf_wsurf = m
 C
             filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_frc.nc"
+     $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
             call check( nf90_inq_varid(ncid, "sustr", varid) )
             if (m.ne.1) then
@@ -9529,21 +9539,21 @@ C
 !     Perform interpolation
 !     South:
 !          do k=1,kbm1   ! FSM is already defined! Feel free to apply it! (But DON'T!!! Really! Don't! It just boundary conditions.)
-            tbs(:,1:kbm1) = ubsb(:,1:kbm1)
-     $                     +fac*(ubsf(:,1:kbm1)-ubsb(:,1:kbm1))
-            sbs(:,1:kbm1) = vbsb(:,1:kbm1)
-     $                     +fac*(vbsf(:,1:kbm1)-vbsb(:,1:kbm1))
+            tbs(:,1:kbm1) = tbsb(:,1:kbm1)
+     $                     +fac*(tbsf(:,1:kbm1)-tbsb(:,1:kbm1))
+            sbs(:,1:kbm1) = sbsb(:,1:kbm1)
+     $                     +fac*(sbsf(:,1:kbm1)-sbsb(:,1:kbm1))
 !          end do
           return
 C
         case (43)
 
-          if (m.ne.rf_ts) then
+          if (m.ne.rf_sts) then
 !        If we move to the next month...
-            rf_ts = m
+            rf_sts = m
 
             filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"pom_frc.nc"
+     $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !        ...read neccessary fields
 !     South:
@@ -9688,6 +9698,30 @@ C
 
       end
 
+      subroutine debug_write_x(var, caption, step)
+
+        implicit none
+        include 'pom2k.c'
+
+        real, intent (in)             :: var(im)
+        character(len=*), intent (in) :: caption
+        integer, intent (in)          :: step
+        character*4                   :: path, prefix
+
+        write(path,'(I4.4)') step
+        call system('mkdir -p '//trim(pth_wrk)
+     $                         //trim(pth_dbg)//trim(path))
+        write(prefix, '(I3.3,".")') dbg_seq_i
+        dbg_seq_i = dbg_seq_i + 1
+        open(42, file=trim(pth_wrk)//trim(pth_dbg)
+     $                //path//"/"//trim(prefix)
+     $                //trim(pfx_dbg)//"_"//caption
+     $          ,form='unformatted')
+        write(42) var
+        close(42)
+
+      end
+
       subroutine debug_write_3d(var, caption, step)
 
         implicit none
@@ -9718,11 +9752,12 @@ C
 
         real :: tind, b, e
 
-        tind = time
-
-        do while (tind>=365.)
-          tind = tind-365.
-        end do
+!        tind = time
+!
+!        do while (tind>=365.)
+!          tind = tind-365.
+!        end do
+        tind = mod(time,365.)
 C
         if (tind.lt.15) then
           m = 1
