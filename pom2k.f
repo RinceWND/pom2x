@@ -9615,41 +9615,6 @@ C     End of source code
 C
 C-----------------------------------------------------------------------
 C
-      subroutine debug_init()
-
-        use netcdf
-        implicit none
-C
-        integer :: i,j,k
-        integer :: tind
-
-        include 'pom2k.c'
-
-        filename = trim(pth_wrk)//trim(pth_dbg)//
-     $             "pom_dbg.nc"
-        call check( nf90_create(filename, NF90_CLASSIC_MODEL, ncid) )
-        call check( nf90_def_dim(ncid, "time", NF90_UNLIMITED
-     $          , dim_time) )
-        call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
-        call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
-        call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
-        call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
-        call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        ! NOT FINISHED YET!
-        return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-
       subroutine debug_write_xy(var, caption, step)
 
         implicit none
