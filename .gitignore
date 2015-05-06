@@ -21,3 +21,9 @@
 *.exe
 *.out
 *.app
+# NetBeans Project files (are the lines below needed?)
+build/
+nbproject/
+dist/
+/Makefile
+/.dep.inc

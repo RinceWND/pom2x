@@ -9752,11 +9752,6 @@ C
 
         real :: tind, b, e
 
-!        tind = time
-!
-!        do while (tind>=365.)
-!          tind = tind-365.
-!        end do
         tind = mod(time,365.)
 C
         if (tind.lt.15) then
