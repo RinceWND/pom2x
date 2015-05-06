@@ -678,7 +678,7 @@ C     Initialize read flags:        !     :
       rf_wsurf = 0  !               !     :
       rf_el    = 0  !               !     :
 C
-C     My parameters ! rwnd:
+C     My parameters ! rwnd: Currently unused since we have monthly BCs.
 C
       tsplt_ts    = 1       ! Time slice to change BC, days
       tsplt_uv    = 1       ! uv - for u and v components
@@ -797,74 +797,6 @@ C
 C
 C-----------------------------------------------------------------------
 C
-C     Print geometry and other initial fields (select statements as
-C     desired):
-C
-!      call prxy('grid increment in x, dx                 ',
-!     $          time,dx ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('grid increment in y, dy                 ',
-!     $          time,dy ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Easting of elevation points, east_e     ',
-!     $          time,east_e ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Northing of elevation points, north_e   ',
-!     $          time,north_e,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Easting of cell corners, east_c         ',
-!     $          time,east_c ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Northing of cell corners, north_c       ',
-!     $          time,north_c,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Rotation angle of x-axis wrt. east, rot ',
-!     $          time,rot,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Undisturbed water depth, h              ',
-!     $          time,h  ,im,iskp,jm,jskp,1.e1)
-!C
-!      call prxy('Free surface mask, fsm                  ',
-!     $          time,fsm,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('u-velocity mask, dum                    ',
-!     $          time,dum,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('v-velocity mask, dvm                    ',
-!     $          time,dvm,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('External (2-D) CFL time step, tps       ',
-!     $          time,tps,im,iskp,jm,jskp,1.e0)
-C
-C     Set sections for output:
-C
-      ko(1)=1
-      ko(2)=kb/2
-      ko(3)=kb-1
-C
-!      call prxyz('Horizontally-averaged rho, rmean        ',
-!     $           time,rmean,im,iskp,jm,jskp,kb,ko,3,1.e-5)
-C
-C     Set sections for output:
-C
-      jo(1)=1
-      jo(2)=jm/2
-      jo(3)=jm-1
-C
-!      call prxz('Horizontally-averaged rho, rmean        ',
-!     $          time,rmean,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
-C
-C     Set sections for output:
-C
-      io(1)=1
-      io(2)=im/2
-      io(3)=im-1
-C
-!      call pryz('Horizontally-averaged rho, rmean        ',
-!     $          time,rmean,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
-C
-C-----------------------------------------------------------------------
-C
 C     Initial conditions:
 C
 !     Update boundary conditions:
@@ -876,11 +808,9 @@ C
       call bry(2)       ! rwnd: el
       call bry(3)       !     : u & ua
       call bry(4)       !     : ts
-C     Select print statements in printall as desired:
 C
       call ic2ncdf                  ! rwnd:
 C
-!      call printall                ! rwndX
       ncptime = ncptime+1           ! rwnd:
       call ncflush(ncptime)         !     :
 C
@@ -894,7 +824,6 @@ c     call write_netcdf(netcdf_file,2)                        ! *netCDF*
         endif
 C
 C-----------------------------------------------------------------------
-
 !
       if (dbg_lvl.eq.10) then
         call debug_write_xy(aam2d, "aam2d", 0)
@@ -918,17 +847,15 @@ C-----------------------------------------------------------------------
         call debug_write_xy(fluxva,"fluxva",0)
       end if
 !
-
-      write(*,*) time, " [", iprint, "]"    ! rwnd: TODO: remove from `production` or always output to file
+!      write(*,*) time, " [", iprint, "]"    ! rwnd: TODO: remove from `production` or always output to file
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
-        write(*,*) "** ",iint," / ", iend, " **"
+!        write(*,*) "** ",iint," / ", iend, " **"
 C
         time=dti*float(iint)/86400.e0+time0
-
+!
         call upd_mnth   ! rwnd: Update month for BC reading
-!        call upd_ifac   !     : Update interpolation factor
 C
         if(lramp) then
           ramp=time/period
@@ -1712,7 +1639,6 @@ C
 C
 C     Select print statements in printall as desired:
 C
-!          call printall                ! rwndX
           ncptime = ncptime+1           ! rwnd:
           call ncflush(ncptime)         !     :
 C
@@ -1761,7 +1687,6 @@ C
 C
             write(6,4) time,iint,iext,iprint
 C
-!            call printall              ! rwndX
             ncptime = ncptime+1         ! rwnd:
             call ncflush(ncptime)       !     :
 C
@@ -1811,20 +1736,6 @@ C
 C-----------------------------------------------------------------------
 C
       write(6,4) time,iint,iext,iprint
-C
-C     Set levels for output:
-C
-      ko(1)=1
-      ko(2)=2
-      ko(3)=kb/2
-      ko(4)=kb-1
-      ko(5)=kb
-C
-C     call prxyz('Vertical velocity, w                    ',
-C    $           time,w       ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
-C
-C     call prxyz('Turbulent kinetic energy x 2, q2        ',
-C    $           time,q2      ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
 C
 C     Save this data for a seamless restart:
 C
@@ -5219,62 +5130,6 @@ C
 C
       end
 C
-      subroutine findpsi
-C **********************************************************************
-C *                                                                    *
-C * ROUTINE NAME:  findpsi                                             *
-C *                                                                    *
-C * FUNCTION    :  Calculates the stream function, first assuming      *
-C *                zero on the southern boundary and then, using the   *
-C *                values on the western boundary, the stream function *
-C *                is calculated again. If the elevation field is near *
-C *                steady state, the two calculations should agree;    *
-C *                otherwise not.                                      *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer i,j
-C
-      do j=1,jm
-        do i=1,im
-          psi(i,j)=0.e0
-        end do
-      end do
-C
-C     Sweep northward:
-C
-      do j=2,jmm1
-        do i=2,im
-          psi(i,j+1)=psi(i,j)
-     $                +.25e0*uab(i,j)*(d(i,j)+d(i-1,j))
-     $                  *(dy(i,j)+dy(i-1,j))
-        end do
-      end do
-C
-      call prxy('Streamfunction, psi from u              ',
-     $          time,psi,im,iskp,jm,jskp,0.e0)
-C
-C    Sweep eastward:
-C
-      do j=2,jm
-        do i=2,imm1
-          psi(i+1,j)=psi(i,j)
-     $                -.25e0*vab(i,j)*(d(i,j)+d(i,j-1))
-     $                  *(dx(i,j)+dx(i,j-1))
-        end do
-      end do
-C
-      call prxy('Streamfunction, psi from v              ',
-     $          time,psi,im,iskp,jm,jskp,0.e0)
-C
-      return
-C
-      end
-C
       subroutine file2ic
 C **********************************************************************
 C *                                                                    *
@@ -5583,177 +5438,6 @@ C     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfs=0.e0
 C
       return
-      end
-C
-      subroutine printall
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  printall                                            *
-C *                                                                    *
-C * FUNCTION    :  Prints a set of outputs to device 6                 *
-C *                                                                    *
-C *                Edit as approriate.                                 *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      integer io(100),jo(100),ko(100)
-C
-      include 'pom2k.c'
-C
-C     2-D horizontal fields:
-C
-          call prxy('Depth-averaged u, uab                   ',
-     $              time,uab,im,iskp,jm,jskp,0.e0)
-C
-          call prxy('Depth-averaged v, vab                   ',
-     $              time,vab,im,iskp,jm,jskp,0.e0)
-C
-          call prxy('Surface elevation, elb                  ',
-     $              time,elb,im,iskp,jm,jskp,0.e0)
-C
-c         call prxy(' egf ',time,egf,im,iskp,jm,jskp,0.e0)
-c         call prxy(' utf ',time,utf,im,iskp,jm,jskp,0.e0)
-c         call prxy(' vtf ',time,vtf,im,iskp,jm,jskp,0.e0)
-c
-C     Calculate and print streamfunction:
-C
-          call findpsi
-C
-          if(mode.ne.2) then
-C
-C     2-D horizontal sections of 3-D fields:
-C
-C     Set levels for output:
-C
-            ko(1)=1
-            ko(2)=kb/2
-            ko(3)=kb-1
-C
-            call prxyz('x-velocity, u                           ',
-     $                 time,u    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-            call prxyz('y-velocity, v                           ',
-     $                 time,v    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-            ko(1)=2
-            call prxyz('z-velocity, w                           ',
-     $                 time,w    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-            ko(1)=1
-C
-            call prxyz('Potential temperature, t                ',
-     $                 time,t    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
-C
-            call prxyz('Salinity, s                              ',
-     $                 time,s    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
-C
-            call prxyz('(density-1000)/rhoref, rho              ',
-     $                 time,rho  ,im,iskp,jm,jskp,kb,ko,3,1.e-5)
-C
-c           call prxyz('Turbulent kinetic energy x 2, q2        ',
-c    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-c           call prxyz('Turbulent length scale, l               ',
-c    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-            call prxyz('Horizontal kinematic viscosity, aam     ',
-     $                 time,aam  ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-            call prxyz('Vertical kinematic viscosity, km        ',
-     $                 time,km   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-c           call prxyz('Vertical kinematic diffusivity, kh      ',
-c    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
-C
-C     Vertical sections of 3-D fields, normal to j-axis:
-C
-C     Set sections for output:
-C
-            jo(1)=1
-            jo(2)=jm/2
-            jo(3)=jm-1
-C
-            call prxz('x-velocity, u                           ',
-     $                time,u    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
-C
-            call prxz('y-velocity, v                           ',
-     $                time,v    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
-C
-            call prxz('z-velocity, w                           ',
-     $                time,w    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
-C
-            call prxz('Potential temperature, t                ',
-     $                time,t    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
-C
-            call prxz('Salinity, s                             ',
-     $                time,s    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
-C
-            call prxz('(density-1000)/rhoref, rho              ',
-     $                time,rho  ,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
-C
-c           call prxz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
-C
-c           call prxz('Turbulent length scale, l               ',
-c    $                time,l    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
-C
-c           call prxz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
-C
-c           call prxz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
-C
-c           call prxz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
-C
-C     Vertical sections of 3-D fields, normal to i-axis:
-C
-C     Set sections for output:
-C
-            io(1)=1
-            io(2)=im/2
-            io(3)=im-1
-C
-            call pryz('x-velocity, u                           ',
-     $                time,u    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
-C
-            call pryz('y-velocity, v                           ',
-     $                time,v    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
-C
-            call pryz('z-velocity, w                           ',
-     $                time,w    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
-C
-            call pryz('Potential temperature, t                ',
-     $                time,t    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
-C
-c           call pryz('Salinity x rho / rhoref, s              ',
-c    $                time,s    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
-C
-c           call pryz('(density-1000)/rhoref, rho              ',
-c    $                time,rho  ,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
-C
-c           call pryz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
-C
-c           call pryz('Turbulent length scale, l               ',
-c    $                time,l    ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
-C
-c           call pryz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
-C
-c           call pryz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
-C
-c           call pryz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
-C
-          endif
-C
-      return
-C
       end
 C
       subroutine profq(sm,sh,dh,cc)
@@ -6496,398 +6180,6 @@ C
 C
       end
 C
-      subroutine prxy(label,time,a,im,iskp,jm,jskp,scala)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes a horizontal 2-D field.                      *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jskp ........ skipping interval for j               *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      integer im,jm
-      real a(im,jm)
-      real time,scala
-      integer iskp,jskp
-      character label*(*)
-      real amx,scale
-      integer i,ib,ie,j,jwr,cols
-C
-      if(scala.ge.0.e0) then
-        cols=24
-      else
-        cols=12
-      endif
-C
-      if (scala.lt.0.e0) scale = 1.e0
-      if (scala.eq.0.e0) then
-        amx=1.e-12
-        do j=1,jm,jskp
-          do i=1,im,iskp
-            amx=max(abs(a(i,j)),amx)
-          end do
-        end do
-          scale=10.e0**(int(log10(amx)+100.e0)-103)
-        endif
-      if(scala.gt.0.e0) scale=scala
-C
-      write(6,1) label
-    1 format(1x,a40/)
-      write(6,2) time,scale
-    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
-      do ib=1,im,cols*iskp
-C
-        ie=ib+(cols-1)*iskp
-        if(ie.gt.im) ie=im
-C
-        if(scala.ge.0.e0) then
-          write(6,3) (i,i=ib,ie,iskp)
-    3     format(/,2x,24i5,/)
-        else
-          write(6,4) (i,i=ib,ie,iskp)
-    4     format(/,12i10,/)
-        endif
-C
-        do j=1,jm,jskp
-          jwr=jm+1-j
-          if(scala.ge.0.e0) then
-            write(6,5) jwr,(nint(a(i,jwr)/scale),i=ib,ie,iskp)
-    5       format(1x,i3,24i5)
-          else
-            write(6,6) jwr,(a(i,jwr),i=ib,ie,iskp)
-    6       format(1x,i2,12(e10.2))
-          endif
-        end do
-C
-        write(6,7)
-    7   format(//)
-C
-      end do
-C
-      return
-C
-      end
-C
-      subroutine prxyz(label,time,a,im,iskp,jm,jskp,kb,ko,nko,scala)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes horizontal layers of a 3-D field with        *
-C *                integers or floating point numbers.                 *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jskp ........ skipping interval for j               *
-C *                ko .......... 1-D array of k-indices for output     *
-C *                nko ......... number of elements in ko              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                                                                    *
-C *                (NOTE that this combines functions of old prxyz and *
-C *                 eprxyz)                                            *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      integer im,jm,kb
-      real a(im,jm,kb)
-      real time,scala
-      integer ko(*)
-      integer iskp,jskp,nko
-      character label*(*)
-      real amx,scale
-      integer i,ib,ie,j,jwr,k,iko,cols
-C
-      if(scala.ge.0.e0) then
-        cols=24
-      else
-        cols=12
-      endif
-C
-      if (scala.lt.0.e0) scale = 1.e0
-      if (scala.eq.0.e0) then
-        amx=1.e-12
-        do iko=1,nko
-          k=ko(iko)
-          do j=1,jm,jskp
-            do i=1,im,iskp
-              amx=max(abs(a(i,j,k)),amx)
-            end do
-          end do
-        end do
-          scale=10.e0**(int(log10(amx)+100.e0)-103)
-        endif
-      if(scala.gt.0.e0) scale=scala
-C
-      write(6,1) label
-    1 format(1x,a40/)
-      write(6,2) time,scale
-    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
-      do iko=1,nko
-C
-        k=ko(iko)
-C
-        write(6,3) k
-    3   format(3x,/' Layer k = ',i2)
-C
-        do ib=1,im,cols*iskp
-C
-          ie=ib+(cols-1)*iskp
-          if(ie.gt.im) ie=im
-C
-          if(scala.ge.0.e0) then
-            write(6,4) (i,i=ib,ie,iskp)
-    4       format(/,2x,24i5,/)
-          else
-            write(6,5) (i,i=ib,ie,iskp)
-    5       format(/,12i10,/)
-          endif
-C
-          do j=1,jm,jskp
-            jwr=jm+1-j
-            if(scala.ge.0.e0) then
-              write(6,6) jwr,(nint(a(i,jwr,k)/scale),i=ib,ie,iskp)
-    6         format(1x,i3,24i5)
-            else
-              write(6,7) jwr,(a(i,jwr,k),i=ib,ie,iskp)
-    7         format(1x,i2,12(e10.2))
-            endif
-          end do
-C
-          write(6,8)
-    8     format(//)
-C
-        end do
-C
-      end do
-C
-      return
-C
-      end
-C
-      subroutine prxz(label,time,a,im,iskp,jm,kb,jo,njo,scala,dt,zz)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
-C *                x- or i-direction .                                 *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jo .......... 1-D array of j-indices for output     *
-C *                njo ......... number of elements in jo              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                dt(im,jm) ... total depth                           *
-C *                zz(kb) ...... sigma coordinate                      *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      integer im,jm,kb
-      real a(im,jm,kb),dt(im,jm),zz(kb)
-      real time,scala
-      integer jo(*)
-      integer iskp,njo
-      character label*(*)
-      real amx,scale
-      integer i,ib,ie,j,k,ijo,cols
-C
-      if(scala.ge.0.e0) then
-        cols=24
-      else
-        cols=12
-      endif
-C
-      if (scala.lt.0.e0) scale = 1.e0
-      if (scala.eq.0.e0) then
-        amx=1.e-12
-        do  k=1,kb
-          do ijo=1,njo
-            j=jo(ijo)
-            do i=1,im,iskp
-              amx=max(abs(a(i,j,k)),amx)
-            end do
-          end do
-        end do
-          scale=10.e0**(int(log10(amx)+100.e0)-103)
-        endif
-      if(scala.gt.0.e0) scale=scala
-C
-      write(6,1) label
-    1 format(1x,a40/)
-      write(6,2) time,scale
-    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
-      do ijo=1,njo
-C
-        j=jo(ijo)
-C
-        write(6,3) j
-    3   format(3x,/' Section j =',i3)
-C
-        do ib=1,im,cols*iskp
-C
-          ie=ib+(cols-1)*iskp
-          if(ie.gt.im) ie=im
-C
-          if(scala.ge.0.e0) then
-            write(6,4) (i,i=ib,ie,iskp)
-    4       format(/,'    i =  ',24i5,/)
-          else
-            write(6,5) (i,i=ib,ie,iskp)
-    5       format(/,'    i =  ',12i10,/)
-          endif
-C
-          write(6,6) (nint(dt(i,j)),i=ib,ie,iskp)
-    6     format(8x,'d =',24i5.0,/,'     z or zz')
-C
-          do k=1,kb
-            if(scala.ge.0.e0) then
-              write(6,7) k,zz(k),(nint(a(i,j,k)/scale),i=ib,ie,iskp)
-    7         format(1x,i2,2x,f6.3,24i5)
-            else
-              write(6,8) k,zz(k),(a(i,j,k),i=ib,ie,iskp)
-    8         format(1x,i2,2x,f6.3,12(e10.2))
-            endif
-          end do
-C
-          write(6,9)
-    9     format(//)
-C
-        end do
-C
-      end do
-C
-      return
-C
-      end
-C
-      subroutine pryz(label,time,a,im,jm,jskp,kb,io,nio,scala,dt,zz)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
-C *                y- or j-direction.                                  *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                jskp ........ skipping interval for j               *
-C *                io .......... 1-D array of i-indices for output     *
-C *                nio ......... number of elements in io              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                dt(im,jm) ... total depth                           *
-C *                zz(kb) ...... sigma coordinate                      *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-      integer im,jm,kb
-      real a(im,jm,kb),dt(im,jm),zz(kb)
-      real time,scala
-      integer io(*)
-      integer jskp,nio
-      character label*(*)
-      real amx,scale
-      integer i,j,jb,je,k,iio,cols
-C
-      if(scala.ge.0.e0) then
-        cols=24
-      else
-        cols=12
-      endif
-C
-      if (scala.lt.0.e0) scale = 1.e0
-      if (scala.eq.0.e0) then
-        amx=1.e-12
-        do  k=1,kb
-          do j=1,jm,jskp
-            do iio=1,nio
-              i=io(iio)
-              amx=max(abs(a(i,j,k)),amx)
-            end do
-          end do
-        end do
-          scale=10.e0**(int(log10(amx)+100.e0)-103)
-        endif
-      if(scala.gt.0.e0) scale=scala
-C
-      write(6,1) label
-    1 format(1x,a40/)
-      write(6,2) time,scale
-    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
-      do iio=1,nio
-C
-        i=io(iio)
-C
-        write(6,3) i
-    3   format(3x,/' Section i =',i3)
-C
-        do jb=1,jm,cols*jskp
-C
-          je=jb+(cols-1)*jskp
-          if(je.gt.jm) je=jm
-C
-          if(scala.ge.0.e0) then
-            write(6,4) (j,j=jb,je,jskp)
-    4       format(/,'    j =  ',24i5,/)
-          else
-            write(6,5) (j,j=jb,je,jskp)
-    5       format(/,'    j =  ',12i10,/)
-          endif
-C
-          write(6,6) (nint(dt(i,j)),j=jb,je,jskp)
-    6     format(8x,'d =',24i5.0,/,'     z or zz')
-C
-          do k=1,kb
-            if(scala.ge.0.e0) then
-              write(6,7) k,zz(k),(nint(a(i,j,k)/scale),j=jb,je,jskp)
-    7         format(1x,i2,2x,f6.3,24i5)
-            else
-              write(6,8) k,zz(k),(a(i,j,k),j=jb,je,jskp)
-    8         format(1x,i2,2x,f6.3,12(e10.2))
-            endif
-          end do
-C
-          write(6,9)
-    9     format(//)
-C
-        end do
-C
-      end do
-C
-      return
-C
-      end
-C
       subroutine seamount
 C **********************************************************************
 C *                                                                    *
@@ -7555,14 +6847,13 @@ C--- 3D ---
       call check( nf90_inq_varid(ncid, "rmean", varid) )
       call check( nf90_get_var(ncid, varid, rmean) )
       write(*, *) "[O] mean density retrieved"
-C--- Constant wind stress read here
-C (for time dep. read in loop 9000 & interpolate in time)
+C--- (Constant) Wind stress
       call check( nf90_inq_varid(ncid, "WUsur", varid) )
       call check( nf90_get_var(ncid, varid, wusurf) )
-      write(*, *) "[O] Longitudal component of momentum flux retrieved"
+      write(*, *) "[O] Zonal component of momentum flux retrieved"
       call check( nf90_inq_varid(ncid, "WVsur", varid) )
       call check( nf90_get_var(ncid, varid, wvsurf) )
-      write(*, *) "[O] Latitudal component of momentum flux retrieved"
+      write(*, *) "[O] Meridional component of momentum flux retrieved"
       call check( nf90_inq_varid(ncid, "swrad", varid) )
       call check( nf90_get_var(ncid, varid, swrad) )
       write(*, *) "[O] Short wave radiation retrieved"
@@ -7604,11 +6895,11 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 
       call check( nf90_close(ncid) )
 
-!      Read from roms_clm and interpolate in time depending on time_offset
+!    Read from roms_clm and interpolate in time depending on time_offset
       filename = trim(pth_wrk)//trim(pth_bry)//
      $           trim(pfx_dmn)//"roms_clm.nc"
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!      Get the month of time_offset
+!    Get month for time0
       call upd_mnth
 
       call check( nf90_inq_varid(ncid, "temp", varid) )
@@ -7623,10 +6914,9 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
      $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
       end if
 
-!      do k=1,kbm1   ! FSM is not defined yet! Be careful not to apply it!
+!    FSM is not defined yet! Be careful not to apply it!
         t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
      $             -datr(:,:,1:kbm1,1))
-!      end do
 
       call check( nf90_inq_varid(ncid, "salt", varid) )
 
@@ -7646,7 +6936,9 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       end do
 
       call check( nf90_close(ncid) )
-
+!
+!    Read annual means
+!
       filename = trim(pth_wrk)//trim(pth_bry)//
      $           trim(pfx_dmn)//"pom_ann.nc"
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
@@ -7656,30 +6948,8 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       call check( nf90_get_var(ncid, varid, sclim) )
       call check( nf90_inq_varid(ncid, "r_ann", varid) )
       call check( nf90_get_var(ncid, varid, rmean) )
-!      do i=1,im
-!        do j=1,jm
-!          do k=1,kbm1
-!            s(i,j,k) = datr(i,j,kb-k)
-!          end do
-!        end do
-!      end do
-!      call check( nf90_inq_varid(ncid, "zeta", varid) )
-!      call check( nf90_get_var(ncid, varid, elb) )
-!      do i=1,im
-!        do j=1,jm
-!          t(i,j,kb) = 0.    ! TODO: make it the copy of kbm1?
-!          s(i,j,kb) = 0.    !
-!          do k=1,kb
-!            if (t(i,j,k).eq.1e37) t(i,j,k) = 0.
-!            if (s(i,j,k).eq.1e37) s(i,j,k) = 0.
-!          end do
-!          if (elb(i,j).eq.1e37) elb(i,j) = 0.
-!        end do
-!      end do
-      !el = elb  ! RWND
-!      write(*, *) "[O] Sea surface height retrieved"
       call check( nf90_close(ncid) )
-
+!
       write(*, *) "[+] Finished reading IC."
 C
 C --- print vertical grid distribution
@@ -7808,7 +7078,6 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
       rmean = rho   ! remove the line to avoid rmean overriding
-
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -7823,7 +7092,6 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-
 C
 C
 C     Extrapolate ends (approx.):
@@ -7891,7 +7159,7 @@ C     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
-      rfs=1.e0
+      rfs=1.e0  ! Meaningless with RaS boundary conditions.
 C
       return
 
@@ -8075,8 +7343,6 @@ C
         integer :: i, j, k
         real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
         real :: darea, dvol
-        real surf(im,jm)
-        real ssrf(im,jm,2)
 C
         count = 0
         NOK = .true.
@@ -8161,63 +7427,18 @@ C
 !
         if (mode.ge.3) then
         call check( nf90_inq_varid(ncid, "SSU", varid) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=2,3
-!              ssrf(i,j,k-1) = u(i,j,k)
-!            end do
-!          end do
-!        end do
-!        call check( nf90_put_var(ncid, varid, ssrf, (/1,1,1,ptime/)
-!     $   ,(/im,jm,2,1/)) )
         call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
      $   ,(/im,jm,3,1/)) )
         call check( nf90_inq_varid(ncid, "SSV", varid) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=2,3
-!              ssrf(i,j,k-1) = v(i,j,k)
-!            end do
-!          end do
-!        end do
-!        call check( nf90_put_var(ncid, varid, ssrf, (/1,1,1,ptime/)
-!     $   ,(/im,jm,2,1/)) )
         call check( nf90_put_var(ncid, varid, v, (/1,1,1,ptime/)
      $   ,(/im,jm,3,1/)) )
         call check( nf90_inq_varid(ncid, "SST", varid) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=2,3
-!              ssrf(i,j,k-1) = t(i,j,k)
-!            end do
-!          end do
-!        end do
-!        call check( nf90_put_var(ncid, varid, ssrf, (/1,1,1,ptime/)
-!     $   ,(/im,jm,2,1/)) )
         call check( nf90_put_var(ncid, varid, t, (/1,1,1,ptime/)
      $   ,(/im,jm,3,1/)) )
         call check( nf90_inq_varid(ncid, "SSS", varid) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=2,3
-!              ssrf(i,j,k-1) = s(i,j,k)
-!            end do
-!          end do
-!        end do
-!        call check( nf90_put_var(ncid, varid, ssrf, (/1,1,1,ptime/)
-!     $   ,(/im,jm,2,1/)) )
         call check( nf90_put_var(ncid, varid, s, (/1,1,1,ptime/)
      $   ,(/im,jm,3,1/)) )
         call check( nf90_inq_varid(ncid, "SSR", varid) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=2,3
-!              ssrf(i,j,k-1) = rho(i,j,k)
-!            end do
-!          end do
-!        end do
-!        call check( nf90_put_var(ncid, varid, ssrf,(/1,1,1,ptime/)
-!     $   ,(/im,jm,2,1/)) )
         call check( nf90_put_var(ncid, varid, rho, (/1,1,1,ptime/)
      $   ,(/im,jm,3,1/)) )
         end if
