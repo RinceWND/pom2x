@@ -1,6 +1,8 @@
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
-!     pom2k parameters file
+!     pom2k parameters example file
+!	Edit the file as you need to
+!       and rename it to `params`.
 !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
@@ -36,8 +38,8 @@ C      aam_init =   50.e0
 C
 C   Path and domain settings
 C
-      pth_wrk  = "/home/rincewnd/POM/"
-      pth_grd  = "grd/"
+      pth_wrk  = "/home/pkharlamov/POM/"
+      pth_grd  = "grid/"
       pth_flx  = "in/"
       pth_bry  = "in/"
       pth_out  = "out/"	! Terminate the output path with slash or leave empty to output to working directory.

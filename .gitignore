@@ -27,3 +27,5 @@ nbproject/
 dist/
 /Makefile
 /.dep.inc
+# Ignore actual parameters file to avoid overwriting when syncing the repository.
+/params
