@@ -3727,8 +3727,8 @@ C
      $        *dte/( (dx(im,j)+dx(imm1,j))*.5 )
           elf(im,j) =     ga*(.25*el(imm1,j-1)+.5*el(imm1,j)
      $                        +.25*el(imm1,j+1))
-     $               +(1-ga)*(.25*el(im,j-1)+.5*el(im,j)
-     $                        +.25*el(im,j+1))
+     $               +(1-ga)*(.25*el( im ,j-1)+.5*el( im ,j)
+     $                        +.25*el( im ,j+1))
         end do
 !
         do i=2,imm1
@@ -3742,8 +3742,8 @@ C
      $        *dte/( (dy(i,jm)+dy(i,jmm1))*.5 )
           elf(i,jm) =     ga*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
      $                        +.25*el(i+1,jmm1))
-     $               +(1-ga)*(.25*el(i-1,jm)+.5*el(i,jm)
-     $                        +.25*el(i+1,jm))
+     $               +(1-ga)*(.25*el(i-1, jm )+.5*el(i, jm )
+     $                        +.25*el(i+1, jm ))
         end do
 !
 !        do j=1,jm
@@ -3758,6 +3758,9 @@ C
 !
         elf(1, 1) = (elf(1,   2)+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
         elf(1,jm) = (elf(1,jmm1)+el(2,jm))*.5
+!       Two next lines were not present in RaSBCs.
+        elf(im, 1) = (elf(im,   2)+el(imm1, 1))*.5
+        elf(im,jm) = (elf(im,jmm1)+el(imm1,jm))*.5
 C
 !     Наложение маски свободной поверхности
         do j=1,jm
@@ -4048,7 +4051,7 @@ C
 C
       else if(idx.eq.6) then
 C
-C     q2 and q2l boundary conditions:       ! Not changed to clamped as in Rochford and Shulman
+C     q2 and q2l boundary conditions:
 C
 !     ГУ турбулентной кинетической энергии и турб. масштаба:
         do k=1,kb
@@ -4056,58 +4059,29 @@ C
 C
 C     East:
 C
-            u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
-!     Если вток, то используем в качестве граничного, значение близкое к нулю.
-            if(u1.le.0.e0) then
-              uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
-              vf(im,j,k)=q2l(im,j,k)-u1*(small-q2l(im,j,k))
-            else
-!     Если отток - для расчёта используются внутренние точки.
-              uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
-              vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
-            endif
+            uf(1,j,k) = 1.e-10
+            vf(1,j,k) = 1.e-10
 C
 C     West:
 C
-            u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
-            if(u1.ge.0.e0) then
-              uf(1,j,k)=q2(1,j,k)-u1*(q2(1,j,k)-small)
-              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(1,j,k)-small)
-            else
-              uf(1,j,k)=q2(1,j,k)-u1*(q2(2,j,k)-q2(1,j,k))
-              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(2,j,k)-q2l(1,j,k))
-            endif
-          end do
-        end do
+            uf(im,j,k) = 1.e-10
+            vf(im,j,k) = 1.e-10
 C
         do k=1,kb
           do i=1,im
 C
 C     North:
 C
-            u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
-            if(u1.le.0.e0) then
-              uf(i,jm,k)=q2(i,jm,k)-u1*(small-q2(i,jm,k))
-              vf(i,jm,k)=q2l(i,jm,k)-u1*(small-q2l(i,jm,k))
-            else
-              uf(i,jm,k)=q2(i,jm,k)-u1*(q2(i,jm,k)-q2(i,jmm1,k))
-              vf(i,jm,k)=q2l(i,jm,k)-u1*(q2l(i,jm,k)-q2l(i,jmm1,k))
-            endif
+            uf(i,1,k) = 1.e-10
+            vf(i,1,k) = 1.e-10
 C
 C     South:
 C
-            u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
-            if(u1.ge.0.e0) then
-              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,1,k)-small)
-              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,1,k)-small)
-            else
-              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,2,k)-q2(i,1,k))
-              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,2,k)-q2l(i,1,k))
-            endif
-          end do
-        end do
+            uf(i,jm,k) = 1.e-10
+            vf(i,jm,k) = 1.e-10
 C
 !     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
+!       Left from original pom2k
         do k=1,kb
           do j=1,jm
             do i=1,im
