@@ -157,6 +157,7 @@ C
       character*120 netcdf_file
 
       integer bkp_gap           ! rwnd:
+      real slice_s, slice_f     !     :
 C
 C***********************************************************************
 C
@@ -486,6 +487,9 @@ C                                               !     :
 !     Initialise debug stuff
       dbg_step  = 0
       dbg_seq_i = 0
+!     Clock vars
+      slice_s = 0.
+      slice_f = 0.
 C
 C     End of input of constants
 C***********************************************************************
@@ -848,6 +852,7 @@ C-----------------------------------------------------------------------
       end if
 !
 !      write(*,*) time, " [", iprint, "]"    ! rwnd: TODO: remove from `production` or always output to file
+      call cpu_time(slice_s)
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
@@ -1630,12 +1635,14 @@ C
 C
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
-          write(6,4) time,iint,iext,iprint
+          call cpu_time(slice_f)
+          write(6,4) time,iint,iext,iprint,(slice_f-slice_s)/60.
     4     format(/
      $    '**************************************************',
      $    '**************************************************',
      $    '*************************'//
-     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//)
+     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//
+     $    ' exectime =',f9.4,' minutes')
 C
 C     Select print statements in printall as desired:
 C
@@ -1707,6 +1714,8 @@ C
             stop
 C
           endif
+
+          call cpu_time(slice_s)
 C
         endif
 C
