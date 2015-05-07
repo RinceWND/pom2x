@@ -4066,6 +4066,9 @@ C     West:
 C
             uf(im,j,k) = 1.e-10
             vf(im,j,k) = 1.e-10
+!
+          end do
+        end do
 C
         do k=1,kb
           do i=1,im
@@ -4079,6 +4082,9 @@ C     South:
 C
             uf(i,jm,k) = 1.e-10
             vf(i,jm,k) = 1.e-10
+!
+          end do
+        end do
 C
 !     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
 !       Left from original pom2k
