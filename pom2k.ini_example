@@ -1,0 +1,6 @@
+#
+# Configuration file for pom2k
+#
+#  Output:
+#  List desired variables and their sigma layers (if there are any), i.e. t(1,5) or km(5:25) or el.
+out = "1:10:3,32"

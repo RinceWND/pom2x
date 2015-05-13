@@ -219,17 +219,15 @@ C
      $  time_start     ,source         ,title
 C
 C-----------------------------------------------------------------------
-C
-C     NetCDF variables:
-C
-      integer :: ncid, varid
-      integer :: dim_time, dim_srho, dim_sw, dim_lat, dim_lon
-      integer :: status
-      integer :: ncptime
-      character (len = 128) :: filename
-      integer :: dbg_lvl
-      real    :: dbg_off
-      integer :: dbg_seq_i, dbg_step
+!
+!     NetCDF variables:
+!
+      integer ncid, varid, ncptime
+      integer dim_time, dim_srho, dim_sw, dim_lat, dim_lon
+      integer status
+      character*128 filename
+      integer dbg_lvl, dbg_seq_i, dbg_step
+      real    dbg_off
 C
 C-----------------------------------------------------------------------
 C     my path settings variables

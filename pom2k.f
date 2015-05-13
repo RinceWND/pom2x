@@ -129,6 +129,8 @@ C *                59 Temple Place - Suite 330, Boston, MA 02111, USA. *
 C *                                                                    *
 C **********************************************************************
 C
+      use ini_get
+!
       implicit none
 C
       include 'pom2k.c'
@@ -164,6 +166,9 @@ C
 C     source should agree with source_c in pom2k.c and source_n in pom2k.n.
 C
       source='pom2k  2006-05-03'
+      call readLine("Whoooo")   ! Why's this accessible? It is private.
+      call readIni
+      stop
 C
 c     if(source.ne.source_c) then
 c       write(6,7)
