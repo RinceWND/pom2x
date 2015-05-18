@@ -151,7 +151,7 @@ C
       integer i,iend,iext,imax,ispadv,isplit,iswtch
       integer j,jmax
       integer k
-      integer nadv,nbct,nbcs,nitera,nread
+      integer nadv,nbct,nbcs,npg,nitera,nread
       integer iproblem
       logical lramp
       character*120 netcdf_file
@@ -446,6 +446,17 @@ C     NOTE that only 1 and 3 are allowed for salinity.
 C
       nbcs=1
 C
+!-----------------------------------------------------------------------
+!
+!     Pressure gradient scheme:
+!
+!       nbcs   scheme order
+!
+!        1        2nd (Mellor and Yamada???)
+!        2        4th (McCalpin)
+!
+      npg = 1
+!
 C-----------------------------------------------------------------------
 C
 C     Step interval during which external (2-D) mode advective terms are
@@ -739,7 +750,11 @@ C
 C
       call dens(s,t,rho)
 C
-      call baropg
+      if (npg.eq.1) then
+        call baropg
+      else
+        call baropg_mcc
+      end if
 C
       do k=1,kbm1
         do j=1,jm
@@ -984,7 +999,11 @@ C                                     +.5*(du/dy+dv/dx)**2) )
 C
         if(mode.ne.2) then
           call advct(a,c,ee)
-          call baropg
+          if (npg.eq.1) then
+            call baropg
+          else
+            call baropg_mcc
+          end if
 C
 !
           if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
@@ -1119,8 +1138,12 @@ C
           end do
 C
 !
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(elf,"elf",dbg_step)   ! rwnd:
+          if ((dbg_lvl.ge.3).and.(time.ge.dbg_off)) then
+            call debug_write_txt_xy(elf,   "elf",   dbg_step)   ! rwnd:
+            call debug_write_txt_xy(fluxua,"fluxua",dbg_step)   ! rwnd:
+            call debug_write_txt_xy(fluxva,"fluxva",dbg_step)   !     :
+            call debug_write_txt_xy(va,    "va",    dbg_step)   !     :
+            call debug_write_txt_xy(elb,   "elb",   dbg_step)   !     :
           end if
 !
           call bcond(1)
@@ -2898,6 +2921,203 @@ C
 C
       end
 C
+      subroutine baropg_mcc
+!-----------------------------------------------------------------------
+!
+!  FUNCTION: Calculates  baroclinic pressure gradient (from sbPOM)
+!            4th order correction terms, following McCalpin
+!
+!-----------------------------------------------------------------------
+      implicit none
+      include 'pom2k.c'
+      integer i,j,k
+      real d4(im,jm),ddx(im,jm),drho(im,jm,kb),rhou(im,jm,kb)
+
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rho(i,j,k)=rho(i,j,k)-rmean(i,j,k)
+          end do
+        end do
+      end do
+
+! compute terms correct to 4th order
+      do i=1,im
+        do j=1,jm
+          ddx(i,j)=0.
+          d4(i,j)=0.
+        end do
+      end do
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rhou(i,j,k)=0.
+            drho(i,j,k)=0.
+          end do
+        end do
+      end do
+
+! compute DRHO, RHOU, DDX and D4
+      do j=1,jm
+        do i=2,im
+          do k=1,kbm1
+            drho(i,j,k)=(rho(i,j,k)-rho(i-1,j,k))*dum(i,j)
+            rhou(i,j,k)=0.5*(rho(i,j,k)+rho(i-1,j,k))*dum(i,j)
+          end do
+          ddx(i,j)=(d(i,j)-d(i-1,j))*dum(i,j)
+          d4(i,j)=.5*(d(i,j)+d(i-1,j))*dum(i,j)
+        end do
+      end do
+
+        do j=1,jm
+          do i=2,imm1
+            do k=1,kbm1
+              drho(i,j,k)=drho(i,j,k) - (1./24.)*
+     $                    (dum(i+1,j)*(rho(i+1,j,k)-rho(i,j,k))-
+     $                    2*(rho(i,j,k)-rho(i-1,j,k))+
+     $                    dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
+              rhou(i,j,k)=rhou(i,j,k) + (1./16.)*
+     $                    (dum(i+1,j)*(rho(i,j,k)-rho(i+1,j,k))+
+     $                    dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
+            end do
+            ddx(i,j)=ddx(i,j)-(1./24.)*
+     $               (dum(i+1,j)*(d(i+1,j)-d(i,j))-
+     $               2*(d(i,j)-d(i-1,j))+
+     $               dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
+            d4(i,j)=d4(i,j)+(1./16.)*
+     $              (dum(i+1,j)*(d(i,j)-d(i+1,j))+
+     $              dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
+          end do
+        end do
+
+! calculate x-component of baroclinic pressure gradient
+      do j=2,jmm1
+        do i=2,imm1
+          drhox(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
+        end do
+      end do
+
+      do k=2,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=drhox(i,j,k-1)
+     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
+     $                   *(drho(i,j,k-1)+drho(i,j,k))
+     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
+     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
+          end do
+        end do
+      end do
+
+      do k=1,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=.25e0*(dt(i,j)+dt(i-1,j))
+     $                        *drhox(i,j,k)*dum(i,j)
+     $                        *(dy(i,j)+dy(i-1,j))
+          end do
+        end do
+      end do
+
+! compute terms correct to 4th order
+      do i=1,im
+        do j=1,jm
+          ddx(i,j)=0.
+          d4(i,j)=0.
+        end do
+      end do
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rhou(i,j,k)=0.
+            drho(i,j,k)=0.
+          end do
+        end do
+      end do
+
+! compute DRHO, RHOU, DDX and D4
+      do j=2,jm
+        do i=1,im
+          do k=1,kbm1
+            drho(i,j,k)=(rho(i,j,k)-rho(i,j-1,k))*dvm(i,j)
+            rhou(i,j,k)=.5*(rho(i,j,k)+rho(i,j-1,k))*dvm(i,j)
+          end do
+          ddx(i,j)=(d(i,j)-d(i,j-1))*dvm(i,j)
+          d4(i,j)=.5*(d(i,j)+d(i,j-1))*dvm(i,j)
+        end do
+      end do
+
+        do j=2,jmm1
+          do i=1,im
+            do k=1,kbm1
+              drho(i,j,k)=drho(i,j,k)-(1./24.)*
+     $                    (dvm(i,j+1)*(rho(i,j+1,k)-rho(i,j,k))-
+     $                    2*(rho(i,j,k)-rho(i,j-1,k))+
+     $                    dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
+              rhou(i,j,k)=rhou(i,j,k)+(1./16.)*
+     $                    (dvm(i,j+1)*(rho(i,j,k)-rho(i,j+1,k))+
+     $                    dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
+            end do
+            ddx(i,j)=ddx(i,j)-(1./24)*
+     $               (dvm(i,j+1)*(d(i,j+1)-d(i,j))-
+     $               2*(d(i,j)-d(i,j-1))+
+     $               dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
+            d4(i,j)=d4(i,j)+(1./16.)*
+     $              (dvm(i,j+1)*(d(i,j)-d(i,j+1))+
+     $              dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
+          end do
+        end do
+
+! calculate y-component of baroclinic pressure gradient
+      do j=2,jmm1
+        do i=2,imm1
+          drhoy(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
+        end do
+      end do
+
+      do k=2,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhoy(i,j,k)=drhoy(i,j,k-1)
+     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
+     $                   *(drho(i,j,k-1)+drho(i,j,k))
+     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
+     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
+          end do
+        end do
+      end do
+
+      do k=1,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhoy(i,j,k)=.25e0*(dt(i,j)+dt(i,j-1))
+     $                        *drhoy(i,j,k)*dvm(i,j)
+     $                        *(dx(i,j)+dx(i,j-1))
+          end do
+        end do
+      end do
+
+      do k=1,kb
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=ramp*drhox(i,j,k)
+            drhoy(i,j,k)=ramp*drhoy(i,j,k)
+          end do
+        end do
+      end do
+
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rho(i,j,k)=rho(i,j,k)+rmean(i,j,k)
+          end do
+        end do
+      end do
+
+      return
+      end
+
+!
       subroutine bcond_orig(idx)
 C **********************************************************************
 C *                                                                    *
@@ -3740,27 +3960,28 @@ C
 !     North:
           ga = sqrt( (h(i,jm)+h(i,jmm1))*.5*grav )
      $        *dte/( (dy(i,jm)+dy(i,jmm1))*.5 )
-          elf(i,jm) =     ga*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
+          elf(i,jm) =     ga*(.25*el(i-1,jm)+.5*el(i,jm)
+     $                        +.25*el(i+1,jm))
+     $               +(1-ga)*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
      $                        +.25*el(i+1,jmm1))
-     $               +(1-ga)*(.25*el(i-1, jm )+.5*el(i, jm )
-     $                        +.25*el(i+1, jm ))
         end do
 !
-!        do j=1,jm
-!          elf(1,j)=elf(2,j)     ! (з_внутр -> з_внешн)
-!          elf(im,j)=elf(imm1,j) ! (в_внутр -> в_внешн)
-!        end do
-!
-!        do i=1,im
-!          elf(i,1)=elf(i,2)     ! (ю_внутр -> ю_внешн)
-!          elf(i,jm)=elf(i,jmm1) ! (с_внутр -> с_внешн)
-!        end do
-!
-        elf(1, 1) = (elf(1,   2)+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
+        elf(1, 1) = (elf(1,  2 )+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
         elf(1,jm) = (elf(1,jmm1)+el(2,jm))*.5
 !       Two next lines were not present in RaSBCs.
-        elf(im, 1) = (elf(im,   2)+el(imm1, 1))*.5
+        elf(im, 1) = (elf(im,  2 )+el(imm1, 1))*.5
         elf(im,jm) = (elf(im,jmm1)+el(imm1,jm))*.5
+!
+        do j=1,jm
+          elf(1,j)=elf(2,j)     ! (з_внутр -> з_внешн)
+          elf(im,j)=elf(imm1,j) ! (в_внутр -> в_внешн)
+        end do
+
+        do i=1,im
+          elf(i,1)=elf(i,2)     ! (ю_внутр -> ю_внешн)
+          elf(i,jm)=elf(i,jmm1) ! (с_внутр -> с_внешн)
+        end do
+!
 C
 !     Наложение маски свободной поверхности
         do j=1,jm
@@ -3791,6 +4012,8 @@ C     External (2-D) velocity:
           vaf(im,j) = va(im,j)-ga*
      $               ( (wm+abs(wm))*(va(im,j)-va(imm1,j))
      $                +(wm-abs(wm))*(u1      -va( im ,j)) )
+!
+          uaf(im,j) = uaf(imm1,j)
 !
 !     West:
 !
@@ -3825,6 +4048,8 @@ C     External (2-D) velocity:
           uaf(i,jm) = ua(i,jm)-ga*
      $               ( (wm+abs(wm))*(ua(i,jm)-ua(i,jmm1))
      $                +(wm-abs(wm))*(u1      -ua(i, jm )) )
+!
+          vaf(i,jm) = vaf(i,jmm1)
 !
 !     South:
 !
@@ -7147,7 +7372,7 @@ C     set all=0 for closed BCs.
 C     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
-      rfn=0.e0
+      rfn=1.e0
       rfs=1.e0  ! Meaningless with RaS boundary conditions.
 C
       return
@@ -8825,6 +9050,29 @@ C     End of source code
 C
 C-----------------------------------------------------------------------
 C
+      subroutine debug_write_txt_xy(var, caption, step)
+
+        implicit none
+        include 'pom2k.c'
+
+        real, intent (in)             :: var(im,jm)
+        character(len=*), intent (in) :: caption
+        integer, intent (in)          :: step
+        character*4                   :: path, prefix
+
+        write(path,'(I4.4)') step
+        call system('mkdir -p '//trim(pth_wrk)
+     $                         //trim(pth_dbg)//trim(path))
+        write(prefix, '(I3.3,".")') dbg_seq_i
+        dbg_seq_i = dbg_seq_i + 1
+        open(42, file=trim(pth_wrk)//trim(pth_dbg)
+     $                //path//"/"//trim(prefix)
+     $                //trim(pfx_dbg)//"_"//caption//".csv")
+        write(42, '(29(F10.5,";"))') var(139:167,jm:jm-3:-1)
+        close(42)
+
+      end
+!!!!
       subroutine debug_write_xy(var, caption, step)
 
         implicit none
