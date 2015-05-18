@@ -4092,7 +4092,7 @@ C     Internal (3-D) boundary conditions:
 !     East:
 !
             ga = sqrt(h(imm1,j)*grav*5.e-3)*dti/dx(imm1,j)
-            uf(im,j,k) =     ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
+            uf(imm1,j,k) =   ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
      $                          +.25*u(imm1,j+1,k))
      $                  +(1-ga)*(.25*u( im ,j-1,k)+.5*u( im ,j,k)
      $                          +.25*u( im ,j+1,k))
@@ -4102,6 +4102,9 @@ C     Internal (3-D) boundary conditions:
             vf(im,j,k) = v(im,j,k) - u1*
      $                 ( (wm+abs(wm))*(u(im,j,k)-u(imm1,j,k))
      $                  +(wm-abs(wm))*(0.e0     -u( im ,j,k)) )
+!
+            uf(im,j,k) = uf(imm1,j,k)
+!
 C
 C     West:
 C
@@ -4128,7 +4131,7 @@ C
 C     North:
 C
             ga = sqrt(h(i,jmm1)*grav*5.e-3)*dti/dy(i,jmm1)
-            vf(i,jm,k) =     ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
+            vf(i,jmm1,k) =   ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
      $                           +.25*v(i+1,jmm1,k))
      $                  +(1-ga)*(.25*v(i-1, jm ,k)+.5*v(i, jm ,k)
      $                           +.25*v(i+1, jm ,k))
@@ -4138,6 +4141,9 @@ C
             uf(i,jm,k) = u(i,jm,k) - u1*
      $                 ( (wm+abs(wm))*(u(i,jm,k)-u(i,jmm1,k))
      $                  +(wm-abs(wm))*(0.e0     -u(i, jm ,k)) )
+!
+            vf(i,jm,k) = vf(i,jmm1,k)
+!
 C
 C     South:
 C
@@ -4158,6 +4164,16 @@ C
           end do
         end do
 C
+!     Just in case... Probably does not affect anything.
+        vf( 1, 1,:) = (vf( 1,  2 ,:)+vf(  2 , 1,:))*.5
+        uf( 1, 1,:) = (uf( 1,  2 ,:)+uf(  2 , 1,:))*.5
+        vf( 1,jm,:) = (vf( 1,jmm1,:)+vf(  2 ,jm,:))*.5
+        uf( 1,jm,:) = (uf( 1,jmm1,:)+uf(  2 ,jm,:))*.5
+        vf(im, 1,:) = (vf(im,  2 ,:)+vf(imm1, 1,:))*.5
+        uf(im, 1,:) = (uf(im,  2 ,:)+uf(imm1, 1,:))*.5
+        vf(im,jm,:) = (vf(im,jmm1,:)+vf(imm1,jm,:))*.5
+        uf(im,jm,:) = (uf(im,jmm1,:)+uf(imm1,jm,:))*.5
+!
 !     Наложение маски свободной поверхности
         do k=1,kbm1
           do j=1,jm
