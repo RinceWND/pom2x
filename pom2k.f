@@ -3960,10 +3960,10 @@ C
 !     North:
           ga = sqrt( (h(i,jm)+h(i,jmm1))*.5*grav )
      $        *dte/( (dy(i,jm)+dy(i,jmm1))*.5 )
-          elf(i,jm) =     ga*(.25*el(i-1,jm)+.5*el(i,jm)
-     $                        +.25*el(i+1,jm))
-     $               +(1-ga)*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
+          elf(i,jm) =     ga*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
      $                        +.25*el(i+1,jmm1))
+     $               +(1-ga)*(.25*el(i-1,jm)+.5*el(i,jm)
+     $                        +.25*el(i+1,jm))
         end do
 !
         elf(1, 1) = (elf(1,  2 )+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
