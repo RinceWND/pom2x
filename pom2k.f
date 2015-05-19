@@ -4003,7 +4003,7 @@ C     External (2-D) velocity:
 !
           u1 = ( h(im,j)+h(imm1,j) )*( dy(im,j)+dy(imm1,j) )*.25
           ga = sqrt( grav/h(imm1,j) )*u1
-          uaf(imm1,j)=( uabe(j)*ramp-ga*( el(imm1,j)-ele(j)*ramp ) )/u1
+          uaf(im,j)=( uabe(j)*ramp-ga*( el(imm1,j)-ele(j)*ramp ) )/u1
 !
           wm = ( ua(imm1,j-1)+ua(imm1,j) )*.5
           u1 = ( h(im,j-1)+h(im,j) )*( dx(im,j-1)+dx(im,j) )*.25
@@ -4013,7 +4013,7 @@ C     External (2-D) velocity:
      $               ( (wm+abs(wm))*(va(im,j)-va(imm1,j))
      $                +(wm-abs(wm))*(u1      -va( im ,j)) )
 !
-          uaf(im,j) = uaf(imm1,j)
+!          uaf(im,j) = uaf(imm1,j)
 !
 !     West:
 !
@@ -4039,7 +4039,7 @@ C     External (2-D) velocity:
 !
           u1 = ( h(i,jm)+h(i,jmm1) )*( dx(i,jm)+dx(i,jmm1) )*.25
           ga = sqrt( grav/h(i,jmm1) )*u1
-          vaf(i,jmm1)=( vabn(i)*ramp-ga*( el(i,jmm1)-eln(i)*ramp ) )/u1
+          vaf(i,jm)=( vabn(i)*ramp-ga*( el(i,jmm1)-eln(i)*ramp ) )/u1
 !
           wm = ( va(i-1,jmm1)+va(i,jmm1) )*.5
           u1 = ( h(i-1,jm)+h(i,jm) )*( dy(i-1,jm)+dy(i,jm) )*.25
@@ -4049,7 +4049,7 @@ C     External (2-D) velocity:
      $               ( (wm+abs(wm))*(ua(i,jm)-ua(i,jmm1))
      $                +(wm-abs(wm))*(u1      -ua(i, jm )) )
 !
-          vaf(i,jm) = vaf(i,jmm1)
+!          vaf(i,jm) = vaf(i,jmm1)
 !
 !     South:
 !
@@ -4092,7 +4092,7 @@ C     Internal (3-D) boundary conditions:
 !     East:
 !
             ga = sqrt(h(imm1,j)*grav*5.e-3)*dti/dx(imm1,j)
-            uf(im,j,k) =   ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
+            uf(im,j,k) =     ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
      $                          +.25*u(imm1,j+1,k))
      $                  +(1-ga)*(.25*u( im ,j-1,k)+.5*u( im ,j,k)
      $                          +.25*u( im ,j+1,k))
@@ -4128,7 +4128,7 @@ C
 C     North:
 C
             ga = sqrt(h(i,jmm1)*grav*5.e-3)*dti/dy(i,jmm1)
-            vf(i,jm,k) =   ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
+            vf(i,jm,k) =     ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
      $                           +.25*v(i+1,jmm1,k))
      $                  +(1-ga)*(.25*v(i-1, jm ,k)+.5*v(i, jm ,k)
      $                           +.25*v(i+1, jm ,k))
