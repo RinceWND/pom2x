@@ -4187,11 +4187,11 @@ C
      $                  *(t(im,j,k)-tbe(j,k))
      $                  +( u(imm1,j,k)-abs(u(imm1,j,k)) )
      $                  *(t(imm1,j,k)-t(im,j,k)) )
-            vf(1,j,k) = s(1,j,k) - ga *
-     $                 ( ( u(2,j,k)+abs(v(2,j,k)) )
-     $                  *(s(1,j,k)-sbw(j,k))
-     $                  +( u(2,j,k)-abs(v(2,j,k)) )
-     $                  *(s(2,j,k)-s(1,j,k)) )
+            vf(im,j,k) = s(im,j,k) - ga *
+     $                 ( ( u(imm1,j,k)+abs(v(imm1,j,k)) )
+     $                  *(s(im,j,k)-sbe(j,k))
+     $                  +( u(imm1,j,k)-abs(v(imm1,j,k)) )
+     $                  *(s(imm1,j,k)-s(im,j,k)) )
 C
 C     West:
 C
