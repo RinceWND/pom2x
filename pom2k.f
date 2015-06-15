@@ -8474,7 +8474,7 @@ C
 C
         include 'pom2k.c'
 C
-        integer i, j, k, dim_strim
+        integer i, j, k, dim_strim, dim_auxuv
         real bot_depth(im,jm,kb)
 C
         filename = trim(pth_wrk)//trim(pth_out)//
@@ -8485,6 +8485,7 @@ C
         call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
         call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
         call check( nf90_def_dim(ncid, "s_trim", 3, dim_strim) )
+        call check( nf90_def_dim(ncid, "aux_uv", 2, dim_auxuv) )
         call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
         call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
         call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
@@ -8509,6 +8510,8 @@ C
      $          (/ dim_time /), varid) )
         call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
      $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
+     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
         call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat /), varid) )
         call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
@@ -8554,16 +8557,16 @@ C
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "T_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "S_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "U_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "V_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELS",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "T_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "S_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "U_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "V_S",
+     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "ELS",
+     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_nw",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_ew",
@@ -8685,6 +8688,9 @@ C
         call check( nf90_put_var(ncid, varid, qavg, (/ptime/)) )
         call check( nf90_inq_varid(ncid, "Mtot", varid) )
         call check( nf90_put_var(ncid, varid, mtot, (/ptime/)) )
+        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
+        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
+        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
         if (mode.ge.3) then
 !          call check( nf90_inq_varid(ncid, "U", varid) )
 !          call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
@@ -8741,21 +8747,21 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
      $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "T_S", varid) )
-!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "S_S", varid) )
-!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "U_S", varid) )
-!        call check( nf90_put_var(ncid, varid, ubs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "V_S", varid) )
-!        call check( nf90_put_var(ncid, varid, vbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELS", varid) )
-!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
-!     $   ,(/im,1/)) )
+        call check( nf90_inq_varid(ncid, "T_S", varid) )
+        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "S_S", varid) )
+        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "U_S", varid) )
+        call check( nf90_put_var(ncid, varid, ubs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "V_S", varid) )
+        call check( nf90_put_var(ncid, varid, vbs, (/1,1,ptime/)
+     $   ,(/im,kb,1/)) )
+        call check( nf90_inq_varid(ncid, "ELS", varid) )
+        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
+     $   ,(/im,1/)) )
 !        call check( nf90_inq_varid(ncid, "aux1", varid) )
 !        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
 !     $   ,(/im,jm,kb,1/)) )
@@ -10059,6 +10065,52 @@ C
      $         tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
               call check( nf90_get_var(ncid, varid,
      $         tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+            end if
+!
+            call check( nf90_inq_varid(ncid, "salt", varid) )
+!    Read climatological salinity BCs
+            if (m.ne.1) then
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,1,m-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,1,m/),   (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         sbnb(:,kbm1:1:-1),(/1,jm,1,m-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbnf(:,kbm1:1:-1),(/1,jm,1,m/),   (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         sbwb(:,kbm1:1:-1),(/1,1,1,m-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbwf(:,kbm1:1:-1),(/1,1,1,m/),   (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         sbeb(:,kbm1:1:-1),(/im,1,1,m-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbef(:,kbm1:1:-1),(/im,1,1,m/),   (/1,jm,kbm1,1/)) )
+            else
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         sbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         sbeb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbef(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         sbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
             end if
 !
             call check( nf90_close(ncid) )
