@@ -225,7 +225,7 @@ C
       integer :: ncid, varid
       integer :: dim_time, dim_srho, dim_sw, dim_lat, dim_lon
       integer :: status
-      integer :: ncptime
+      integer :: ncptime, nctgtpt
       character (len = 128) :: filename
       integer :: dbg_lvl
       real    :: dbg_off

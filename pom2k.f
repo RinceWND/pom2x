@@ -845,6 +845,11 @@ C
 C
       ncptime = ncptime+1           ! rwnd:
       call ncflush(ncptime)         !     :
+      !call ncTgtFlush(49)           !     :
+      filename = trim(pth_wrk)//trim(pth_out)//
+     $             trim(title)//"_tgt.csv"
+      open(49, file=filename)
+      write(49,'(f7.3,";",f10.5,";",f10.5)')time,u(70,155,1),v(70,155,1)
 C
 C-----------------------------------------------------------------------
 C
@@ -1668,6 +1673,10 @@ C     Beginning of print section:
 C
         if(iint.ge.iswtch) iprint=nint(prtd2*24.e0*3600.e0/dti)
 C
+        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then
+!          call ncTgtFlush(49)
+          write(49, *) time, ";", u(70,155,1), ";", v(70,155,1)
+        end if
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
           call cpu_time(slice_f)
@@ -1779,6 +1788,10 @@ C
 C
 C-----------------------------------------------------------------------
 C
+!      call ncTgtFlush(49)
+      write(49, *) time, ";", u(70,155,1), ";", v(70,155,1)
+      close(49)
+!
       write(6,4) time,iint,iext,iprint
 C
 C     Save this data for a seamless restart:
@@ -7840,8 +7853,8 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !      cff = cff/im/jm/kb
 !      write(*,*) "Mean difference in densities: ", cff
       call check( nf90_close(ncid) )
-!      tclim = t
-!      sclim = s
+      tclim = t
+      sclim = s
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
@@ -8510,8 +8523,8 @@ C
      $          (/ dim_time /), varid) )
         call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
      $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
-     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
+!        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
+!     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
         call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat /), varid) )
         call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
@@ -8557,16 +8570,16 @@ C
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "T_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "S_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "U_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "V_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "ELS",
-     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "U_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "V_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELS",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_nw",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_ew",
@@ -8610,6 +8623,19 @@ C
 C
       end
 C
+      subroutine ncTgtFlush(idx)
+!
+        implicit none
+!
+        include 'pom2k.c'
+!
+        integer :: idx
+!
+        write(*,*) "...print..."
+        write(idx, *) time, ";", u(70,155,1), ";", v(70,155,1)
+!
+      end
+!
       subroutine ncflush(ptime)
 C **********************************************************************
 C *                                                                    *
@@ -8688,9 +8714,9 @@ C
         call check( nf90_put_var(ncid, varid, qavg, (/ptime/)) )
         call check( nf90_inq_varid(ncid, "Mtot", varid) )
         call check( nf90_put_var(ncid, varid, mtot, (/ptime/)) )
-        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
-        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
-        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
+!        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
+!        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
+!        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
         if (mode.ge.3) then
 !          call check( nf90_inq_varid(ncid, "U", varid) )
 !          call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
@@ -8747,21 +8773,21 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
      $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "T_S", varid) )
-        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "S_S", varid) )
-        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "U_S", varid) )
-        call check( nf90_put_var(ncid, varid, ubs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "V_S", varid) )
-        call check( nf90_put_var(ncid, varid, vbs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "ELS", varid) )
-        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
-     $   ,(/im,1/)) )
+!        call check( nf90_inq_varid(ncid, "T_S", varid) )
+!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "S_S", varid) )
+!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "U_S", varid) )
+!        call check( nf90_put_var(ncid, varid, ubs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "V_S", varid) )
+!        call check( nf90_put_var(ncid, varid, vbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "ELS", varid) )
+!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
+!     $   ,(/im,1/)) )
 !        call check( nf90_inq_varid(ncid, "aux1", varid) )
 !        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
 !     $   ,(/im,jm,kb,1/)) )
