@@ -158,6 +158,21 @@ C
 
       integer bkp_gap           ! rwnd:
       real slice_s, slice_f     !     :
+      type bnd                  !
+        logical nth
+        logical est
+        logical sth
+        logical wst
+      end type
+      type BC
+        logical    wnd
+        logical    lrd
+        logical    srd
+        logical    ssf
+        logical    vap
+        type (bnd) bnd
+      end type                  ! rwnd:
+      type (BC) bcf
 C
 C***********************************************************************
 C
@@ -501,6 +516,13 @@ C                                               !     :
 !     Clock vars
       slice_s = 0.
       slice_f = 0.
+
+!  BC flags
+      bcf%wnd = .true.
+      bcf%lrd = .false.
+      bcf%srd = .false.
+      bcf%ssf = .true.
+      bcf%vap = .false.
 C
 C     End of input of constants
 C***********************************************************************
@@ -685,22 +707,13 @@ C
 C
       ncptime=0                     ! rwnd:
 C     Initialize read flags:        !     :
-      rf_ts    = 1 !0  ! bry T and S   !     :
+      rf_ts    = 0  ! bry T and S   !     :
       rf_sts   = 0  ! SST and SSS   !     :
-      rf_uv    = 1 !0  ! bry u and v   !     :
+      rf_uv    = 0  ! bry u and v   !     :
       rf_swrad = 0  !               !     :
       rf_wtsur = 0  !               !     :
-      rf_wsurf = 1 !0  !               !     :
-      rf_el    = 1 !0  !               !     :
-C
-C     My parameters ! rwnd: Currently unused since we have monthly BCs.
-C
-      tsplt_ts    = 1       ! Time slice to change BC, days
-      tsplt_uv    = 1       ! uv - for u and v components
-      tsplt_swrad = 1 !0.25 ! ts - for temperature and salinity, swrad - for swrad
-      tsplt_wsurf = 1       ! wsurf - for momentum flux
-      tsplt_wtsur = 1       ! wtsur - for `heat flux`
-      tsplt_el    = 1       !
+      rf_wsurf = 0  !               !     :
+      rf_el    = 0  !               !     :
 C
 C     Initial conditions:
 C
@@ -823,10 +836,10 @@ C
       if (nbct.eq.2.or.nbct.eq.4) call flux(3)                 ! rwnd: swrad
       if (nbct.eq.1.or.nbct.eq.2.or.nbct.eq.4) call flux(4)    ! rwnd: wtsurf
       if (nbct.eq.3.or.nbct.eq.4) call bry(45)                 ! 43 - SST and SSS; 45 - 1st layer T and S
-!<      call flux(52)     ! rwnd: wusurf
+      if (bcf%wnd) call flux(52)     ! rwnd: wusurf
 !<      call bry(2)       ! rwnd: el
 !<      call bry(3)       !     : u & ua
-!<      call bry(4)       !     : ts
+      call bry(4)       !     : ts
 C
       call ic2ncdf                  ! rwnd:
 C
@@ -900,10 +913,10 @@ C     wssurf, swrad and vflux.
         if (nbct.eq.2.or.nbct.eq.4) call flux(3)            ! rwnd: swrad
         if (nbct.eq.1.or.nbct.eq.2.or.nbct.eq.4) call flux(4)    ! rwnd: wtsurf
         if (nbct.eq.3.or.nbct.eq.4) call bry(45)  ! 43 - SST and SSS
-!<        call flux(52) !   51 - 2000 4xDaily; 52 - Climatological Daily
+        if (bcf%wnd) call flux(52) !   51 - 2000 4xDaily; 52 - Climatological Daily
 !<        call bry(2)     ! elevation BC
 !<        call bry(3)     ! u,v BC
-!<        call bry(4)     ! t,s BC
+        call bry(4)     ! t,s BC
 !
         if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
           call debug_write_xy(swrad,  "swrad",  dbg_step)
@@ -3148,7 +3161,7 @@ C
       end
 
 !
-      subroutine bcond_orig(idx)
+      subroutine bcond_orig(idx) ! orig
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Applies open boundary conditions.                   *
@@ -3383,10 +3396,10 @@ C
             ga=sqrt(h(i,1)/hmax)
             vf(i,2,k)=ga*(.25e0*v(i-1,3,k)+.5e0*v(i,3,k)
      $                    +.25e0*v(i+1,3,k))
-!     $                 +(1.e0-ga)*(.25e0*v(i-1,2,k)+.5e0*v(i,2,k)
-!     $                   +.25e0*v(i+1,2,k))
-     $                 +(1.e0-ga)*(.25e0*vbs(i-1,k)+.5e0*vbs(i,k)   ! rwnd:
-     $                   +.25e0*vbs(i+1,k))                         ! rwnd:
+     $                  +(1.e0-ga)*(.25e0*v(i-1,2,k)+.5e0*v(i,2,k)
+     $                    +.25e0*v(i+1,2,k))
+!     $                 +(1.e0-ga)*(.25e0*vbs(i-1,k)+.5e0*vbs(i,k)   ! rwnd:
+!     $                   +.25e0*vbs(i+1,k))                         ! rwnd:
             vf(i,1,k)=vf(i,2,k)
             uf(i,1,k)=0.e0  !ubs(i,k)   ! Изн. `0.e0`. Тангенциальная компонента скорости на границе известна.
           end do
@@ -4498,7 +4511,7 @@ C
 C
       end
 C
-      subroutine bcond(idx)
+      subroutine bcond(idx) ! bcond_ras(idx)
 C **********************************************************************
 C   Rochford and Shulman
 C **********************************************************************
@@ -4583,27 +4596,27 @@ C     External (2-D) velocity:
 !     East:
 !
           !u1 = ( h(im,j)+h(imm1,j) )*( dy(im,j)+dy(imm1,j) )*.25
-!          ga = sqrt( grav/h(imm1,j) )!*u1
-!          uaf(im,j)=( uabe(j)*ramp-ga*( ele(j)*ramp-el(imm1,j) ) )!/u1
-!!
-!          wm = ( ua(imm1,j-1)+ua(imm1,j) )*.5
-!          !u1 = ( h(im,j-1)+h(im,j) )*( dx(im,j-1)+dx(im,j) )*.25
-!          u1 = ramp*vabe(j)!/u1
-!          ga = dte/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))*2.
-!          vaf(im,j) = va(im,j)-ga*
-!     $               ( (wm+abs(wm))*(va(im,j)-va(imm1,j))
-!     $                +(wm-abs(wm))*(u1      -va( im ,j)) )
-          uaf(im,j) = 0.
-          vaf(im,j) = 0.
+          ga = sqrt( grav/h(imm1,j) )!*u1
+          uaf(im,j)=( uabe(j)*ramp-ga*( ele(j)*ramp-el(imm1,j) ) )!/u1
+!
+          wm = ( ua(imm1,j-1)+ua(imm1,j) )*.5
+          !u1 = ( h(im,j-1)+h(im,j) )*( dx(im,j-1)+dx(im,j) )*.25
+          u1 = ramp*vabe(j)!/u1
+          ga = dte/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))*2.
+          vaf(im,j) = va(im,j)-ga*
+     $               ( (wm+abs(wm))*(va(im,j)-va(imm1,j))
+     $                +(wm-abs(wm))*(u1      -va( im ,j)) )
+!          uaf(im,j) = 0.
+!          vaf(im,j) = 0.
 !
 !          uaf(im,j) = uaf(imm1,j)
 !
 !     West:
 !
           !u1 = ( h(1,j)+h(2,j) )*( dy(1,j)+dy(2,j) )*.25
-!          ga = sqrt( grav/h(2,j) )!*u1
-!          uaf(2,j) = ( uabw(j)*ramp-ga*( el(2,j)-elw(j)*ramp ) )!/u1
-          uaf(2,j) = 0.
+          ga = sqrt( grav/h(2,j) )!*u1
+          uaf(2,j) = ( uabw(j)*ramp-ga*( el(2,j)-elw(j)*ramp ) )!/u1
+!          uaf(2,j) = 0.
 !
           wm = ( ua(2,j-1)+ua(2,j) )*.5
           !u1 = ( h(1,j-1)+h(1,j) )*( dx(1,j-1)+dx(1,j) )*.25
@@ -4622,9 +4635,9 @@ C     External (2-D) velocity:
 !     North:
 !
           !u1 = ( h(i,jm)+h(i,jmm1) )*( dx(i,jm)+dx(i,jmm1) )*.25
-!          ga = sqrt( grav/h(i,jmm1) )!*u1
-!          vaf(i,jm)=( vabn(i)*ramp-ga*( eln(i)*ramp-el(i,jmm1) ) )!/u1
-          vaf(i,jm) = 0.
+          ga = sqrt( grav/h(i,jmm1) )!*u1
+          vaf(i,jm)=( vabn(i)*ramp-ga*( eln(i)*ramp-el(i,jmm1) ) )!/u1
+!          vaf(i,jm) = 0.
 !
           wm = ( va(i-1,jmm1)+va(i,jmm1) )*.5
           !u1 = ( h(i-1,jm)+h(i,jm) )*( dy(i-1,jm)+dy(i,jm) )*.25
@@ -4641,6 +4654,7 @@ C     External (2-D) velocity:
           !u1 = ( h(i,1)+h(i,2) )*( dx(i,1)+dx(i,2) )*.25
           ga = sqrt( grav/h(i,2) )!*u1
           vaf(i,2) = ( vabs(i)*ramp-ga*( el(i,2)-els(i)*ramp ) )!/u1
+!          vaf(i,2) = 0.
 !
           wm = ( va(i-1,2)+va(i,2) )*.5
           !u1 = ( h(i-1,1)+h(i,1) )*( dy(i-1,1)+dy(i,1) )*.25
@@ -4676,28 +4690,28 @@ C     Internal (3-D) boundary conditions:
 !
 !     East:
 !
-!            ga = sqrt(h(imm1,j)*grav*5.e-3)*dti/dx(imm1,j)
-!            uf(im,j,k) =     ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
-!     $                          +.25*u(imm1,j+1,k))
-!     $                  +(1-ga)*(.25*u( im ,j-1,k)+.5*u( im ,j,k)
-!     $                          +.25*u( im ,j+1,k))
-!!
-!            u1 = 2.*dti/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))
-!            wm = ( u(im,j,k)+u(im,j-1,k) )*.5
-!            vf(im,j,k) = v(im,j,k) - u1*
-!     $                 ( (wm+abs(wm))*(u(im,j,k)-u(imm1,j,k))
-!     $                  +(wm-abs(wm))*(0.e0     -u( im ,j,k)) )
-            uf(im,j,k) = 0.
-            vf(im,j,k) = 0.
+            ga = sqrt(h(imm1,j)*grav*5.e-3)*dti/dx(imm1,j)
+            uf(im,j,k) =     ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
+     $                          +.25*u(imm1,j+1,k))
+     $                  +(1-ga)*(.25*u( im ,j-1,k)+.5*u( im ,j,k)
+     $                          +.25*u( im ,j+1,k))
+!
+            u1 = 2.*dti/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))
+            wm = ( u(im,j,k)+u(im,j-1,k) )*.5
+            vf(im,j,k) = v(im,j,k) - u1*
+     $                 ( (wm+abs(wm))*(u(im,j,k)-u(imm1,j,k))
+     $                  +(wm-abs(wm))*(0.e0     -u( im ,j,k)) )
+!            uf(im,j,k) = 0.
+!            vf(im,j,k) = 0.
 C
 C     West:
 C
-!            ga = sqrt(h(2,j)*grav*5.e-3)*dti/dx(2,j)
-!            uf(2,j,k) =     ga*(.25*u(3,j-1,k)+.5*u(3,j,k)
-!     $                         +.25*u(3,j+1,k))
-!     $                 +(1-ga)*(.25*u(2,j-1,k)+.5*u(2,j,k)
-!     $                         +.25*u(2,j+1,k))
-            uf(2,j,k) = 0.
+            ga = sqrt(h(2,j)*grav*5.e-3)*dti/dx(2,j)
+            uf(2,j,k) =     ga*(.25*u(3,j-1,k)+.5*u(3,j,k)
+     $                         +.25*u(3,j+1,k))
+     $                 +(1-ga)*(.25*u(2,j-1,k)+.5*u(2,j,k)
+     $                         +.25*u(2,j+1,k))
+!            uf(2,j,k) = 0.
 !
             u1 = 2.*dti/(dx(1,j-1)+dx(1,j)+dx(2,j-1)+dx(2,j))
             wm = ( u(2,j,k)+u(2,j-1,k) )*.5
@@ -4718,12 +4732,12 @@ C
 C
 C     North:
 C
-!            ga = sqrt(h(i,jmm1)*grav*5.e-3)*dti/dy(i,jmm1)
-!            vf(i,jm,k) =     ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
-!     $                           +.25*v(i+1,jmm1,k))
-!     $                  +(1-ga)*(.25*v(i-1, jm ,k)+.5*v(i, jm ,k)
-!     $                           +.25*v(i+1, jm ,k))
-            vf(i,jm,k) = 0.
+            ga = sqrt(h(i,jmm1)*grav*5.e-3)*dti/dy(i,jmm1)
+            vf(i,jm,k) =     ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
+     $                           +.25*v(i+1,jmm1,k))
+     $                  +(1-ga)*(.25*v(i-1, jm ,k)+.5*v(i, jm ,k)
+     $                           +.25*v(i+1, jm ,k))
+!            vf(i,jm,k) = 0.
 !
             u1 = 2.*dti/(dy(i-1,jm)+dy(i,jm)+dy(i-1,jmm1)+dy(i,jmm1))
             wm = ( v(i,jm,k)+v(i-1,jm,k) )*.5
@@ -4734,14 +4748,15 @@ C
 C     South:
 C
             ga = sqrt(h(i,2)*grav*5.e-3)*dti/dy(i,2)
-!            vf(i,2,k) =     ga*(.25*v(i-1,3,k)+.5*v(i,3,k)
-!     $                          +.25*v(i+1,3,k))
-!     $                 +(1-ga)*(.25*v(i-1,2,k)+.5*v(i,2,k)
-!     $                          +.25*v(i+1,2,k))
-            vf(i,2,k) =     ga*(.25*v(i-1,2,k)+.5*v(i,2,k)
+            vf(i,2,k) =     ga*(.25*v(i-1,3,k)+.5*v(i,3,k)
+     $                          +.25*v(i+1,3,k))
+     $                 +(1-ga)*(.25*v(i-1,2,k)+.5*v(i,2,k)
      $                          +.25*v(i+1,2,k))
-     $                 +(1-ga)*(.25*vbs(i-1,k)+.5*vbs(i,k)
-     $                          +.25*vbs(i+1,k))
+!            vf(i,2,k) =     ga*(.25*v(i-1,2,k)+.5*v(i,2,k)
+!     $                          +.25*v(i+1,2,k))
+!     $                 +(1-ga)*(.25*vbs(i-1,k)+.5*vbs(i,k)
+!     $                          +.25*vbs(i+1,k))
+!            vf(i,2,k) = 0.
 !
             u1 = 2.*dti/(dy(i-1,1)+dy(i,1)+dy(i-1,2)+dy(i,2))
             wm = ( v(i,2,k)+v(i-1,2,k) )*.5
@@ -7616,7 +7631,9 @@ C
       real datv(im, jmm1, kbm1, 2)
 !
       real rad,re,dlat,dlon,cff
-      integer i,j,k
+      integer i,j,k,mm
+      real lom(12)   ! length of month
+      data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
 C
@@ -7682,25 +7699,25 @@ C--- 2D ---
       write(*, *) "[O] bottom depth retrieved"
       call check( nf90_close(ncid) )
 
-      filename = trim(pth_wrk)//trim(pth_flx)//
-     $           trim(pfx_dmn)//"roms_frc.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!      filename = trim(pth_wrk)//trim(pth_flx)//
+!     $           trim(pfx_dmn)//"roms_frc.nc"
+!      write(*,*) "\\",trim(filename)
+!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- (Constant) Wind stress
-      call check( nf90_inq_varid(ncid, "sustr", varid) )
-      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
-      wusurf(1,:) = wusurf(2,:)*.5
-      wusurf(:,:) = wusurf(:,:)/rhoref
-      write(*, *) "[O] Zonal component of momentum flux retrieved"
-      call check( nf90_inq_varid(ncid, "svstr", varid) )
-      call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)) )
-      wvsurf(:,1) = wvsurf(:,2)*.5
-      wvsurf(:,:) = wvsurf(:,:)/rhoref
-      write(*, *) "[O] Meridional component of momentum flux retrieved"
+!      call check( nf90_inq_varid(ncid, "sustr", varid) )
+!      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
+!      wusurf(1,:) = wusurf(2,:)*.5
+!      wusurf(:,:) = wusurf(:,:)/rhoref
+!      write(*, *) "[O] Zonal component of momentum flux retrieved"
+!      call check( nf90_inq_varid(ncid, "svstr", varid) )
+!      call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)) )
+!      wvsurf(:,1) = wvsurf(:,2)*.5
+!      wvsurf(:,:) = wvsurf(:,:)/rhoref
+!      write(*, *) "[O] Meridional component of momentum flux retrieved"
 
 C      Simulate from zero elevation to avoid artificial waves during spin-up
 
-      call check( nf90_close(ncid) )
+!      call check( nf90_close(ncid) )
 
 !    Read from roms_clm and interpolate in time depending on time_offset
       filename = trim(pth_wrk)//trim(pth_bry)//
@@ -7723,8 +7740,8 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       end if
 
 !    FSM is not defined yet! Be careful not to apply it!
-        t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
-     $             -datr(:,:,1:kbm1,1))
+      t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
+     $               -datr(:,:,1:kbm1,1))
 
       call check( nf90_inq_varid(ncid, "salt", varid) )
 
@@ -7742,22 +7759,90 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
         s(:,:,k) = datr(:,:,kb-k,1)+fac*(datr(:,:,kb-k,2)
      $            -datr(:,:,kb-k,1))
       end do
-
-      call check( nf90_close(ncid) )
+!
+!   Read elevation
+!
+      elb = 0.
+      el  = 0.
+!      call check( nf90_inq_varid(ncid, "zeta", varid) )
+!
+!      if (m.ne.1) then
+!        call check( nf90_get_var(ncid, varid, datr,
+!     $                          (/1,1,1,m-1/), (/im,jm,1,2/)) )
+!      else
+!        call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
+!     $                          (/1,1,1,12/),(/im,jm,1,1/)) )
+!        call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
+!     $                          (/1,1,1,1/), (/im,jm,1,1/)) )
+!      end if
+!
+!      elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
+!     $            -datr(:,:,1,1))
+!      el = elb      ! rwnd: Is this correct?
+!
+!    Calculate annual means
+!
+      call check( nf90_inq_varid(ncid, "temp", varid) )
+      do mm=1,12
+        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
+     $                          (/1,1,1,m/),(/im,jm,kbm1,1/)) )
+        do i=1,im
+          do j=1,jm
+            do k=1,kb
+              tclim(i,j,k) = tclim(i,j,k)+datr(i,j,k,1)*lom(mm)
+            end do
+          end do
+        end do
+      end do
+      tclim = tclim/365.25
+      call check( nf90_inq_varid(ncid, "salt", varid) )
+      do mm=1,12
+        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
+     $                          (/1,1,1,m/),(/im,jm,kbm1,1/)) )
+        do i=1,im
+          do j=1,jm
+            do k=1,kb
+              sclim(i,j,k) = sclim(i,j,k)+datr(i,j,k,1)*lom(mm)
+            end do
+          end do
+        end do
+      end do
+      sclim = sclim/365.25
+!      call check( nf90_close(ncid) )
 !
 !    Read annual means
 !
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"pom_ann.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-      call check( nf90_inq_varid(ncid, "t_ann", varid) )
-      call check( nf90_get_var(ncid, varid, tclim) )
-      call check( nf90_inq_varid(ncid, "s_ann", varid) )
-      call check( nf90_get_var(ncid, varid, sclim) )
-      call check( nf90_inq_varid(ncid, "r_ann", varid) )
-      call check( nf90_get_var(ncid, varid, rmean) )
+!      filename = trim(pth_wrk)//trim(pth_grd)//
+!     $           trim(pfx_dmn)//"pom_ann.nc"
+!      write(*,*) "\\",trim(filename)
+!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+!      call check( nf90_inq_varid(ncid, "t_ann", varid) )
+!      call check( nf90_get_var(ncid, varid, tclim) )
+!      call check( nf90_inq_varid(ncid, "s_ann", varid) )
+!      call check( nf90_get_var(ncid, varid, sclim) )
+!      call check( nf90_inq_varid(ncid, "r_ann", varid) )
+!      call check( nf90_get_var(ncid, varid, rmean) )
+!    Test rmean calculations
+!      call dens(tclim,sclim,rho)
+!      rho = rmean-rho
+!      cff = 0.
+!      dlon = 0.
+!      do i=1,im
+!        do j=1,jm
+!          do k=1,kb
+!            cff = cff+rho(i,j,k)
+!            if (dlon<abs(rho(i,j,k))) dlon=rho(i,j,k)
+!          end do
+!        end do
+!      end do
+!      write(*,*) "Max difference in densities:  ", dlon
+!      cff = cff/im/jm/kb
+!      write(*,*) "Mean difference in densities: ", cff
       call check( nf90_close(ncid) )
+!      tclim = t
+!      sclim = s
+      call dens(tclim,sclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
 C
@@ -7827,16 +7912,16 @@ C
 C
 C --- calc. surface & lateral BC from climatology
 C
-        do j=1,jm
-          do i=1,im
-             tsurf(i,j)=t(i,j,1)
-             ssurf(i,j)=s(i,j,1)
+!        do j=1,jm
+!          do i=1,im
+!             tsurf(i,j)=t(i,j,1)
+!             ssurf(i,j)=s(i,j,1)
 !            do k=1,kb
 !              tclim(i,j,k)=t(i,j,k)
 !              sclim(i,j,k)=s(i,j,k)
 !            end do
-          end do
-        end do
+!          end do
+!        end do
 C
 C                    --- EAST & WEST BCs ---
         do j=1,jm
@@ -7844,10 +7929,10 @@ C                    --- EAST & WEST BCs ---
             elw(j)=0.
 C --- other vel. BCs (fixed in time) can be specified here
             do k=1,kb
-              ubw(j,k)=0                ! RWND
-              ube(j,k)=0                !
-              uabe(j) =0                ! RWND
-              uabw(j) =0                !  Calculate vertical averages
+              ubw(j,k)=0.                ! RWND
+              ube(j,k)=0.                !
+              uabe(j) =0.                ! RWND
+              uabw(j) =0.                !  Calculate vertical averages
               tbw(j,k)=tclim(1,j,k)
               sbw(j,k)=sclim(1,j,k)
               tbe(j,k)=tclim(im,j,k)
@@ -7859,10 +7944,10 @@ C                    --- NORTH & SOUTH BCs ---
               els(i)=0. !elb(i,1)   ! RWND
               eln(i)=0. !elb(i,jm)  !
             do k=1,kb
-              vbs(i,k)=0                ! RWND
-              vbn(i,k)=0                !
-              vabs(j) =0                ! RWND
-              vabn(j) =0                !  Calculate vertical means
+              vbs(i,k)=0.                ! RWND
+              vbn(i,k)=0.                !
+              vabs(j) =0.                ! RWND
+              vabn(j) =0.                !  Calculate vertical means
               tbs(i,k)=tclim(i,1,k)
               sbs(i,k)=sclim(i,1,k)
               tbn(i,k)=tclim(i,jm,k)
@@ -7886,7 +7971,7 @@ C       and apply free-surface mask ! rwnd:
       end do
 C
       call dens(sb,tb,rho)
-      rmean = rho   ! remove the line to avoid rmean overriding
+!      rmean = rho   ! remove the line to avoid rmean overriding
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -7968,7 +8053,7 @@ C     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
-      rfs=1.e0  ! Meaningless with RaS boundary conditions.
+      rfs=0.e0  ! Meaningless with RaS boundary conditions.
 C
       return
 
@@ -8278,7 +8363,7 @@ C       and apply free-surface mask ! rwnd:
       end do
 C
       call dens(sb,tb,rho)
-      rmean = rho   ! remove the line to avoid rmean overriding
+!      rmean = rho   ! remove the line to avoid rmean overriding
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -8835,7 +8920,7 @@ C
               sst = tsurfb(i,j)+fac*(tsurff(i,j)-tsurfb(i,j))
               ! Convert wtsurf from W/m^2 to K m/s. TODO: convert the qq,dq,sst while reading, maybe?
               wtsurf(i,j) = (qq+dq*(t(i,j,1)-sst))/hf_fac-swrad(i,j)  ! Be sure to read swrad with flux(3) before calling flux(4).
-C              write(*,*) wtsurf(i,j)
+!              write(*,*) wtsurf(i,j)
             end do
           end do
 !
@@ -9928,6 +10013,58 @@ C
             rf_ts = m
 
             filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "temp", varid) )
+!    Read climatological BCs
+            if (m.ne.1) then
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,1,m-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,1,m/),   (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         tbnb(:,kbm1:1:-1),(/1,jm,1,m-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbnf(:,kbm1:1:-1),(/1,jm,1,m/),   (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         tbwb(:,kbm1:1:-1),(/1,1,1,m-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbwf(:,kbm1:1:-1),(/1,1,1,m/),   (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         tbeb(:,kbm1:1:-1),(/im,1,1,m-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbef(:,kbm1:1:-1),(/im,1,1,m/),   (/1,jm,kbm1,1/)) )
+            else
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         tbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         tbeb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbef(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+            end if
+!
+            call check( nf90_close(ncid) )
+!
+            if (.false.) then   ! Disable it for now
+            filename = trim(pth_wrk)//trim(pth_bry)//
      $                 trim(pfx_dmn)//"roms_bry.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !        ...read neccessary fields
@@ -9958,18 +10095,32 @@ C
             end if
 
             call check( nf90_close(ncid) )
+            end if
 
             write(*,*) "Read TS BCs:  ", m
 
           end if
 !     Perform interpolation
 !     South:
-!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
             tbs(:,1:kbm1) = tbsb(:,1:kbm1)
      $                     +fac*(tbsf(:,1:kbm1)-tbsb(:,1:kbm1))
             sbs(:,1:kbm1) = sbsb(:,1:kbm1)
      $                     +fac*(sbsf(:,1:kbm1)-sbsb(:,1:kbm1))
-!          end do
+!     North:
+            tbn(:,1:kbm1) = tbnb(:,1:kbm1)
+     $                     +fac*(tbnf(:,1:kbm1)-tbnb(:,1:kbm1))
+            sbn(:,1:kbm1) = sbnb(:,1:kbm1)
+     $                     +fac*(sbnf(:,1:kbm1)-sbnb(:,1:kbm1))
+!     East:
+            tbe(:,1:kbm1) = tbeb(:,1:kbm1)
+     $                     +fac*(tbef(:,1:kbm1)-tbeb(:,1:kbm1))
+            sbe(:,1:kbm1) = sbeb(:,1:kbm1)
+     $                     +fac*(sbef(:,1:kbm1)-sbeb(:,1:kbm1))
+!     West:
+            tbw(:,1:kbm1) = tbwb(:,1:kbm1)
+     $                     +fac*(tbwf(:,1:kbm1)-tbwb(:,1:kbm1))
+            sbw(:,1:kbm1) = sbwb(:,1:kbm1)
+     $                     +fac*(sbwf(:,1:kbm1)-sbwb(:,1:kbm1))
           return
 C
         case (43)
