@@ -7824,7 +7824,7 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !      call check( nf90_inq_varid(ncid, "r_ann", varid) )
 !      call check( nf90_get_var(ncid, varid, rmean) )
 !    Test rmean calculations
-!      call dens(tclim,sclim,rho)
+!      call dens(sclim,tclim,rho)
 !      rho = rmean-rho
 !      cff = 0.
 !      dlon = 0.
@@ -7842,7 +7842,7 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       call check( nf90_close(ncid) )
 !      tclim = t
 !      sclim = s
-      call dens(tclim,sclim,rmean)
+      call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
 C
