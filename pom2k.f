@@ -158,6 +158,7 @@ C
 
       integer bkp_gap           ! rwnd:
       real slice_s, slice_f     !     :
+      character*26 timestamp    !
       type bnd                  !
         logical nth
         logical est
@@ -679,6 +680,7 @@ C
 C-----------------------------------------------------------------------
 C
 C     Read in grid data, and initial and lateral boundary conditions:
+      time = time0
 C
       if(iproblem.eq.1) then
         call seamount
@@ -703,7 +705,7 @@ C
 C     Initialise time:
 C
 !      time0=0.e0       ! Do not initialise time0 here since we already set it in params
-      time=0.e0
+!      time=0.e0
 C
       ncptime=0                     ! rwnd:
 C     Initialize read flags:        !     :
@@ -849,7 +851,8 @@ C
       filename = trim(pth_wrk)//trim(pth_out)//
      $             trim(title)//"_tgt.csv"
       open(49, file=filename)
-      write(49,'(f7.3,";",f10.5,";",f10.5)')time,u(70,155,1),v(70,155,1)
+      call time2date(time, time_start, timestamp)
+      write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
 C
 C-----------------------------------------------------------------------
 C
@@ -1675,7 +1678,8 @@ C
 C
         if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then
 !          call ncTgtFlush(49)
-          write(49, *) time, ";", u(70,155,1), ";", v(70,155,1)
+          call time2date(time, time_start, timestamp)
+          write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
         end if
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
@@ -1789,7 +1793,8 @@ C
 C-----------------------------------------------------------------------
 C
 !      call ncTgtFlush(49)
-      write(49, *) time, ";", u(70,155,1), ";", v(70,155,1)
+      call time2date(time, time_start, timestamp)
+      write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
       close(49)
 !
       write(6,4) time,iint,iext,iprint
@@ -3174,7 +3179,7 @@ C
       end
 
 !
-      subroutine bcond_orig(idx) ! orig
+      subroutine bcond(idx) ! orig
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Applies open boundary conditions.                   *
@@ -4524,7 +4529,7 @@ C
 C
       end
 C
-      subroutine bcond(idx) ! bcond_ras(idx)
+      subroutine bcond_ras(idx) ! bcond_ras(idx)
 C **********************************************************************
 C   Rochford and Shulman
 C **********************************************************************
@@ -8570,18 +8575,18 @@ C
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "T_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "S_S",
-     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "T_W",
-     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "S_W",
-     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "ELS",
-     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "ELW",
-     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELS",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELW",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_nw",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_ew",
@@ -8775,24 +8780,24 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
      $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "T_S", varid) )
-        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "S_S", varid) )
-        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
-     $   ,(/im,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "T_W", varid) )
-        call check( nf90_put_var(ncid, varid, tbw, (/1,1,ptime/)
-     $   ,(/jm,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "S_W", varid) )
-        call check( nf90_put_var(ncid, varid, sbw, (/1,1,ptime/)
-     $   ,(/jm,kb,1/)) )
-        call check( nf90_inq_varid(ncid, "ELS", varid) )
-        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
-     $   ,(/im,1/)) )
-        call check( nf90_inq_varid(ncid, "ELW", varid) )
-        call check( nf90_put_var(ncid, varid, elw, (/1,ptime/)
-     $   ,(/jm,1/)) )
+!        call check( nf90_inq_varid(ncid, "T_S", varid) )
+!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "S_S", varid) )
+!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "T_W", varid) )
+!        call check( nf90_put_var(ncid, varid, tbw, (/1,1,ptime/)
+!     $   ,(/jm,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "S_W", varid) )
+!        call check( nf90_put_var(ncid, varid, sbw, (/1,1,ptime/)
+!     $   ,(/jm,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "ELS", varid) )
+!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
+!     $   ,(/im,1/)) )
+!        call check( nf90_inq_varid(ncid, "ELW", varid) )
+!        call check( nf90_put_var(ncid, varid, elw, (/1,ptime/)
+!     $   ,(/jm,1/)) )
 !        call check( nf90_inq_varid(ncid, "aux1", varid) )
 !        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
 !     $   ,(/im,jm,kb,1/)) )
@@ -10541,6 +10546,111 @@ C
 !
         fac = (tind-b)/(e-b)
 
+        return
+
+      end
+
+      subroutine time2date(time_in, time_off, date)
+
+        character(len=*), intent(in) :: time_off
+        real                         :: time_in,  time
+        character*26,     intent(out):: date
+        integer  :: YYYY, MM, DD, hh, mi, ss, th, tm
+        character :: sign
+
+        read(time_off,
+     $       '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a1,i2,1x,i2)')
+     $       YYYY, MM, DD, hh, mi, ss, sign, th, tm
+
+        time = time_in - float(floor(time_in))
+        ss   = ss + mod(floor(time*60.*60.*24.), 60)
+        mi   = mi + floor(ss/60.)
+        ss   = mod(ss, 60)
+        mi   = mi + mod(floor(time*60.*24.), 60)
+        hh   = hh + floor(mi/60.)
+        mi   = mod(mi, 60)
+        hh   = hh + mod(floor(time*24.), 24)
+        DD   = DD + floor(hh/24.)
+        hh   = mod(hh, 24)
+
+        time = floor(time_in)
+        YYYY = YYYY + floor((DD+time)/365.)
+        DD   = mod((DD+time),365.)
+
+        if (DD==0) then
+          MM = 12
+          DD = 31
+        else
+          if (DD.le.31) then
+            MM = 1
+          else
+            if (DD.le.59) then
+              MM = 2
+              DD = DD-31
+            else
+              if (DD.le.90) then
+                MM = 3
+                DD = DD-59
+              else
+                if (DD.le.120) then
+                  MM = 4
+                  DD = DD-90
+                else
+                  if (DD.le.151) then
+                    MM = 5
+                    DD = DD-120
+                  else
+                    if (DD.le.181) then
+                      MM = 6
+                      DD = DD-151
+                    else
+                      if (DD.le.212) then
+                        MM = 7
+                        DD = DD-181
+                      else
+                        if (DD.le.243) then
+                          MM = 8
+                          DD = DD-212
+                        else
+                          if (DD.le.273) then
+                            MM = 9
+                            DD = DD-243
+                          else
+                            if (DD.le.304) then
+                              MM = 10
+                              DD = DD-273
+                            else
+                              if (DD.le.334) then
+                                MM = 11
+                                DD = DD-304
+                              else
+                                if (DD.le.365) then
+                                  MM = 12
+                                  DD = DD-334
+                                else
+                                  ! How did you get here?
+                                  MM = 1
+                                  DD = DD-365
+                                end if
+                              end if
+                            end if
+                          end if
+                        end if
+                      end if
+                    end if
+                  end if
+                end if
+              end if
+            end if
+          end if
+        end if
+        !DD = DD+1
+
+        write(date,
+     $        '(i4,"-",i2.2,"-",i2.2," ",i2.2,":"
+     $         ,i2.2,":",i2.2," ",a1,i2.2,":",i2.2)')
+     $        YYYY, MM, DD, hh, mi, ss, sign, th, tm
+        !write(*, *) date
         return
 
       end
