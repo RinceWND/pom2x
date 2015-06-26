@@ -10574,7 +10574,7 @@ C
         hh   = mod(hh, 24)
 
         time = floor(time_in)
-        YYYY = YYYY + floor((DD+time)/365.)
+        YYYY = YYYY + floor((DD-1+time)/365.)
         DD   = mod((DD+time),365.)
 
         if (DD==0) then
