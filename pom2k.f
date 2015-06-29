@@ -1,5 +1,80 @@
-      program pom2k
-C
+      program pom08
+!                                                                      !
+!----------------------------------------------------------------------!
+!     For recent changes search for !lyo:_20080415:                    !
+!                                                                      !
+!     Main changes:                                                    !
+!                                                                      !
+!     (1). George Mellor found bugs in subr.profq (also in pom2k); use !
+!          the new one in this version.                                !
+!     (2). nsmolar=1 case (for wet-and-dry runs with nwad=1) is        !
+!          incomplete, and should NOT be used                          !
+!                                                                      !
+!                       ... l.oey (Apr/15/2008)                        !
+!                                                                      !
+!----------------------------------------------------------------------!
+!     This POM code has wetting and drying (WAD) capability            !
+!                                                                      !
+!     Set nwad=1 for WAD,set =0 to turn off WAD                        !
+!     Set BOTH nwad=0 & nsmolar=0 to recover the original non-WAD POM  !
+!                                                                      !
+!     For details see:                                                 !
+!                                                                      !
+!     O2005 = Oey [2005; OceanModelling,  9, 133-150]                  !
+!     O2006 = Oey [2006; OceanModelling, 13, 176-195]                  !
+!     O2007 = Oey, Ezer et al [2007; Ocean Dynamics, 57, 205-221]      !
+!                                                                      !
+!     or, http://www.aos.princeton.edu/WWWPUBLIC/PROFS/                !
+!     also, .../WWWPUBLIC/PROFS/pom98_wad_release_descriptions.html    !
+!                                                                      !
+!     For changes that I made, search for the following keyword:       !
+!                                                                      !
+      !lyo:!wad:  or simply "wad:"                                     !
+      !tne:!wad:  (changes taken from T.Ezer's pom98_wad seamount case)!
+!                                                                      !
+!     Three (3) files are needed to run the model test cases:          !
+!                                                                      !
+!     pom08.f (code), pom08.c (common blocks etc) & pom08.n (netcdf)   !
+!                                                                      !
+!     see the runscript runpom08* provided with these files.           !
+!                                                                      !
+!     "DOUBLE  PRECISION (i.e. REAL*8)" option can be used to          !
+!     compile, with or without WAD; e.g. w/Intel ifort, use -r8:       !
+!                                                                      !
+!     ifort pom08.f -o a.out -r8                                       !
+!                                                                      !
+!     the -r8 option is the same as specifying -real_size 64 or        !
+!     -auto_double.  However, the code works with or without -r8       !
+!                                                                      !
+!     A link to the netCDF library also needs to be specified. For this!
+!     and other details, see the runscript:                            !
+!                                                                      !
+!     runpom08*                                                        !
+!                                                                      !
+!     NOTE: for nsmolar=1, the PARAMETER (IM=???,JM=???) in subroutines!
+!     wadadvt2d & wadsmoladif must match that specified in pom08.c     !
+!     This is done using "include 'grid'"                              !
+!                                                                      !
+!     Send bugs and/or improvements to: lyo@princeton.edu              !
+!                                                                      !
+!                       ... l.oey (May/02/2007)                        !
+!                                 (Jul/24,30/2007)                     !
+!                                 (Aug/12,18/2007)                     !
+!                                                                      !
+!     Support from the Minerals Management Service (MMS) for making    !
+!     the development of WAD in POM possible is acknowledged.          !
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+!                                                                      !
+clyo:Notes:                                                            !
+c     This version incorporates WAD into pom2k.f, and also corrects    !
+c     the bug found by Charles Tang, Glen Carter and Alain Caya (and   !
+c     corrected in the 2006-05-03 version of pom2k.f).                 !
+c     Search for "clyo:"for all the changes I have made.               !
+c                                                                      !
+c                       ... lyo (Jun/14/2006)                          !
+c                                                                      !
 C **********************************************************************
 C *                                                                    *
 C *   The last code change as rcorded in pom2k.change was on           *
@@ -131,7 +206,8 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+!lyo:!wad:Add WAD variables in pom08.c
+      include 'pom08.c'
 C
 C     New declarations plus ispi,isp2i:
 C
@@ -143,50 +219,35 @@ C
       real ispi,isp2i
       real period,prtd1,prtd2
       real saver,smoth,sw,swtch
-      real taver
+      real taver,time0
       real vamax,vtot,tsalt
       real z0b
       real tatm,satm
+      real wadsmoth  !lyo:!wad:
+      real cflmin    !lyo:_20080415:
       integer io(100),jo(100),ko(100)
       integer i,iend,iext,imax,ispadv,isplit,iswtch
       integer j,jmax
       integer k
-      integer nadv,nbct,nbcs,npg,nitera,nread
+      integer nadv,nbct,nbcs,nitera,nread
       integer iproblem
+      integer nsmolar  !lyo:!wad:
       logical lramp
       character*120 netcdf_file
-
-      integer bkp_gap           ! rwnd:
-      real slice_s, slice_f     !     :
-      character*26 timestamp    !
-      type bnd                  !
-        logical nth
-        logical est
-        logical sth
-        logical wst
-      end type
-      type BC
-        logical    wnd
-        logical    lrd
-        logical    srd
-        logical    ssf
-        logical    vap
-        type (bnd) bnd
-      end type                  ! rwnd:
-      type (BC) bcf
 C
 C***********************************************************************
 C
-C     source should agree with source_c in pom2k.c and source_n in pom2k.n.
+C     source should agree with source_c in pom08.c and source_n in
+C     pom08.n.
 C
-      source='pom2k  2006-05-03'
+      source='pom08  2008-04-18'
 C
-c     if(source.ne.source_c) then
-c       write(6,7)
-c   7   format(/'Incompatible versions of program and include files ',
-c    $          '..... program terminated'/)
-c       stop
-c     endif
+      if(source.ne.source_c) then
+        write(6,7)
+    7   format(/'Incompatible versions of program and include files ',
+     $          '..... program terminated; in pom08.f'/)
+        stop
+      endif
 C
 C***********************************************************************
 C
@@ -198,7 +259,8 @@ C***********************************************************************
 C
 C     Input of filenames and constants:
 C
-C     NOTE that the array sizes im, jm and kb should be set in pom2k.c
+C     NOTE that the array sizes im, jm and kb should be set in
+C     pom08.c or the 'grid' file created by runpom08
 C
 C-----------------------------------------------------------------------
 C
@@ -206,8 +268,8 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      netcdf_file='pom2k.nc'  ! netCDF output file
-c     netcdf_file='nonetcdf'  ! disable netCDF output
+      netcdf_file='pom08.nc'  ! netCDF output file
+c     netcdf_file='nonetcdf'      ! disable netCDF output
 C
 C-----------------------------------------------------------------------
 C
@@ -223,7 +285,55 @@ C                  box
 C
 C         3        IC from file   file2ic
 C
-      iproblem=1
+C         4n       WAD prob#n, n=1,2 or 3     !lyo:!wad:
+C
+      iproblem=41
+C
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+!     WAD Control Parameters:                                          !
+!                                                                      !
+!lyo:!wad:set nwad=1 for WAD run, =0 to recover non-WAD run with min   !
+!     depths set at say 10m (defined in routine called depending on    !
+!                            value of iproblem)                        !
+!                                                                      !
+      nwad=1
+!                                                                      !
+!lyo:!wad:set nsmolar=1 if water depth is to be solved by Smolarkiewicz!
+!     See O2005 or O2006.                                              !
+!     NOTE: nwad=1 w/nsmolar=1 may require finer grid AND even a larger!
+!     hc, below, say hc=0.1 instead of default hc=0.05                 !
+!                                                                      !
+      nsmolar=0
+!                                                                      !
+!lyo:!wad:Define hhi0, later hhi will be set to it:                    !
+!                                                                      !
+!     hhi = HIghest water [above MSL] ever expected, this should       !
+!           be the observed_highest + say 1 meter to make sure;        !
+!           here, MSL = Mean Sea Level
+!                                                                      !
+!     Choose hhi0=20 (below) assuming that the highest tide or surge   !
+!     is not expected to rise above 20m wrt MSL                        !
+!                                                                      !
+      hhi0=20.e0
+!                                                                      !
+!lyo:!wad:Define hc in meters:                                         !
+!                                                                      !
+!     hc  = Thinnest fluid layer (i.e. water depth) below which cell   !
+!           is considered dry; default is 0.05m but can be changed in  !
+!           "params" below; used only if nwad=1                        !
+!                                                                      !
+      hc=0.05e0
+!                                                                      !
+!lyo:!wad:Set wadsmoth.gt.0 to (cosmetically) smooth out isolated,     !
+!     thin-fluid wet cells. Smoothing is done if the wet cell is thin, !
+!     thickness <= hc*(1+wadsmoth); recommended non-zero wadsmoth is   !
+!     ~0.05 but it should not be >~0.1                                 !
+      wadsmoth=0.e0
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
 C
 C-----------------------------------------------------------------------
 C
@@ -257,12 +367,12 @@ C
 C     Number of iterations. This should be in the range 1 - 4. 1 is
 C     standard upstream differencing; 3 adds 50% CPU time to POM:
 C
-      nitera=2
+      nitera=3  !=2   !lyo:!wad:
 C
 C     Smoothing parameter. This should preferably be 1, but 0 < sw < 1
 C     gives smoother solutions with less overshoot when nitera > 1:
 C
-      sw=0.5e0
+      sw=1.e0  !=0.5e0   !lyo:!wad:
 C
 C-----------------------------------------------------------------------
 C
@@ -274,6 +384,30 @@ C
 C-----------------------------------------------------------------------
 C
 C     External (2-D) time step (secs.) according to CFL:
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+!lyo:!wad:For 3-d runs w/rivers (strong stratification)                !
+!     strong currents can (and physically they should) develop         !
+!     in thin film of water over nearly dry cells, so dte and          !
+!     isplit (below) may need to be smaller.  For dx~dy~1km,           !
+!     I have used values as small as DTE=3.0 and ISPLIT=5.             !
+!                                                                      !
+!     Note#1: Since alpha=0 when nwad=1 (see below), the corresponding !
+!             DTE needs to be smaller than the DTE used for nwad=0.    !
+!     Note#2: ISPLIT should also be smaller than its value for no WAD; !
+!             see Appendix A of Oey [2006; Ocean Modell. 13, 176-195]. !
+!                                                                      !
+!     For example, for the seamount problem that Tal Ezer has tested   !
+!     (im,jm=65,49),  he found that DTE=60 & ISPLIT=30 worked for      !
+!     nwad=0 but blew up for nwad=1. However, by decreasing ISPLIT     !
+!     =5->10, the model with nwad=1 works for DTE=20->60, except that  !
+!     isolated cells w/thin fluid layers (~5cm) appear, surrounded by  !
+!     cells which are mostly dry; this probably is to be expected for  !
+!     the relatively large dx&dy >2~4km used.  Using smaller DTE=15    !
+!     & ISPLIT=5, or DTE=6 & ISPLIT=10 (as used below) can remove the  !
+!     isolated thin-fluid cells.                                       !
+!----------------------------------------------------------------------!
 C
       dte=6.e0
 C
@@ -282,7 +416,7 @@ C
 C     <Internal (3-D) time step>/<External (2-D) time step>
 C     (dti/dte; dimensionless):
 C
-      isplit=30
+      isplit=10 !tne:!wad:dte=6.0 & isplit=30 work w/nwad=0 & hmax=200m
 C
 C-----------------------------------------------------------------------
 C
@@ -301,11 +435,11 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      days=0.25e0       ! run duration in days
+      days=0.025e0       ! run duration in days
 C
 C-----------------------------------------------------------------------
 C
-      prtd1=0.125e0     ! Initial print interval (days)
+      prtd1=0.0125e0     ! Initial print interval (days)
 C
 C-----------------------------------------------------------------------
 C
@@ -317,11 +451,11 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      iskp=4             ! Printout skip interval in i
+      iskp=1             ! Printout skip interval in i
 C
 C-----------------------------------------------------------------------
 C
-      jskp=3             ! Printout skip interval in j
+      jskp=1             ! Printout skip interval in j
 C
 C-----------------------------------------------------------------------
 C
@@ -359,6 +493,10 @@ C
 C
 C-----------------------------------------------------------------------
 C
+      zsh=.01e0          ! Bottom Log-layer shift (metres) !lyo:!wad:
+C
+C-----------------------------------------------------------------------
+C
       cbcmin=.0025e0     ! Minimum bottom friction coeff.
 C
 C-----------------------------------------------------------------------
@@ -367,6 +505,7 @@ C
 C
 C-----------------------------------------------------------------------
 C
+!lyo:!wad:I would use horcon=0.1 (un-related to WAD)
       horcon=0.2e0       ! Smagorinsky diffusivity coeff.
 C
 C-----------------------------------------------------------------------
@@ -462,17 +601,6 @@ C     NOTE that only 1 and 3 are allowed for salinity.
 C
       nbcs=1
 C
-!-----------------------------------------------------------------------
-!
-!     Pressure gradient scheme:
-!
-!       nbcs   scheme order
-!
-!        1        2nd (Mellor and Yamada???)
-!        2        4th (McCalpin)
-!
-      npg = 1
-!
 C-----------------------------------------------------------------------
 C
 C     Step interval during which external (2-D) mode advective terms are
@@ -490,49 +618,38 @@ C
 C-----------------------------------------------------------------------
 C
 C     Weight used for surface slope term in external (2-D) dynamic
-C     equation (a value of alpha = 0.e0 is perfectly acceptable, but the
-C     value, alpha=.225e0 permits a longer time step):
+C     equation (a value of alph0 = 0.e0 is perfectly acceptable, but the
+C     value, alph0=.225e0 permits a longer time step):
 C
-      alpha=0.225e0
+      alph0=0.225e0 !lyo:!wad:use alph0 instead of alpha - defined later
 C
 C-----------------------------------------------------------------------
 C
 C     Initial value of aam:
 C
       aam_init=500.e0
-C
-C-----------------------------------------------------------------------
-C
-C     Backup gap default value                  ! rwnd:
-C                                               !     :
-      bkp_gap = 60                              !     :
-!     Initialise time0 here to avoid overriding
-      time0 = 0.e0
-!     Interpolation params init
-      m   = 1
-      fac = 0.
-!     Initialise debug stuff
-      dbg_step  = 0
-      dbg_seq_i = 0
-!     Clock vars
-      slice_s = 0.
-      slice_f = 0.
-
-!  BC flags
-      bcf%wnd = .true.
-      bcf%lrd = .false.
-      bcf%srd = .false.
-      bcf%ssf = .true.
-      bcf%vap = .false.
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Tidal amplitude for iproblem=41 w/ or w/o WAD:               !
+!                                                                      !
+!lyo:_20080415:
+      tidamp=0.e0
+      if (iproblem .eq. 41) tidamp=9.e0
+!----------------------------------------------------------------------!
+!                                                                      !
 C
 C     End of input of constants
 C***********************************************************************
 C
 C --- Above are the default parameters, alternatively one can
-C --- use parameters from a file created by runscript runpom2k
+C --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
 C
       include 'params'
 C
+clyo:wad:beg:
+c     Overwrite some input constants: see "params" above in runpom08
+clyo:wad:end:
+c
 C***********************************************************************
 C
 C     Calculate some constants:
@@ -540,7 +657,45 @@ C
       dti=dte*float(isplit)
       dte2=dte*2
       dti2=dti*2
-C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:                                                             !
+!                                                                      !
+!     Dry-cell T/S relaxation using leapfrog-trapezoidal:              !
+      dtrat=dti/(0.5*86400.)  !1/2 day relaxation time-scale
+      cwetrlx1=(1.-dtrat)/(1.+dtrat); cwetrlx2=2.*dtrat/(1.+dtrat)
+!                                                                      !
+      alpha=alph0*float(1-nwad) !lyo:!wad: must=0 for WAD
+!                                                                      !
+      hhi=hhi0*float(nwad)
+!                                                                      !
+      nsmolar=nsmolar*nwad
+!                                                                      !
+!     Check nsmolar:                  !lyo:_20080415:                  !
+!                                                                      !
+      if( (nsmolar.ne.0).and.(mode.ne.2) )then
+      write(6,'('' Stopped; incorrect inputs of '')')
+      write(6,'('' nsmolar   = '',i10)') nsmolar
+      write(6,'('' mode      = '',i10)') mode
+      write(6,'('' For nsmolar ne 0, the present version works  '')')
+      write(6,'('' only if mode = 2. So either run in barotropic '')')
+      write(6,'('' mode = 2, or set nsmolar=0 and resubmit '')')
+      stop
+      endif
+!                                                                      !
+!     Check iproblem & nwad compatibility:                             !
+!                                                                      !
+      if( (iproblem.ne.41).and.(nwad.eq.1) )then !lyo:_20080415:
+      write(6,'('' iproblem   = '',i10)') iproblem
+      write(6,'('' nwad       = '',i10)') nwad
+      write(6,'('' iproblem must = 41 for nwad = 1 '')') !lyo:_20080415:
+      write(6,'('' Stopped: iproblem & nwad are not compatible '')')
+      stop
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+c
       iend=max0(nint(days*24.e0*3600.e0/dti),2)
       iprint=nint(prtd1*24.e0*3600.e0/dti)
       iswtch=nint(swtch*24.e0*3600.e0/dti)
@@ -555,6 +710,11 @@ C
       write(6,'(/,'' source   = '',a40)') source
       write(6,'('' title      = '',a40/)') title
       write(6,'('' iproblem   = '',i10)') iproblem
+      write(6,'('' nwad       = '',i10)') nwad        !lyo:!wad:
+      write(6,'('' nsmolar    = '',i10)') nsmolar     !lyo:!wad:
+      write(6,'('' hhi        = '',f10.3)') hhi       !lyo:!wad:
+      write(6,'('' hc         = '',f10.3)') hc        !lyo:!wad:
+      write(6,'('' wadsmoth   = '',f10.3)') wadsmoth  !lyo:!wad:
       write(6,'('' mode       = '',i10)') mode
       write(6,'('' nadv       = '',i10)') nadv
       write(6,'('' nitera     = '',i10)') nitera
@@ -579,6 +739,7 @@ C
       write(6,'('' grav       = '',f10.4)') grav
       write(6,'('' kappa      = '',f10.4)') kappa
       write(6,'('' z0b        = '',f10.6)') z0b
+      write(6,'('' zsh        = '',f10.6)') zsh         !lyo:!wad:
       write(6,'('' cbcmin     = '',f10.6)') cbcmin
       write(6,'('' cbcmax     = '',f10.6)') cbcmax
       write(6,'('' horcon     = '',f10.3)') horcon
@@ -594,6 +755,7 @@ C
       write(6,'('' ispadv     = '',i10)') ispadv
       write(6,'('' smoth      = '',f10.4)') smoth
       write(6,'('' alpha      = '',f10.4)') alpha
+      write(6,'('' tidamp     = '',f10.4)') tidamp
 C
 C-----------------------------------------------------------------------
 C
@@ -602,15 +764,11 @@ C
       do i=1,im
         vabn(i)=0.e0
         vabs(i)=0.e0
-        uabn(i)=0.e0        ! rwnd:
-        uabs(i)=0.e0        !     :
-        eln(i)=0.e0
-        els(i)=0.e0
+        eln(i)=0.e0     !lyo:!wad:note:keep=0.e0 inst. of -hhi
+        els(i)=0.e0     ! .. redefined later in wadseamount etc.
         do k=1,kb
           vbn(i,k)=0.e0
           vbs(i,k)=0.e0
-          ubn(i,k)=0.e0     ! rwnd:
-          ubs(i,k)=0.e0     !     :
           tbn(i,k)=0.e0
           tbs(i,k)=0.e0
           sbn(i,k)=0.e0
@@ -621,15 +779,11 @@ C
       do j=1,jm
         uabe(j)=0.e0
         uabw(j)=0.e0
-        vabw(j)=0.e0        ! rwnd:
-        vabe(j)=0.e0        !     :
-        ele(j)=0.e0
-        elw(j)=0.e0
+        ele(j)=0.e0     !lyo:!wad:note:keep=0.e0 inst. of -hhi
+        elw(j)=0.e0     ! .. redefined later in wadseamount etc.
         do k=1,kb
           ube(j,k)=0.e0
           ubw(j,k)=0.e0
-          vbe(j,k)=0.e0     ! rwnd:
-          vbw(j,k)=0.e0     !     :
           tbe(j,k)=0.e0
           tbw(j,k)=0.e0
           sbe(j,k)=0.e0
@@ -646,9 +800,9 @@ C
         do i=1,im
           uab(i,j)=0.e0
           vab(i,j)=0.e0
-          elb(i,j)=0.e0
-          etb(i,j)=0.e0
-          e_atmos(i,j)=0.e0
+          elb(i,j)=0.e0     !lyo:!wad:note:keep=0.e0 inst. of -hhi
+          etb(i,j)=0.e0     ! .. redefined later in wadseamount etc.
+          e_atmos(i,j)=0.e0 !lyo:!wad:note:=0.e0 is correct
           vfluxb(i,j)=0.e0
           vfluxf(i,j)=0.e0
           wusurf(i,j)=0.e0
@@ -666,7 +820,6 @@ C
           do i=1,im
             ub(i,j,k)=0.e0
             vb(i,j,k)=0.e0
-            aam(i,j,k)=aam_init         ! rwnd : / killing pom2k_bug as ??? said /
           end do
         end do
       end do
@@ -675,12 +828,11 @@ C-----------------------------------------------------------------------
 C
 C     Set up sigma layers:
 C
-      if(iproblem.lt.3) call depth
+      if(iproblem.ne.3) call depth
 C
 C-----------------------------------------------------------------------
 C
 C     Read in grid data, and initial and lateral boundary conditions:
-      time = time0
 C
       if(iproblem.eq.1) then
         call seamount
@@ -688,34 +840,34 @@ C
         call box
       else if(iproblem.eq.3) then
         call file2ic
-      else if(iproblem.eq.11) then  !rwnd:
-        call ncdf2ic                !    :
-      else if(iproblem.eq.71) then  !    :
-        call cortes                 !    :
+      else if(iproblem.eq.41) then  !lyo:!wad:
+        call wadseamount
       else
         write(6,8)
     8   format(/' Invalid value of iproblem ..... program terminated'/)
         stop
       endif
+!
+!lyo:_20080415:
+!     Make sure that wetmask = fsm for non-WAD runs:
+      if (nwad.eq.0) then
+         wetmask(:,:)=fsm(:,:)
+         endif
+!
 C
 C     Inertial period for temporal filter:
 C
-      period=(2.e0*pi)/abs(cor(im/2,jm/2))/86400.e0
+!lyo:_20080415:
+      if (cor(im/2,jm/2).ne.0.0) then
+         period=(2.e0*pi)/abs(cor(im/2,jm/2))/86400.e0
+      else
+         period=1.0  !set to 1day
+         endif
 C
 C     Initialise time:
 C
-!      time0=0.e0       ! Do not initialise time0 here since we already set it in params
-!      time=0.e0
-C
-      ncptime=0                     ! rwnd:
-C     Initialize read flags:        !     :
-      rf_ts    = 0  ! bry T and S   !     :
-      rf_sts   = 0  ! SST and SSS   !     :
-      rf_uv    = 0  ! bry u and v   !     :
-      rf_swrad = 0  !               !     :
-      rf_wtsur = 0  !               !     :
-      rf_wsurf = 0  !               !     :
-      rf_el    = 0  !               !     :
+      time0=0.e0
+      time=0.e0
 C
 C     Initial conditions:
 C
@@ -727,8 +879,8 @@ C
         do j=1,jm
           ua(i,j)=uab(i,j)
           va(i,j)=vab(i,j)
-          el(i,j)=elb(i,j)
-          et(i,j)=etb(i,j)
+          el(i,j)=elb(i,j)  !lyo:!wad:note:already defined
+          et(i,j)=etb(i,j)  !          in wadseamount w/hhi etc
           etf(i,j)=et(i,j)
           d(i,j)=h(i,j)+el(i,j)
           dt(i,j)=h(i,j)+et(i,j)
@@ -749,6 +901,7 @@ C
           end do
         end do
       end do
+      if (horcon.le.0.0) aam(:,:,:)=-horcon  !lyo:_20080415:
 C
       do k=1,kbm1
         do i=1,im
@@ -765,11 +918,7 @@ C
 C
       call dens(s,t,rho)
 C
-      if (npg.eq.1) then
-        call baropg
-      else
-        call baropg_mcc
-      end if
+      call baropg
 C
       do k=1,kbm1
         do j=1,jm
@@ -780,11 +929,24 @@ C
         end do
       end do
 C
-C     Calculate bottom friction coefficient:
-C
+!lyo:!wad:cbc_change:begins:-------------------------------------------!
+!                                                                      !
+!----------------------------------------------------------------------!
+!     Calculate bottom friction coefficient:                           !
+!     ... see O2006, Appendix A; also Mellor,JPO,2002:Osc.Blayer...    !
+!----------------------------------------------------------------------!
+!                                                                      !
       do j=1,jm
         do i=1,im
-          cbc(i,j)=(kappa/log((1.e0+zz(kbm1))*h(i,j)/z0b))**2
+          cbc(i,j)=cbcmin
+!         cbc(i,j)=(kappa/log((1.e0+zz(kbm1))*h(i,j)/z0b))**2
+          cbc(i,j)=(kappa/log((zsh+(1.e0+zz(kbm1))*d(i,j))/z0b))**2
+!lyo:!wad:lyo's originals:---------------------------------------------!
+!vers.1:  cbc(i,j)=(kappa/log((zsh+(zz(kbm1)-z(kb))*d(i,j))/z0b))**2   !
+!vers.2:  cbc(i,j)=max(cbcmin,                                         !
+!    $        (kappa/log((zsh+(zz(kbm1)-z(kb))*d(i,j))/z0b))**2)       !
+!lyo:!wad:lyo's originals:---------------------------------------------!
+!
           cbc(i,j)=max(cbcmin,cbc(i,j))
 C
 C     If the following is invoked, then it is probable that the wrong
@@ -793,13 +955,17 @@ C
           cbc(i,j)=min(cbcmax,cbc(i,j))
         end do
       end do
+!lyo:!wad:cbc_change:ends:---------------------------------------------!
 C
 C     Calculate external (2-D) CFL time step:
 C
+!lyo:_20080415:
+      cflmin=1.e10
       do j=1,jm
         do i=1,im
           tps(i,j)=0.5e0/sqrt(1.e0/dx(i,j)**2+1.e0/dy(i,j)**2)
      $               /sqrt(grav*(h(i,j)+small))*fsm(i,j)
+          if (fsm(i,j).ne.0.0) cflmin=min(cflmin,tps(i,j)) !lyo:_20080415:
         end do
       end do
 C
@@ -809,16 +975,13 @@ C     The following data are needed for a seamless restart. if nread=1,
 C     data had been created by a previous run (see write(71) at end of
 C     this program). nread=0 denotes a first time run.
 C
-      if(nread.eq.1) then
-        open(70, file=trim(pth_wrk)//trim(ptf_rst), action='read'
-     $          ,form='unformatted')
-        read(70) time0,
+      if(nread.eq.1)
+     $  read(70) time0,
      $           wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
      $           utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,
      $           adx2d,ady2d,advua,advva,
      $           km,kh,kq,l,q2,q2b,aam,q2l,q2lb
-        close(70)
-      end if
+     $          ,wetmask,wmarsh   !lyo:!wad:
 C
       do j=1,jm
         do i=1,im
@@ -827,76 +990,124 @@ C
         end do
       end do
 C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Update cbc:                                                  !
+!                                                                      !
+      cbc(:,:)=cbcmin      !lyo:_20080415:
+      if (mode.ne.2) then  !lyo:_20080415:
+      do j=1,jm
+        do i=1,im
+!         cbc(i,j)=cbcmin  !lyo:_20080415:
+          cbc(i,j)=(kappa/log((zsh+(1.e0+zz(kbm1))*d(i,j))/z0b))**2
+          cbc(i,j)=max(cbcmin,cbc(i,j))
+          cbc(i,j)=min(cbcmax,cbc(i,j))
+        end do
+      end do
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
+!
       time=time0
+C
+C-----------------------------------------------------------------------
+C
+C     Print geometry and other initial fields (select statements as
+C     desired):
+C
+      call prxy('grid increment in x, dx                 ',
+     $          time,dx ,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('grid increment in y, dy                 ',
+     $          time,dy ,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Easting of elevation points, east_e     ',
+     $          time,east_e ,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Northing of elevation points, north_e   ',
+     $          time,north_e,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Easting of cell corners, east_c         ',
+     $          time,east_c ,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Northing of cell corners, north_c       ',
+     $          time,north_c,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Rotation angle of x-axis wrt. east, rot ',
+     $          time,rot,im,iskp,jm,jskp,0.e0)
+C
+      call prxy('Undisturbed water depth, h              ',
+     $          time,h  ,im,iskp,jm,jskp,1.e1)
+C
+      call prxy('Land mask, fsm                          ',     !lyo:!wad:
+     $          time,fsm,im,iskp,jm,jskp,1.e0)
+C
+      call prxy('Wet & dry mask, wetmask                 ',     !lyo:!wad:
+     $          time,wetmask,im,iskp,jm,jskp,1.e0)
+C
+      call prxy('u-velocity mask, dum                    ',
+     $          time,dum,im,iskp,jm,jskp,1.e0)
+C
+      call prxy('v-velocity mask, dvm                    ',
+     $          time,dvm,im,iskp,jm,jskp,1.e0)
+C
+      write(6,'('' Min CFL Time-step, cflmin = '',f10.4)') cflmin !lyo:_20080415:
+
+      call prxy('External (2-D) CFL time step, tps       ',
+     $          time,tps,im,iskp,jm,jskp,1.e0)
+C
+      call prxy('Bottom friction coefficient, cbc        ',     !lyo:!wad:
+     $          time,cbc,im,iskp,jm,jskp,0.e0)
+C
+C     Set sections for output:
+C
+      ko(1)=1
+      ko(2)=kb/2
+      ko(3)=kb-1
+C
+      call prxyz('Horizontally-averaged rho, rmean        ',
+     $           time,rmean,im,iskp,jm,jskp,kb,ko,3,1.e-5)
+C
+C     Set sections for output:
+C
+      jo(1)=1
+      jo(2)=jm/2
+      jo(3)=jm-1
+C
+      call prxz('Horizontally-averaged rho, rmean        ',
+     $          time,rmean,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
+C
+C     Set sections for output:
+C
+      io(1)=1
+      io(2)=im/2
+      io(3)=im-1
+C
+      call pryz('Horizontally-averaged rho, rmean        ',
+     $          time,rmean,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
 C
 C-----------------------------------------------------------------------
 C
 C     Initial conditions:
 C
-!     Update boundary conditions:
-      call upd_mnth
-      if (nbct.eq.2.or.nbct.eq.4) call flux(3)                 ! rwnd: swrad
-      if (nbct.eq.1.or.nbct.eq.2.or.nbct.eq.4) call flux(4)    ! rwnd: wtsurf
-      if (nbct.eq.3.or.nbct.eq.4) call bry(45)                 ! 43 - SST and SSS; 45 - 1st layer T and S
-      if (bcf%wnd) call flux(52)     ! rwnd: wusurf
-!<      call bry(2)       ! rwnd: el
-!<      call bry(3)       !     : u & ua
-      call bry(4)       !     : ts
+C     Select print statements in printall as desired:
 C
-      call ic2ncdf                  ! rwnd:
-C
-      ncptime = ncptime+1           ! rwnd:
-      call ncflush(ncptime)         !     :
-      !call ncTgtFlush(49)           !     :
-      filename = trim(pth_wrk)//trim(pth_out)//
-     $             trim(title)//"_tgt.csv"
-      open(49, file=filename)
-      call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
+      call printall
 C
 C-----------------------------------------------------------------------
 C
 C     Initialise netCDF output and output initial set of data:
 C
         if(netcdf_file.ne.'nonetcdf') then
-c     call write_netcdf(netcdf_file,1)                        ! *netCDF*
-c     call write_netcdf(netcdf_file,2)                        ! *netCDF*
+      call write_netcdf(netcdf_file,1)                        ! *netCDF*
+      call write_netcdf(netcdf_file,2)                        ! *netCDF*
         endif
 C
 C-----------------------------------------------------------------------
-!
-      if (dbg_lvl.eq.10) then
-        call debug_write_xy(aam2d, "aam2d", 0)
-        call debug_write_xy(advua, "advua", 0)
-        call debug_write_xy(advva, "advva", 0)
-        call debug_write_xy(adx2d, "adx2d", 0)
-        call debug_write_xy(ady2d, "ady2d", 0)
-        call debug_write_xy(d,     "d"    , 0)
-        call debug_write_xy(dt,    "dt"   , 0)
-        call debug_write_xy(drx2d, "drx2d", 0)
-        call debug_write_xy(dry2d, "dry2d", 0)
-        call debug_write_xy(egf,   "egf",   0)
-        call debug_write_xy(el,    "el",    0)
-        call debug_write_xy(elb,   "elb",   0)
-        call debug_write_xy(elf,   "elf",   0)
-        call debug_write_xy(et,    "et",    0)
-        call debug_write_xy(etb,   "etb",   0)
-        call debug_write_xy(etf,   "etf",   0)
-        call debug_write_xy(egf,   "egf",   0)
-        call debug_write_xy(fluxua,"fluxua",0)
-        call debug_write_xy(fluxva,"fluxva",0)
-      end if
-!
-!      write(*,*) time, " [", iprint, "]"    ! rwnd: TODO: remove from `production` or always output to file
-      call cpu_time(slice_s)
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
-!        write(*,*) "** ",iint," / ", iend, " **"
-C
         time=dti*float(iint)/86400.e0+time0
-!
-        call upd_mnth   ! rwnd: Update month for BC reading
 C
         if(lramp) then
           ramp=time/period
@@ -905,10 +1116,6 @@ C
           ramp=1.e0
         endif
 C
-!
-        if (time.ge.dbg_off) dbg_step = dbg_step + 1
-        dbg_seq_i = 0
-!
 C       write(6,2) mode,iint,time
 C   2   format(' mode,iint,time =',2i5,f9.2)
 C
@@ -918,30 +1125,6 @@ C     Set time dependent, surface and lateral boundary conditions.
 C     The latter will be used in subroutine bcond. Users may
 C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
-        if (nbct.eq.2.or.nbct.eq.4) call flux(3)            ! rwnd: swrad
-        if (nbct.eq.1.or.nbct.eq.2.or.nbct.eq.4) call flux(4)    ! rwnd: wtsurf
-        if (nbct.eq.3.or.nbct.eq.4) call bry(45)  ! 43 - SST and SSS
-        if (bcf%wnd) call flux(52) !   51 - 2000 4xDaily; 52 - Climatological Daily
-!<        call bry(2)     ! elevation BC
-!<        call bry(3)     ! u,v BC
-        call bry(4)     ! t,s BC
-!
-        if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-          call debug_write_xy(swrad,  "swrad",  dbg_step)
-          call debug_write_xy(wtsurf, "wtsurf", dbg_step)
-          call debug_write_xy(tsurf,  "tsurf",  dbg_step)
-          call debug_write_xy(ssurf,  "ssurf",  dbg_step)
-          call debug_write_xy(wusurf, "wusurf", dbg_step)
-          call debug_write_xy(wvsurf, "wvsurf", dbg_step)
-          call debug_write_xy(elb,    "elb",    dbg_step)
-          call debug_write_x(uabs,   "uabs",   dbg_step)
-          call debug_write_x(vabs,   "vabs",   dbg_step)
-          call debug_write_xz(ubs,    "ubs",    dbg_step)
-          call debug_write_xz(vbs,    "vbs",    dbg_step)
-          call debug_write_xz(tbs,    "tbs",    dbg_step)
-          call debug_write_xz(sbs,    "sbs",    dbg_step)
-        end if
-!
 C
 C     Introduce simple wind stress. Value is negative for westerly or
 C     southerly winds. The following wind stress has been tapered
@@ -950,19 +1133,17 @@ C     near the boundary (Jamart and Ozer, J.G.R., 91, 10621-10631).
 C     To make a healthy surface Ekman layer, it would be well to set
 C     kl1=9.
 C
-      if (iproblem.ne.11) then
         do j=2,jmm1
           do i=2,imm1
 c
-      if((iproblem.ne.3).and.(iproblem.ne.11)
-     $ .and.(iproblem.ne.71)) then     ! constant wind read in file2ic ! RWND[+]/ additional condition for iproblem={11,71} /
+      if(iproblem.ne.3) then     ! constant wind read in file2ic
 c
 c           wusurf(i,j)=ramp*(1.e-4*cos(pi*(j-1)/jmm1))
-            wusurf(i,j)=1.00*(1.e-4*cos(pi*(j-1)/jmm1))
-     $                    *.25e0*(dvm(i,j+1)+dvm(i-1,j+1)
-     $                          +dvm(i-1,j)+dvm(i,j))
+!           wusurf(i,j)=1.00*(1.e-4*cos(pi*(j-1)/jmm1))
+!    $                    *.25e0*(dvm(i,j+1)+dvm(i-1,j+1)
+!    $                          +dvm(i-1,j)+dvm(i,j))
 C --- no wind ----
-c           wusurf(i,j)=0.e0
+            wusurf(i,j)=0.e0  !lyo:_20080415:
             wvsurf(i,j)=0.e0
        endif
             e_atmos(i,j)=0.e0
@@ -1001,8 +1182,10 @@ C
 C
           end do
         end do
-      end if
 C
+clyo:
+!     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
+c
 C-----------------------------------------------------------------------
 C
 C     Set lateral viscosity:
@@ -1020,22 +1203,9 @@ C                                     +.5*(du/dy+dv/dx)**2) )
 C
         if(mode.ne.2) then
           call advct(a,c,ee)
-          if (npg.eq.1) then
-            call baropg
-          else
-            call baropg_mcc
-          end if
+          call baropg
 C
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(advx,  "advx",  dbg_step)   ! rwnd:
-            call debug_write_xy(advy,  "advy",  dbg_step)   !     :
-            call debug_write_xy(drhox, "drhox", dbg_step)   !     :
-            call debug_write_xy(drhoy, "drhoy", dbg_step)   !     :
-
-            call debug_write_xy(uaf,   "uaf",   dbg_step)   ! rwnd:
-          end if
-!
+          if (horcon.gt.0.0) then !lyo:_20080415:
           do k=1,kbm1
             do j=2,jmm1
               do i=2,imm1
@@ -1051,11 +1221,7 @@ C
               end do
             end do
           end do
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_3d(aam,   "aam",   dbg_step)   !     :
-          end if
-!
+          endif  !if (horcon.gt.0.0) then !lyo:_20080415:
 C
 C     Form vertical averages of 3-D fields for use in external (2-D)
 C     mode:
@@ -1093,6 +1259,7 @@ C
 C
         endif
 C
+clyo:beg:changes by Tang et al.
         do j=1,jm
           do i=1,im
             egf(i,j)=el(i,j)*ispi
@@ -1109,25 +1276,35 @@ C
             vtf(i,j)=va(i,j)*(d(i,j)+d(i,j-1))*isp2i
           end do
         end do
-!
-        if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-          call debug_write_xy(advua, "advua", dbg_step)   ! rwnd:
-          call debug_write_xy(advva, "advva", dbg_step)   !     :
-          call debug_write_xy(adx2d, "adx2d", dbg_step)   !     :
-          call debug_write_xy(ady2d, "ady2d", dbg_step)   !     :
-          call debug_write_xy(egf,   "egf",   dbg_step)   !     :
-          call debug_write_xy(utf,   "utf",   dbg_step)   !     :
-          call debug_write_xy(vtf,   "vtf",   dbg_step)   !     :
-        end if
-!
+clyo:end:
 C
 C-----------------------------------------------------------------------
 C
+clyomoving:decide to skip wriv & wmarsh for now; wriv in particular
+c     needs to make consistent with vflux
+
+
         do 8000 iext=1,isplit    ! Begin external (2-D) mode
 C
 C         write(6,3) iext,time
 C   3     format(' iext,time =',i5,f9.2)
 C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Water depth can be solved by Smolarkiewicz to prevent oscil. !
+!                                                                      !
+!     nsmolar=1 case (for wet-and-dry runs with nwad=1) is             !
+!     incomplete, and should NOT be used                               !
+!                                                                      !
+      if (nsmolar.eq.1 .and. mode.eq.2) then  !lyo:_20080415:
+      dd0(:,:)=h(:,:)+ el(:,:)*fsm(:,:)
+      ddb(:,:)=h(:,:)+elb(:,:)*fsm(:,:)
+      tps(:,:)=0.0           !aam2d(:,:)
+      call wadadvt2d(ddb,dd0,ddf,nitera,sw,dx,dy,ua,va,art,aru,arv,
+     1    fsm,dum,dvm,tps,dte2)
+      elf(:,:)=ddf(:,:)-h(:,:)
+      else
+!
           do j=2,jm
             do i=2,im
               fluxua(i,j)=.25e0*(d(i,j)+d(i-1,j))
@@ -1136,15 +1313,6 @@ C
      $                     *(dx(i,j)+dx(i,j-1))*va(i,j)
             end do
           end do
-!
-        if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-          call debug_write_xy(fluxua,"fluxua",dbg_step)   ! rwnd:
-          call debug_write_xy(fluxva,"fluxva",dbg_step)   !     :
-          call debug_write_xy(art,   "art",   dbg_step)   !     :
-          call debug_write_xy(elb,   "elb",   dbg_step)   !     :
-          call debug_write_xy(vfluxf,"vfluxf",dbg_step)   !     :
-        end if
-!
 C
 C     NOTE addition of surface freshwater flux, w(i,j,1)=vflux, compared
 C     with pom98.f. See also modifications to subroutine vertvl.
@@ -1157,38 +1325,41 @@ C
      $                          -vfluxf(i,j))
             end do
           end do
+!                                                                      !
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
 C
-!
-          if ((dbg_lvl.ge.3).and.(time.ge.dbg_off)) then
-            call debug_write_txt_xy(elf,   "elf",   dbg_step)   ! rwnd:
-            call debug_write_txt_xy(fluxua,"fluxua",dbg_step)   ! rwnd:
-            call debug_write_txt_xy(fluxva,"fluxva",dbg_step)   !     :
-            call debug_write_txt_xy(va,    "va",    dbg_step)   !     :
-            call debug_write_txt_xy(elb,   "elb",   dbg_step)   !     :
-          end if
-!
           call bcond(1)
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(elf,"elf",dbg_step)   ! rwnd:
-          end if
-!
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Check wet/dry on ELF:                                        !
+!                                                                      !
+      if (nwad.eq.1) then
+      do j=1,jm; do i=1,im
+      DWET(I,J)=H(I,J)+ELF(I,J)*fsm(i,j)
+      enddo; enddo
+      do j=1,jm; do i=1,im
+      wetmask(i,j)=fsm(i,j)
+      if (dwet(i,j).le.hc) wetmask(i,j)=0.0
+      enddo; enddo
+      if (wadsmoth.gt.0.0) then
+!     Smooth isolated wet spots:                                       !
+      do j=1,jm; do i=1,im
+      if( (wetmask(i,j) .gt.
+     $    (wetmask(i-1,j)+wetmask(i+1,j)+wetmask(i,j-1)+wetmask(i,j+1)))
+     $    .and. (dwet(i,j).le.hc*(1.e0+wadsmoth)) ) then
+!    $    .and. (dwet(i,j).le.hc*1.01) ) then
+         wetmask(i,j)=0.0
+!        elf(i,j)=elb(i,j); dwet(i,j)=h(i,j)+elf(i,j)*fsm(i,j)
+         endif
+      enddo; enddo
+      endif
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
           if(mod(iext,ispadv).eq.0) call advave(tps)
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(adx2d,"adx2d",dbg_step)   ! rwnd:
-            call debug_write_xy(advua,"advua",dbg_step)   ! rwnd:
-            call debug_write_xy(va,"va",dbg_step)   ! rwnd:
-            call debug_write_xy(el,"el",dbg_step)   ! rwnd:
-            call debug_write_xy(elb,"elb",dbg_step)   ! rwnd:
-            call debug_write_xy(e_atmos,"e_atmos",dbg_step)   ! rwnd:
-            call debug_write_xy(drx2d,"drx2d",dbg_step)   ! rwnd:
-            call debug_write_xy(wusurf,"wusurf",dbg_step)   ! rwnd:
-            call debug_write_xy(wubot,"wubot",dbg_step)   ! rwnd:
-            call debug_write_xy(uab,"uab",dbg_step)   ! rwnd:
-            call debug_write_xy(uaf,"uaf",dbg_step)   ! rwnd:
-          end if
-!
 C
           do j=2,jmm1
             do i=2,im
@@ -1243,19 +1414,7 @@ C
             end do
           end do
 C
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(uaf,"uaf",dbg_step)   ! rwnd:
-            call debug_write_xy(vaf,"vaf",dbg_step)   ! rwnd:
-          end if
-!
           call bcond(2)
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(uaf,"uaf",dbg_step)   ! rwnd:
-            call debug_write_xy(vaf,"vaf",dbg_step)   ! rwnd:
-          end if
-!
 C
           if(iext.eq.(isplit-2))then
             do j=1,jm
@@ -1280,12 +1439,32 @@ C
               end do
             end do
 C
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(etf,"etf",dbg_step)   ! rwnd:
-          end if
-!
           endif
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Check wet/dry on UAF & VAF:                                  !
+!                                                                      !
+      if (nwad.eq.1) then
+      do j=1,jm; do i=2,im
+      if (0.5*(dwet(i,j)+dwet(i-1,j)).le.hc) then
+      uaf(i,j)=0.0
+      else                      !Set flux=0 if coming from dry cell:
+      if (wetmask(i-1,j).eq.0.0 .and. uaf(i,j).gt.0.0) uaf(i,j)=0.0
+      if (wetmask(i,j)  .eq.0.0 .and. uaf(i,j).lt.0.0) uaf(i,j)=0.0
+      endif
+      enddo; enddo
+!
+      do j=2,jm; do i=1,im
+      if (0.5*(dwet(i,j)+dwet(i,j-1)).le.hc) then
+      vaf(i,j)=0.0
+      else                      !Set flux=0 if coming from dry cell:
+      if (wetmask(i,j-1).eq.0.0 .and. vaf(i,j).gt.0.0) vaf(i,j)=0.0
+      if (wetmask(i,j)  .eq.0.0 .and. vaf(i,j).lt.0.0) vaf(i,j)=0.0
+      endif
+      enddo; enddo
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
 C
 C     Stop if velocity condition violated (generally due to CFL
 C     criterion not being satisfied):
@@ -1323,19 +1502,25 @@ C
                 va(i,j)=vaf(i,j)
               end do
             end do
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Update cbc:                                                  !
+!                                                                      !
+      if (mode.ne.2) then  !lyo:_20080415:
+      do j=1,jm
+        do i=1,im
+          cbc(i,j)=cbcmin
+          cbc(i,j)=(kappa/log((zsh+(1.e0+zz(kbm1))*d(i,j))/z0b))**2
+          cbc(i,j)=max(cbcmin,cbc(i,j))
+          cbc(i,j)=min(cbcmax,cbc(i,j))
+        end do
+      end do
+      endif
+!                                                                      !
+!----------------------------------------------------------------------!
 !
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_xy(ua, "ua", dbg_step)   ! rwnd:
-              call debug_write_xy(va, "va", dbg_step)   ! rwnd:
-              call debug_write_xy(uab,"uab",dbg_step)   ! rwnd:
-              call debug_write_xy(vab,"vab",dbg_step)   ! rwnd:
-              call debug_write_xy(el, "el", dbg_step)   ! rwnd:
-              call debug_write_xy(elb,"elb",dbg_step)   ! rwnd:
-              call debug_write_xy(d,  "d",  dbg_step)   ! rwnd:
-            end if
-!
-C
             if(iext.ne.isplit) then
+clyo:beg:changes by Tang et al.
               do j=1,jm
                 do i=1,im
                   egf(i,j)=egf(i,j)+el(i,j)*ispi
@@ -1351,13 +1536,8 @@ C
                   vtf(i,j)=vtf(i,j)+va(i,j)*(d(i,j)+d(i,j-1))*isp2i
                 end do
               end do
+clyo:end:
             endif
-!
-            if ((dbg_lvl.ge.3).and.(time.ge.dbg_off)) then
-              call debug_write_txt_xy(ua,"ua",dbg_step)   ! rwnd:
-              call debug_write_txt_xy(va,"va",dbg_step)   ! rwnd:
-            end if
-!
 C
           endif
 C
@@ -1418,22 +1598,11 @@ C
                 end do
               end do
             end do
-!
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_3d(u,"u",dbg_step)   ! rwnd:
-              call debug_write_3d(v,"v",dbg_step)   ! rwnd:
-            end if
-!
 C
 C     vertvl calculates w from u, v, dt (h+et), etf and etb:
 C
             call vertvl(a,c)
             call bcond(5)
-!
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_3d(w,    "w",    dbg_step)   ! rwnd:
-            end if
-!
 C
 C
             do k=1,kb
@@ -1452,15 +1621,6 @@ C
             call advq(q2lb,q2l,vf,a,c)
             call profq(a,c,tps,dtef)
             call bcond(6)
-!
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_3d(w,    "w",    dbg_step)   ! rwnd:
-              call debug_write_3d(km,   "km",   dbg_step)   ! rwnd:
-              call debug_write_3d(kh,   "kh",   dbg_step)   ! rwnd:
-              call debug_write_3d(uf,   "q2",   dbg_step)   ! rwnd:
-              call debug_write_3d(vf,   "q2l",  dbg_step)   ! rwnd:
-            end if
-!
 C
             do k=1,kb
               do j=1,jm
@@ -1478,18 +1638,24 @@ C
                 end do
               end do
             end do
-!
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_3d(q2b, "q2b", dbg_step)   ! rwnd:
-              call debug_write_3d(q2,  "q2" , dbg_step)   ! rwnd:
-              call debug_write_3d(q2lb,"q2lb",dbg_step)   ! rwnd:
-              call debug_write_3d(q2l, "q2l", dbg_step)   ! rwnd:
-            end if
-!
 C
 C     Calculate tf and sf using uf, vf, a and c as temporary variables:
 C
             if(mode.ne.4) then
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:The followings prepare Oey's [1996] and Oey & Chen's [1992]  !
+!     implementations of river and temperature surface conditions      !
+!     i.e. using wriv -- but not implemented yet; they are not         !
+!     directly for WAD, but ssurfwet is required later for wad         !
+!                                                                      !
+            do j=1,jm
+               do i=1,im
+                 ssurfwet(i,j)=SSURF(i,j)*(1.-WRIV(i,j)/( WRIV(i,j)+
+     $                                                     1.E-28)  )
+               enddo
+            enddo
+!                                                                      !
 C
               if(nadv.eq.1) then
 C
@@ -1509,22 +1675,25 @@ C
                 stop
 C
               endif
-!
-              if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-                call debug_write_3d(uf, "t", dbg_step)   ! rwnd:
-                call debug_write_3d(vf, "s", dbg_step)   ! rwnd:
-              end if
-!
 C
               call proft(uf,wtsurf,tsurf,nbct,tps)
               call proft(vf,wssurf,ssurf,nbcs,tps)
               call bcond(4)
-!
-              if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-                call debug_write_3d(uf, "t", dbg_step)   ! rwnd:flag0
-                call debug_write_3d(vf, "s", dbg_step)   ! rwnd:
-              end if
-!
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Prepare dry-cell T/S "initial conditions" for next time-step !
+!                                                                      !
+           if (nwad.eq.1) then
+              do k=1,kb-1; do j=1,jm; do i=1,im
+                 if (wetmask(i,j).eq.0.0) then
+                    uf(i,j,k)=(cwetrlx1*tb(i,j,k)+cwetrlx2*tsurf(i,j)
+     $                        *fsm(i,j))
+                    vf(i,j,k)=(cwetrlx1*sb(i,j,k)+cwetrlx2*ssurfwet(i,j)
+     $                        *fsm(i,j))
+                 endif
+                 enddo; enddo; enddo
+           endif
+!----------------------------------------------------------------------!
 C
               do k=1,kb
                 do j=1,jm
@@ -1542,21 +1711,8 @@ C
                   end do
                 end do
               end do
-!
-              if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-                call debug_write_3d(t, "t", dbg_step)   ! rwnd:
-                call debug_write_3d(s, "s", dbg_step)   ! rwnd:
-                call debug_write_3d(tb,"tb",dbg_step)   ! rwnd:
-                call debug_write_3d(sb,"sb",dbg_step)   ! rwnd:
-              end if
-!
 C
               call dens(s,t,rho)
-!
-              if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-                call debug_write_3d(rho, "rho", dbg_step)   ! rwnd:
-              end if
-!
 C
             endif
 C
@@ -1567,12 +1723,21 @@ C
             call profu
             call profv
             call bcond(3)
-!
-              if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-                call debug_write_3d(uf, "uf", dbg_step)   ! rwnd:
-                call debug_write_3d(vf, "vf", dbg_step)   ! rwnd:
-              end if
-!
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Check wet/dry on UF & VF:                                    !
+!                                                                      !
+           if (nwad.eq.1) then
+              do k=1,kb-1
+                 do j=1,jm; do i=2,im
+                    if (wetmask(i,j)*wetmask(i-1,j).eq.0.0)uf(i,j,k)=0.0
+                    enddo; enddo
+                 do j=2,jm; do i=1,im
+                    if (wetmask(i,j)*wetmask(i,j-1).eq.0.0)vf(i,j,k)=0.0
+                    enddo; enddo
+              enddo
+           endif
+!----------------------------------------------------------------------!
 C
             do j=1,jm
               do i=1,im
@@ -1634,14 +1799,6 @@ C
                 end do
               end do
             end do
-!
-            if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-              call debug_write_3d(u, "u", dbg_step)   ! rwnd:
-              call debug_write_3d(v, "v", dbg_step)   ! rwnd:
-              call debug_write_3d(ub,"ub",dbg_step)   ! rwnd:
-              call debug_write_3d(vb,"vb",dbg_step)   ! rwnd:
-            end if
-!
 C
           endif
 C
@@ -1656,17 +1813,6 @@ C
               vfluxb(i,j)=vfluxf(i,j)
             end do
           end do
-!
-          if ((dbg_lvl.eq.10).and.(time.ge.dbg_off)) then
-            call debug_write_xy(egb,   "egb",   dbg_step)   ! rwnd:flag0
-            call debug_write_xy(etb,   "etb",   dbg_step)   ! rwnd:
-            call debug_write_xy(et,    "et",    dbg_step)   ! rwnd:
-            call debug_write_xy(dt,    "dt",    dbg_step)   ! rwnd:
-            call debug_write_xy(utb,   "utb",   dbg_step)   ! rwnd:
-            call debug_write_xy(vtb,   "vtb",   dbg_step)   ! rwnd:
-            call debug_write_xy(vfluxb,"vfluxb",dbg_step)   ! rwnd:
-          end if
-!
 C
         endif
 C
@@ -1676,27 +1822,21 @@ C     Beginning of print section:
 C
         if(iint.ge.iswtch) iprint=nint(prtd2*24.e0*3600.e0/dti)
 C
-        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then
-!          call ncTgtFlush(49)
-          call time2date(time, time_start, timestamp)
-          write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
-        end if
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
-          call cpu_time(slice_f)
-          write(6,4) time,iint,iext,iprint,(slice_f-slice_s)/60.
+          write(6,4) time,iint,iext,iprint
     4     format(/
      $    '**************************************************',
      $    '**************************************************',
      $    '*************************'//
-     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//
-     $    ' exectime =',f9.4,' minutes')
+     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//)
 C
 C     Select print statements in printall as desired:
 C
-          ncptime = ncptime+1           ! rwnd:
-          call ncflush(ncptime)         !     :
+          call printall
 C
+          call wadout  !lyo:!wad:
+!
           vtot=0.e0
           atot=0.e0
           taver=0.e0
@@ -1705,7 +1845,7 @@ C
           do k=1,kbm1
             do j=1,jm
               do i=1,im
-                darea=dx(i,j)*dy(i,j)*fsm(i,j)
+                darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
                 dvol=darea*dt(i,j)*dz(k)
                 vtot=vtot+dvol
                 taver=taver+tb(i,j,k)*dvol
@@ -1716,7 +1856,7 @@ C
 C
           do j=1,jm
             do i=1,im
-              darea=dx(i,j)*dy(i,j)*fsm(i,j)
+              darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
               atot=atot+darea
               eaver=eaver+et(i,j)*darea
             end do
@@ -1735,15 +1875,14 @@ C
 C     Write netCDF output:
 C
             if(netcdf_file.ne.'nonetcdf') then
-c         call write_netcdf(netcdf_file,2)                    ! *netCDF*
+          call write_netcdf(netcdf_file,2)                    ! *netCDF*
             endif
 C
           if(vamax.gt.vmaxl) then
 C
             write(6,4) time,iint,iext,iprint
 C
-            ncptime = ncptime+1         ! rwnd:
-            call ncflush(ncptime)       !     :
+            call printall
 C
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
@@ -1756,69 +1895,63 @@ C
 C     Close netCDF file:
 C
               if(netcdf_file.ne.'nonetcdf') then
-c           call write_netcdf(netcdf_file,3)                  ! *netCDF*
+            call write_netcdf(netcdf_file,3)                  ! *netCDF*
               endif
 C
             stop
 C
           endif
-
-          call cpu_time(slice_s)
 C
         endif
 C
 C     End of print section
 C
-C----------------------------------------------------------
-C
-C     Back up if needed
-C
-        if (mod(time,float(bkp_gap)).eq.0) then
-          if (iint.ne.iend) then
-            write(*,*) "[*] Backing up..."
-            open(71,file=trim(pth_wrk)//trim(pth_bkp)//
-     $              trim(title)//'.restart.bkp',
-     $              form='unformatted',position='rewind')
-            write(71) time,
-     $      wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
-     $      utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,adx2d,ady2d,advua,advva,
-     $      km,kh,kq,l,q2,q2b,aam,q2l,q2lb
-            close(71)
-          end if
-        end if
 C-----------------------------------------------------------------------
 C
  9000 continue       !  End of internal (3-D) mode
 C
 C-----------------------------------------------------------------------
 C
-!      call ncTgtFlush(49)
-      call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";", u(70,155,1), ";", v(70,155,1)
-      close(49)
-!
       write(6,4) time,iint,iext,iprint
+!
+            call printall !lyo:_20080415:final printing
+!
+C
+C     Set levels for output:
+C
+      ko(1)=1
+      ko(2)=2
+      ko(3)=kb/2
+      ko(4)=kb-1
+      ko(5)=kb
+C
+      call prxyz('Vertical velocity, w                    ',
+     $           time,w       ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
+C
+C     call prxyz('Turbulent kinetic energy x 2, q2        ',
+C    $           time,q2      ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
 C
 C     Save this data for a seamless restart:
 C
-      write(*,*) "[ ] Writing restart file..."                      ! rwnd:
-      open(71,file=trim(pth_wrk)//trim(pth_out)                     !     :
-     $             //trim(title)//'.restart',                       !     :
-     $             form='unformatted',position='rewind')            !     :
-      write(71) time,                                               !     :
-     $  wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,          !     :
-     $  utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,adx2d,ady2d,advua,advva,  !     :
-     $  km,kh,kq,l,q2,q2b,aam,q2l,q2lb                              !     :
-      close(71)                                                     !     :
-!
-      write(*,*) "[O] Simulations completed!"                       ! rwnd:
+clyo:
+!     call powsave
+c
+      write(71) time,
+     $  wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
+     $  utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,adx2d,ady2d,advua,advva,
+     $  km,kh,kq,l,q2,q2b,aam,q2l,q2lb
+     $ ,wetmask,wmarsh   !lyo:!wad:
 C
 C     Close netCDF file:
 C
         if(netcdf_file.ne.'nonetcdf') then
-c     call write_netcdf(netcdf_file,3)                        ! *netCDF*
+      call write_netcdf(netcdf_file,3)                        ! *netCDF*
         endif
 C
+!lyo:!wad:print final successful completion:
+      write(6,10) time
+   10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days')
+!
       stop
 C
       end
@@ -1836,7 +1969,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real curv2d(im,jm)
       integer i,j
@@ -2020,7 +2153,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real xflux(im,jm,kb),yflux(im,jm,kb)
       real curv(im,jm,kb)
@@ -2224,7 +2357,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real qb(im,jm,kb),q(im,jm,kb),qf(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2298,7 +2431,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2440,7 +2573,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2638,7 +2771,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer i,j,k
 C
@@ -2712,7 +2845,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer i,j,k
 C
@@ -2784,7 +2917,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer i,j
 C
@@ -2815,56 +2948,44 @@ C
         arv(i,1)=arv(i,2)
       end do
 C
-C     Initialise and set up free surface mask:
+C     Initialise and set up free surface mask if no WAD: !lyo:!wad:
 C
-!      do j=1,jm
-!        do i=1,im
-!          fsm(i,j)=0.e0
-!          dum(i,j)=0.e0
-!          dvm(i,j)=0.e0
-!          if(h(i,j).gt.1.e0) fsm(i,j)=1.e0
-!        end do
-!      end do
-!C
-!C     Set up velocity masks:
-!C
-!      do j=2,jm
-!        do i=2,im
-!          dum(i,j)=fsm(i,j)*fsm(i-1,j)
-!          dvm(i,j)=fsm(i,j)*fsm(i,j-1)
-!        end do
-!      end do
-!!      dum(2:im,1) = 1.     ! rwnd:
-!!      dvm(1,2:jm) = 1.     !     :
+      if (nwad.eq.0) then !lyo:!wad:
 !
-!    I guess I was right about i=j=1 borders. The code below is from pom08-wad.
-      do j=1,jm
-        do i=1,im
-          fsm(i,j) = 1.
-          dum(i,j) = 1.
-          dvm(i,j) = 1.
-          if (h(i,j)<=1.) then
-            h(i,j)   = 1.
-            fsm(i,j) = 0.
-            dum(i,j) = 0.
-            dvm(i,j) = 0.
-          end if
-        end do
-      end do
-!    Close southwest corner.
-!      fsm(1,1) = 0.
+!     do j=1,jm
+!       do i=1,im
+!         fsm(i,j)=0.e0
+!         dum(i,j)=0.e0
+!         dvm(i,j)=0.e0
+!         if(h(i,j).gt.1.e0) fsm(i,j)=1.e0
+!       end do
+!     end do
+C
+C     Set up velocity masks:
+C
+!     do j=2,jm
+!       do i=2,im
+!         dum(i,j)=fsm(i,j)*fsm(i-1,j)
+!         dvm(i,j)=fsm(i,j)*fsm(i,j-1)
+!       end do
+!     end do
 !
-      do j=1,jmm1
-        do i=1,im
-          if (fsm(i,j)==0..and.fsm(i,j+1)/=0.) dvm(i,j+1) = 0.
-        end do
-      end do
-      do j=1,jm
-        do i=1,im-1
-          if (fsm(i,j)==0..and.fsm(i+1,j)/=0.) dum(i+1,j) = 0.
-        end do
-      end do
+!lyo:_20080415:the above original pom2k version does NOT define dum & dvm
+!     along i=j=1; use the folliwngs (from subroutine wadh).
+      do j=1,jm; do i=1,im
+      FSM(I,J)=1.; DUM(I,J)=1.; DVM(I,J)=1.
+      IF(h(I,J).LE.1.0)THEN
+      h(I,J)=1.0; FSM(I,J)=0.; DUM(I,J)=0.; DVM(I,J)=0.
+      ENDIF
+      enddo; enddo
+      DO J=1,JM-1; DO I=1,IM
+      IF(FSM(I,J).EQ.0..AND.FSM(I,J+1).NE.0.)DVM(I,J+1)=0.
+      enddo; enddo
+      DO J=1,JM;   DO I=1,IM-1
+      IF(FSM(I,J).EQ.0..AND.FSM(I+1,J).NE.0.)DUM(I+1,J)=0.
+      enddo; enddo
 !
+      endif   !if (nwad.eq.0) then       !lyo:!wad:
 C
       return
 C
@@ -2879,7 +3000,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer i,j,k
 C
@@ -2982,204 +3103,7 @@ C
 C
       end
 C
-      subroutine baropg_mcc
-!-----------------------------------------------------------------------
-!
-!  FUNCTION: Calculates  baroclinic pressure gradient (from sbPOM)
-!            4th order correction terms, following McCalpin
-!
-!-----------------------------------------------------------------------
-      implicit none
-      include 'pom2k.c'
-      integer i,j,k
-      real d4(im,jm),ddx(im,jm),drho(im,jm,kb),rhou(im,jm,kb)
-
-      do k=1,kb
-        do j=1,jm
-          do i=1,im
-            rho(i,j,k)=rho(i,j,k)-rmean(i,j,k)
-          end do
-        end do
-      end do
-
-! compute terms correct to 4th order
-      do i=1,im
-        do j=1,jm
-          ddx(i,j)=0.
-          d4(i,j)=0.
-        end do
-      end do
-      do k=1,kb
-        do j=1,jm
-          do i=1,im
-            rhou(i,j,k)=0.
-            drho(i,j,k)=0.
-          end do
-        end do
-      end do
-
-! compute DRHO, RHOU, DDX and D4
-      do j=1,jm
-        do i=2,im
-          do k=1,kbm1
-            drho(i,j,k)=(rho(i,j,k)-rho(i-1,j,k))*dum(i,j)
-            rhou(i,j,k)=0.5*(rho(i,j,k)+rho(i-1,j,k))*dum(i,j)
-          end do
-          ddx(i,j)=(d(i,j)-d(i-1,j))*dum(i,j)
-          d4(i,j)=.5*(d(i,j)+d(i-1,j))*dum(i,j)
-        end do
-      end do
-
-        do j=1,jm
-          do i=2,imm1
-            do k=1,kbm1
-              drho(i,j,k)=drho(i,j,k) - (1./24.)*
-     $                    (dum(i+1,j)*(rho(i+1,j,k)-rho(i,j,k))-
-     $                    2*(rho(i,j,k)-rho(i-1,j,k))+
-     $                    dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
-              rhou(i,j,k)=rhou(i,j,k) + (1./16.)*
-     $                    (dum(i+1,j)*(rho(i,j,k)-rho(i+1,j,k))+
-     $                    dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
-            end do
-            ddx(i,j)=ddx(i,j)-(1./24.)*
-     $               (dum(i+1,j)*(d(i+1,j)-d(i,j))-
-     $               2*(d(i,j)-d(i-1,j))+
-     $               dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
-            d4(i,j)=d4(i,j)+(1./16.)*
-     $              (dum(i+1,j)*(d(i,j)-d(i+1,j))+
-     $              dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
-          end do
-        end do
-
-! calculate x-component of baroclinic pressure gradient
-      do j=2,jmm1
-        do i=2,imm1
-          drhox(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
-        end do
-      end do
-
-      do k=2,kbm1
-        do j=2,jmm1
-          do i=2,imm1
-            drhox(i,j,k)=drhox(i,j,k-1)
-     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
-     $                   *(drho(i,j,k-1)+drho(i,j,k))
-     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
-     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
-          end do
-        end do
-      end do
-
-      do k=1,kbm1
-        do j=2,jmm1
-          do i=2,imm1
-            drhox(i,j,k)=.25e0*(dt(i,j)+dt(i-1,j))
-     $                        *drhox(i,j,k)*dum(i,j)
-     $                        *(dy(i,j)+dy(i-1,j))
-          end do
-        end do
-      end do
-
-! compute terms correct to 4th order
-      do i=1,im
-        do j=1,jm
-          ddx(i,j)=0.
-          d4(i,j)=0.
-        end do
-      end do
-      do k=1,kb
-        do j=1,jm
-          do i=1,im
-            rhou(i,j,k)=0.
-            drho(i,j,k)=0.
-          end do
-        end do
-      end do
-
-! compute DRHO, RHOU, DDX and D4
-      do j=2,jm
-        do i=1,im
-          do k=1,kbm1
-            drho(i,j,k)=(rho(i,j,k)-rho(i,j-1,k))*dvm(i,j)
-            rhou(i,j,k)=.5*(rho(i,j,k)+rho(i,j-1,k))*dvm(i,j)
-          end do
-          ddx(i,j)=(d(i,j)-d(i,j-1))*dvm(i,j)
-          d4(i,j)=.5*(d(i,j)+d(i,j-1))*dvm(i,j)
-        end do
-      end do
-
-        do j=2,jmm1
-          do i=1,im
-            do k=1,kbm1
-              drho(i,j,k)=drho(i,j,k)-(1./24.)*
-     $                    (dvm(i,j+1)*(rho(i,j+1,k)-rho(i,j,k))-
-     $                    2*(rho(i,j,k)-rho(i,j-1,k))+
-     $                    dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
-              rhou(i,j,k)=rhou(i,j,k)+(1./16.)*
-     $                    (dvm(i,j+1)*(rho(i,j,k)-rho(i,j+1,k))+
-     $                    dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
-            end do
-            ddx(i,j)=ddx(i,j)-(1./24)*
-     $               (dvm(i,j+1)*(d(i,j+1)-d(i,j))-
-     $               2*(d(i,j)-d(i,j-1))+
-     $               dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
-            d4(i,j)=d4(i,j)+(1./16.)*
-     $              (dvm(i,j+1)*(d(i,j)-d(i,j+1))+
-     $              dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
-          end do
-        end do
-
-! calculate y-component of baroclinic pressure gradient
-      do j=2,jmm1
-        do i=2,imm1
-          drhoy(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
-        end do
-      end do
-
-      do k=2,kbm1
-        do j=2,jmm1
-          do i=2,imm1
-            drhoy(i,j,k)=drhoy(i,j,k-1)
-     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
-     $                   *(drho(i,j,k-1)+drho(i,j,k))
-     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
-     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
-          end do
-        end do
-      end do
-
-      do k=1,kbm1
-        do j=2,jmm1
-          do i=2,imm1
-            drhoy(i,j,k)=.25e0*(dt(i,j)+dt(i,j-1))
-     $                        *drhoy(i,j,k)*dvm(i,j)
-     $                        *(dx(i,j)+dx(i,j-1))
-          end do
-        end do
-      end do
-
-      do k=1,kb
-        do j=2,jmm1
-          do i=2,imm1
-            drhox(i,j,k)=ramp*drhox(i,j,k)
-            drhoy(i,j,k)=ramp*drhoy(i,j,k)
-          end do
-        end do
-      end do
-
-      do k=1,kb
-        do j=1,jm
-          do i=1,im
-            rho(i,j,k)=rho(i,j,k)+rmean(i,j,k)
-          end do
-        end do
-      end do
-
-      return
-      end
-
-!
-      subroutine bcond(idx) ! orig
+      subroutine bcond(idx)
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Applies open boundary conditions.                   *
@@ -3192,14 +3116,27 @@ C *                                                                    *
 C *                                The C-Grid                          *
 C *                                **********                          *
 C *                                                                    *
-C *                The diagram is for the case where u and v are the   *
-C *                primary boundary conditions together with t and     *
-C *                s (co-located with el)                              *
+C *                The diagram below and some of the text was provided *
+C *                by D.-S. Ko. It is for the case where u and v are   *
+C *                the primary boundary conditions together with t and *
+C *                s (co-located with e). e = el itself is rather      *
+C *                unimportant and is substituted from an adjacent     *
+C *                interior point.                                     *
 C *                                                                    *
+C *                The dotted line (.......) bounds the interior       *
+C *                (non-boundary) grid points. In general, only those  *
+C *                variables in the interior are computed and          *
+C *                variables at open boundary have to be specified.    *
 C *                All interpolations are centered in space except     *
 C *                those at lateral open boundary where an upstream    *
+C *                scheme is usually used. "BU" indictates a line of   *
+C *                points where the boundary conditions should be      *
+C *                specified.                                          *
+C *                                                                    *
 C *                Horizontal locations of e(el), t and s (etc.) are   *
-C *                coincident.                                         *
+C *                coincident. Unused points are indicated by "NU" and *
+C *                "*". However, for attractive output, adjacent       *
+C *                interior values may be filled in at these points.   *
 C *                                                                    *
 C *                People not acquainted with sigma coordinates have   *
 C *                often asked what kind of boundary condition is      *
@@ -3208,53 +3145,60 @@ C *                Although the issue is not as important as it might  *
 C *                be  for z-level grids, a direct answer is "half-    *
 C *                slip" which, of course, is between free slip and    *
 C *                non-slip.                                           *
+C *                                                                    **********
+C-------------------------------------------------------------------------------*
+C     |                               N O R T H                                 *
+C     |                                                                         *
+C     |    1     2     3           i-1   i    i+1         im-2  im-1   im       *
+C-----+-------------------------------------------------------------------------*
+C     |   NU BC BC                                                    BC BC     *
+C     |    v  v  v                                                     v  v     *
+C     |                                                                         *
+C     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
+C     |    |     |     |           |     |     |           |     |     |        *
+C  jm |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
+C     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
+C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C jm-1|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C jm-2|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+C     |            :                                                 :          *
+C W   |       .  . :.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .: .  .    E*
+C E   |            :                    INTERIOR                     :         A*
+C S   |       .    :.     .     .     .     .     .     .     .     .:    .    S*
+C T   |            :                                                 :         T*
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C   3 |    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+C     |    |     | :   |           |     |     |           |     |   : |        *
+C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+C     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
+C   2 |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
+C     |    |     |     |           |     |     |           |     |     |        *
+C     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
+C     |    |     |     |           |     |     |           |     |     |      --*
+C   1 |NU> +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v* <NU*
+C     |                                                                         *
+C     |    ^  ^  ^                                                     ^  ^     *
+C     |   NU BC BC                                                    BC BC     *
+C-----+-------------------------------------------------------------------------*
+C     |    1     2     3           i-1   i     i+1         im-2  im-1  im       *
+C     |                                                                         *
+C     |                                S O U T H                                *
+C-------------------------------------------------------------------------------*
+C                                                                               *
+C *******************************************************************************
 C
-C
-C East and West end points for the C-grid in POM.
-C
-C                      west
-C
-C           v(1,j+1)=0           v(2,j+1) . . . .
-C
-C     ----<---<----<-----
-C     |                 |
-C  u(1,j)   el(1,j)   u(2,j)=BC  el(2,j)   u(3,j) . . . .
-C             |                   |
-C             -----<----<----<-----
-C
-C           v(1,j)=0              v(2,j) . . . .
-C
-C                                                    east
-C
-C                              . . . .  v(im-1,j+1)           v(im,j+1)=0
-C
-C
-C                 . . .  .  u(im-1,j)   el(im-1,j)  u(im,j)=BC  el(im,j)
-C                                            |                   |
-C                                            ----->----->---->----
-C
-C                              . . . .   v(im-1,j)             v(im,j)=0
-C
-C  Notes:
-C    1. The suffixes, f  or af, have been deleted.
-C    2. All variables NOT designated as boundary condition (=BC) or set to
-C zero or obtained from an interior point are calculated points.
-C    3. u(1,j) is never used but is obtained from the interior point for
-C cosmetic output. Its counterpart, u(im+1,j), does not exist.
-C    4. v=0 at i=1 and i=im are used as open inflow BC's unless specified
-C otherwise.
-C    5. The south and north extremal points are obtained from the above by
-C permuting u to v, v to u, i to j and j to i.
-
-
-C **********************************************************************
-
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer idx
-      real ga,u1,wm
+      real ga,u1,wm,etide  !lyo:!wad:add etide
       integer i,j,k
 C
       if(idx.eq.1) then
@@ -3272,52 +3216,56 @@ C     result.
 C
 C     Elevation (in this application, elevation is not a primary
 C     boundary condition):
-!     Уровень на границе (в данной реализации не является "подаваемым" условием);
 C
-!     Уровень внутренних граничных точек для красоты копируется во внешние.
         do j=1,jm
-          elf(1,j)=elf(2,j)     ! (ю_внутр -> ю_внешн)
-          elf(im,j)=elf(imm1,j) ! (с_внутр -> с_внешн)
+          elf(1,j)=elf(2,j)
+          elf(im,j)=elf(imm1,j)
         end do
 C
         do i=1,im
-          elf(i,1)=elf(i,2)     ! (з_внутр -> з_внешн)
-          elf(i,jm)=elf(i,jmm1) ! (в_внутр -> в_внешн)
+          elf(i,1)=elf(i,2)
+          elf(i,jm)=elf(i,jmm1)
         end do
 C
-!     Наложение маски свободной поверхности
         do j=1,jm
           do i=1,im
             elf(i,j)=elf(i,j)*fsm(i,j)
           end do
         end do
 C
-        return  ! выход из процедуры
+        return
 C
       else if(idx.eq.2) then
 C
 C     External (2-D) velocity:
-!     Баротропные скорости на границе:
 C
+!tne:!wad:
+C Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
+C      note that ELW already include hhi (see SEAMOUNT)
+!lyo:!wad:Specify time-dependent tidal tidal amplitude w/period=1day,
+!         & amplitude=9m; note that tide is to be added to the geostro-
+!         phically balanced ELW below.  So ETIDE is referenced wrt MSL:
+!         [but perhaps it will be more direct to specify elevation??]
+!        etide=-9.e0*sin(2.e0*pi*time/1.e0)
+         etide=-tidamp*sin(2.e0*pi*time/1.e0) !minus so ebb near time=0
+!
         do j=2,jmm1
 C
 C     East:
 C
-!     Условие излучения на восточной границе для баротропного режима
-!     Нормальная компонента интеграла скорости = интеграл скорости на восточной границе
-!     (если мы учитываем уровень на границе, то) +фазовая скорость(частота?)*(разница_в_уровне_между_внутренней_граничной_точкой_и_граничным_условием)
+!tne:!wad:- for wad replace H with D
           uaf(im,j)=uabe(j)
-     $               +rfe*sqrt(grav/h(imm1,j))
+     $               +rfe*sqrt(grav/d(imm1,j))
      $                         *(el(imm1,j)-ele(j))
-          uaf(im,j)=ramp*uaf(im,j) ! Применяем инерционный фильтр, если установлен.
-          vaf(im,j)=0.e0           ! Тангенциальная компонента баротропной скорости отсутствует (неизвестна).
+          uaf(im,j)=ramp*uaf(im,j)
+          vaf(im,j)=0.e0
 C
 C     West:
 C
-!     То же самое на западной границе
+!tne:!wad:- for wad replace H with D add tide
           uaf(2,j)=uabw(j)
-     $              -rfw*sqrt(grav/h(2,j))
-     $                        *(el(2,j)-elw(j))
+     $              -rfw*sqrt(grav/d(2,j))
+     $                        *(el(2,j)-elw(j)-etide)
           uaf(2,j)=ramp*uaf(2,j)
           uaf(1,j)=uaf(2,j)
           vaf(1,j)=0.e0
@@ -3328,26 +3276,25 @@ C
 C
 C     North:
 C
-!     Северная
+!tne:!wad:- for wad replace H with D
           vaf(i,jm)=vabn(i)
-     $               +rfn*sqrt(grav/h(i,jmm1))
+     $               +rfn*sqrt(grav/d(i,jmm1))
      $                         *(el(i,jmm1)-eln(i))
           vaf(i,jm)=ramp*vaf(i,jm)
           uaf(i,jm)=0.e0
 C
 C     South:
 C
-!     Южная
+!tne:!wad:- for wad replace H with D
           vaf(i,2)=vabs(i)
-     $              -rfs*sqrt(grav/h(i,2))
+     $              -rfs*sqrt(grav/d(i,2))
      $                        *(el(i,2)-els(i))
           vaf(i,2)=ramp*vaf(i,2)
           vaf(i,1)=vaf(i,2)
-          uaf(i,1)=0.e0 !uabs(i)    ! Изн. `0.e0`. Тангенциальная компонента интеграла скорости известна.
+          uaf(i,1)=0.e0
 C
         end do
 C
-!     Наложение маски свободной поверхности
         do j=1,jm
           do i=1,im
             uaf(i,j)=uaf(i,j)*dum(i,j)
@@ -3366,18 +3313,12 @@ C
 C     Velocity (radiation conditions; smoothing is used in the direction
 C     tangential to the boundaries):
 C
-!     Бароклинные скорости на границе (выполняется сглаживание тангенциальной компоненты):
-!
         do k=1,kbm1
           do j=2,jmm1
 C
 C     East:
 C
-!     Восточная
-            ga=sqrt(h(im,j)/hmax)   ! Некоторый коэффициент (тем меньше, чем меньше глубина в точке)
-!     Условие излучения на восточной границе для бароклинного режима
-!     Нормальная компонента скорости = "взвешенное" среднее скоростей трёх "соседних" внутренних точек у восточной границы * коэф.
-!                                     + "взвешенное" среднее скоростей трёх "соседних" внешних точек на восточной границе * (1-коэф.)
+            ga=sqrt(d(im,j)/hmax)  !lyo:!wad:replace h w/d
             uf(im,j,k)=ga*(.25e0*u(imm1,j-1,k)+.5e0*u(imm1,j,k)
      $                     +.25e0*u(imm1,j+1,k))
      $                  +(1.e0-ga)*(.25e0*u(im,j-1,k)+.5e0*u(im,j,k)
@@ -3386,8 +3327,7 @@ C
 C
 C     West:
 C
-!     Западная
-            ga=sqrt(h(1,j)/hmax)
+            ga=sqrt(d(1,j)/hmax)  !lyo:!wad:replace h w/d
             uf(2,j,k)=ga*(.25e0*u(3,j-1,k)+.5e0*u(3,j,k)
      $                    +.25e0*u(3,j+1,k))
      $                 +(1.e0-ga)*(.25e0*u(2,j-1,k)+.5e0*u(2,j,k)
@@ -3402,7 +3342,7 @@ C
 C
 C     North:
 C
-            ga=sqrt(h(i,jm)/hmax)
+            ga=sqrt(d(i,jm)/hmax)  !lyo:!wad:replace h w/d
             vf(i,jm,k)=ga*(.25e0*v(i-1,jmm1,k)+.5e0*v(i,jmm1,k)
      $                     +.25e0*v(i+1,jmm1,k))
      $                  +(1.e0-ga)*(.25e0*v(i-1,jm,k)+.5e0*v(i,jm,k)
@@ -3411,19 +3351,16 @@ C
 C
 C     South:
 C
-            ga=sqrt(h(i,1)/hmax)
+            ga=sqrt(d(i,1)/hmax)  !lyo:!wad:replace h w/d
             vf(i,2,k)=ga*(.25e0*v(i-1,3,k)+.5e0*v(i,3,k)
      $                    +.25e0*v(i+1,3,k))
-     $                  +(1.e0-ga)*(.25e0*v(i-1,2,k)+.5e0*v(i,2,k)
-     $                    +.25e0*v(i+1,2,k))
-!     $                 +(1.e0-ga)*(.25e0*vbs(i-1,k)+.5e0*vbs(i,k)   ! rwnd:
-!     $                   +.25e0*vbs(i+1,k))                         ! rwnd:
+     $                 +(1.e0-ga)*(.25e0*v(i-1,2,k)+.5e0*v(i,2,k)
+     $                   +.25e0*v(i+1,2,k))
             vf(i,1,k)=vf(i,2,k)
-            uf(i,1,k)=0.e0  !ubs(i,k)   ! Изн. `0.e0`. Тангенциальная компонента скорости на границе известна.
+            uf(i,1,k)=0.e0
           end do
         end do
 C
-!     Наложение маски свободной поверхности
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -3440,23 +3377,18 @@ C
 C     Temperature and salinity boundary conditions (using uf and vf,
 C     respectively):
 C
-!     ГУ температуры и солёности:
         do k=1,kbm1
           do j=1,jm
 C
 C     East:
 C
-!     Расчёт условного параметра (2*u*(dt/dx)?)
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
-!     Если скорость отрицательная, то вток - берём температуру и солёность из граничных условий, ...
             if(u1.le.0.e0) then
               uf(im,j,k)=t(im,j,k)-u1*(tbe(j,k)-t(im,j,k))
               vf(im,j,k)=s(im,j,k)-u1*(sbe(j,k)-s(im,j,k))
-!     ... иначе отток - берём температуру и солёность из внутренней граничной точки.
             else
               uf(im,j,k)=t(im,j,k)-u1*(t(im,j,k)-t(imm1,j,k))
               vf(im,j,k)=s(im,j,k)-u1*(s(im,j,k)-s(imm1,j,k))
-              ! И если это не поверхность и не "дно", то учитываем вертикальную скорость.
               if(k.ne.1.and.k.ne.kbm1) then
                 wm=.5e0*(w(imm1,j,k)+w(imm1,j,k+1))*dti
      $              /((zz(k-1)-zz(k+1))*dt(imm1,j))
@@ -3467,7 +3399,6 @@ C
 C
 C     West:
 C
-!     Западная
             u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
             if(u1.ge.0.e0) then
               uf(1,j,k)=t(1,j,k)-u1*(t(1,j,k)-tbw(j,k))
@@ -3490,7 +3421,6 @@ C
 C
 C     North:
 C
-!     Северная
             u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
             if(u1.le.0.e0) then
               uf(i,jm,k)=t(i,jm,k)-u1*(tbn(i,k)-t(i,jm,k))
@@ -3508,7 +3438,6 @@ C
 C
 C     South:
 C
-!     Южная
             u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
             if(u1.ge.0.e0) then
               uf(i,1,k)=t(i,1,k)-u1*(t(i,1,k)-tbs(i,k))
@@ -3541,8 +3470,6 @@ C
 C
 C     Vertical velocity boundary conditions:
 C
-!     Условие вертикальной скорости на границе:
-!     Отсутствует. Просто накладывается маска свободной поверхности.
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -3557,19 +3484,16 @@ C
 C
 C     q2 and q2l boundary conditions:
 C
-!     ГУ турбулентной кинетической энергии и турб. масштаба:
         do k=1,kb
           do j=1,jm
 C
 C     East:
 C
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
-!     Если вток, то используем в качестве граничного, значение близкое к нулю.
             if(u1.le.0.e0) then
               uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
               vf(im,j,k)=q2l(im,j,k)-u1*(small-q2l(im,j,k))
             else
-!     Если отток - для расчёта используются внутренние точки.
               uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
               vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
             endif
@@ -3614,1339 +3538,6 @@ C
           end do
         end do
 C
-!     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
-        do k=1,kb
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)+1.e-10
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)+1.e-10
-            end do
-          end do
-        end do
-C
-        return
-C
-      endif
-C
-      end
-C
-      subroutine bcond_inflow(idx)
-C **********************************************************************
-C
-C **********************************************************************
-
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer idx
-      real ga,u1,wm
-      integer i,j,k
-C
-      if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-C     Elevation (in this application, elevation is not a primary
-C     boundary condition):
-!     Уровень на границе (в данной реализации не является "подаваемым" условием);
-!
-!     Inflow condition for elevation.
-        do j=1,jm
-          elf(1,j)=elf(2,j)     ! (ю_внутр -> ю_внешн)
-          elf(im,j)=elf(imm1,j) ! (с_внутр -> с_внешн)
-        end do
-!
-        do i=1,im
-          elf(i,1)=elf(i,2)     ! (з_внутр -> з_внешн)
-          elf(i,jm)=elf(i,jmm1) ! (в_внутр -> в_внешн)
-        end do
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            elf(i,j)=elf(i,j)*fsm(i,j)
-          end do
-        end do
-C
-        return  ! выход из процедуры
-C
-      else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-!     Баротропные скорости на границе:
-C
-        do j=2,jmm1
-C
-C     East:
-C
-!     Inflow condition for barotropic velocities
-          uaf(im,j)=2*(uabe(j)-sqrt(grav/h(imm1,j))*ele(j))
-     $              /(h(im,j)+elf(im,j)+h(imm1,j)+elf(imm1,j))
-          uaf(im,j)=ramp*uaf(im,j) ! Применяем инерционный фильтр, если установлен. Nedded...? or not?
-          vaf(im,j)=0.e0           ! (set) Тангенциальная компонента баротропной скорости отсутствует (неизвестна).
-C
-C     West:
-C
-!     То же самое на западной границе
-          uaf(2,j)=2*(uabw(j)-sqrt(grav/h(2,j))*elw(j))
-     $             /(h(1,j)+elf(1,j)+h(2,j)+elf(2,j))
-          uaf(2,j)=ramp*uaf(2,j)
-          uaf(1,j)=uaf(2,j)
-          vaf(1,j)=0.e0             ! (set)
-C
-        end do
-C
-        do i=2,imm1
-C
-C     North:
-C
-!     Северная
-          vaf(i,jm)=2*(vabn(i)-sqrt(grav/h(i,jmm1))*eln(i))
-     $              /(h(i,jm)+elf(i,jm)+h(i,jmm1)+elf(i,jmm1))
-          vaf(i,jm)=ramp*vaf(i,jm)
-          uaf(i,jm)=0.e0            ! (set)
-C
-C     South:
-C
-!     Южная
-          vaf(i,2)=2*(vabs(i)-sqrt(grav/h(i,2))*eln(i))
-     $             /(h(i,1)+elf(i,1)+h(i,2)+elf(i,2))
-          vaf(i,2)=ramp*vaf(i,2)
-          vaf(i,1)=vaf(i,2)
-          uaf(i,1)=uabs(i)    ! Изн. `0.e0`. Тангенциальная компонента интеграла скорости известна.
-C
-        end do
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            uaf(i,j)=uaf(i,j)*dum(i,j)
-            vaf(i,j)=vaf(i,j)*dvm(i,j)
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-!     Бароклинные скорости на границе:
-!
-        do k=1,kbm1
-          do j=2,jmm1
-C
-C     East:
-C
-!     Восточная
-            uf(im,j,k)=0.e0             ! (BC: unknown)
-            vf(im,j,k)=0.e0             ! (set)
-C
-C     West:
-C
-!     Западная
-            uf(2,j,k)=0.e0              ! (BC: unknown)
-            uf(1,j,k)=uf(2,j,k)
-            vf(1,j,k)=0.e0              ! (set)
-          end do
-        end do
-C
-        do k=1,kbm1
-          do i=2,imm1
-C
-C     North:
-C
-            vf(i,jm,k)=0.e0             ! (BC: unknown)
-            uf(i,jm,k)=0.e0             ! (set)
-C
-C     South:
-C
-            vf(i,2,k)=vbs(i,k)          ! (BC)
-            vf(i,1,k)=vf(i,2,k)
-            uf(i,1,k)=ubs(i,k)   ! Изн. `0.e0`. Тангенциальная компонента скорости на границе известна.
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*dum(i,j)
-              vf(i,j,k)=vf(i,j,k)*dvm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.4) then
-C
-C     Temperature and salinity boundary conditions (using uf and vf,
-C     respectively):
-C
-!     ГУ температуры и солёности:
-        do k=1,kbm1
-          do j=1,jm
-C
-C     East:
-C
-!     Расчёт условного параметра (2*u*(dt/dx)?)
-            u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
-!     Если скорость отрицательная, то вток - берём температуру и солёность из граничных условий, ...
-            if(u1.le.0.e0) then
-              uf(im,j,k)=t(im,j,k)-u1*(tbe(j,k)-t(im,j,k))
-              vf(im,j,k)=s(im,j,k)-u1*(sbe(j,k)-s(im,j,k))
-!     ... иначе отток - берём температуру и солёность из внутренней граничной точки.
-            else
-              uf(im,j,k)=t(im,j,k)-u1*(t(im,j,k)-t(imm1,j,k))
-              vf(im,j,k)=s(im,j,k)-u1*(s(im,j,k)-s(imm1,j,k))
-              ! И если это не поверхность и не "дно", то учитываем вертикальную скорость.
-              if(k.ne.1.and.k.ne.kbm1) then
-                wm=.5e0*(w(imm1,j,k)+w(imm1,j,k+1))*dti
-     $              /((zz(k-1)-zz(k+1))*dt(imm1,j))
-                uf(im,j,k)=uf(im,j,k)-wm*(t(imm1,j,k-1)-t(imm1,j,k+1))
-                vf(im,j,k)=vf(im,j,k)-wm*(s(imm1,j,k-1)-s(imm1,j,k+1))
-              endif
-            endif
-C
-C     West:
-C
-!     Западная
-            u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
-            if(u1.ge.0.e0) then
-              uf(1,j,k)=t(1,j,k)-u1*(t(1,j,k)-tbw(j,k))
-              vf(1,j,k)=s(1,j,k)-u1*(s(1,j,k)-sbw(j,k))
-            else
-              uf(1,j,k)=t(1,j,k)-u1*(t(2,j,k)-t(1,j,k))
-              vf(1,j,k)=s(1,j,k)-u1*(s(2,j,k)-s(1,j,k))
-              if(k.ne.1.and.k.ne.kbm1) then
-                wm=.5e0*(w(2,j,k)+w(2,j,k+1))*dti
-     $              /((zz(k-1)-zz(k+1))*dt(2,j))
-                uf(1,j,k)=uf(1,j,k)-wm*(t(2,j,k-1)-t(2,j,k+1))
-                vf(1,j,k)=vf(1,j,k)-wm*(s(2,j,k-1)-s(2,j,k+1))
-              endif
-            endif
-          end do
-        end do
-C
-        do k=1,kbm1
-          do i=1,im
-C
-C     North:
-C
-!     Северная
-            u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
-            if(u1.le.0.e0) then
-              uf(i,jm,k)=t(i,jm,k)-u1*(tbn(i,k)-t(i,jm,k))
-              vf(i,jm,k)=s(i,jm,k)-u1*(sbn(i,k)-s(i,jm,k))
-            else
-              uf(i,jm,k)=t(i,jm,k)-u1*(t(i,jm,k)-t(i,jmm1,k))
-              vf(i,jm,k)=s(i,jm,k)-u1*(s(i,jm,k)-s(i,jmm1,k))
-              if(k.ne.1.and.k.ne.kbm1) then
-                wm=.5e0*(w(i,jmm1,k)+w(i,jmm1,k+1))*dti
-     $              /((zz(k-1)-zz(k+1))*dt(i,jmm1))
-                uf(i,jm,k)=uf(i,jm,k)-wm*(t(i,jmm1,k-1)-t(i,jmm1,k+1))
-                vf(i,jm,k)=vf(i,jm,k)-wm*(s(i,jmm1,k-1)-s(i,jmm1,k+1))
-              endif
-            endif
-C
-C     South:
-C
-!     Южная
-            u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
-            if(u1.ge.0.e0) then
-              uf(i,1,k)=t(i,1,k)-u1*(t(i,1,k)-tbs(i,k))
-              vf(i,1,k)=s(i,1,k)-u1*(s(i,1,k)-sbs(i,k))
-            else
-              uf(i,1,k)=t(i,1,k)-u1*(t(i,2,k)-t(i,1,k))
-              vf(i,1,k)=s(i,1,k)-u1*(s(i,2,k)-s(i,1,k))
-              if(k.ne.1.and.k.ne.kbm1) then
-                wm=.5e0*(w(i,2,k)+w(i,2,k+1))*dti
-     $              /((zz(k-1)-zz(k+1))*dt(i,2))
-                uf(i,1,k)=uf(i,1,k)-wm*(t(i,2,k-1)-t(i,2,k+1))
-                vf(i,1,k)=vf(i,1,k)-wm*(s(i,2,k-1)-s(i,2,k+1))
-              endif
-            endif
-          end do
-        end do
-C
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
-!     Условие вертикальной скорости на границе:
-!     Отсутствует. Просто накладывается маска свободной поверхности.
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              w(i,j,k)=w(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
-!     ГУ турбулентной кинетической энергии и турб. масштаба:
-        do k=1,kb
-          do j=1,jm
-C
-C     East:
-C
-            u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
-!     Если вток, то используем в качестве граничного, значение близкое к нулю.
-            if(u1.le.0.e0) then
-              uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
-              vf(im,j,k)=q2l(im,j,k)-u1*(small-q2l(im,j,k))
-            else
-!     Если отток - для расчёта используются внутренние точки.
-              uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
-              vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
-            endif
-C
-C     West:
-C
-            u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
-            if(u1.ge.0.e0) then
-              uf(1,j,k)=q2(1,j,k)-u1*(q2(1,j,k)-small)
-              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(1,j,k)-small)
-            else
-              uf(1,j,k)=q2(1,j,k)-u1*(q2(2,j,k)-q2(1,j,k))
-              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(2,j,k)-q2l(1,j,k))
-            endif
-          end do
-        end do
-C
-        do k=1,kb
-          do i=1,im
-C
-C     North:
-C
-            u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
-            if(u1.le.0.e0) then
-              uf(i,jm,k)=q2(i,jm,k)-u1*(small-q2(i,jm,k))
-              vf(i,jm,k)=q2l(i,jm,k)-u1*(small-q2l(i,jm,k))
-            else
-              uf(i,jm,k)=q2(i,jm,k)-u1*(q2(i,jm,k)-q2(i,jmm1,k))
-              vf(i,jm,k)=q2l(i,jm,k)-u1*(q2l(i,jm,k)-q2l(i,jmm1,k))
-            endif
-C
-C     South:
-C
-            u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
-            if(u1.ge.0.e0) then
-              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,1,k)-small)
-              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,1,k)-small)
-            else
-              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,2,k)-q2(i,1,k))
-              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,2,k)-q2l(i,1,k))
-            endif
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
-        do k=1,kb
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)+1.e-10
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)+1.e-10
-            end do
-          end do
-        end do
-C
-        return
-C
-      endif
-C
-      end
-C
-      subroutine bcond_sbc(idx)
-C **********************************************************************
-C   Stupid BCs
-C **********************************************************************
-!
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer idx
-      real ga,u1,wm
-      integer i,j,k
-C
-      if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-        do j=1,jm
-          elf( 1,j) = elf(  2 ,j)
-          elf(im,j) = elf(imm1,j)
-        end do
-        do i=1,im
-          elf(i, 1) = elf(i,  2 )
-          elf(i,jm) = elf(i,jmm1)
-        end do
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            elf(i,j)=elf(i,j)*fsm(i,j)
-          end do
-        end do
-!
-        return  ! выход из процедуры
-!
-      else if(idx.eq.2) then
-!
-!     External (2-D) velocity:
-!     Баротропные скорости на границе:
-!
-        do j=1,jm
-!     East:
-          uaf(im,j) = 2.*uabe(j)
-     $               /(h(im,j)+elf(im,j)+h(imm1,j)+elf(imm1,j))
-          vaf(im,j) = va(im,j)+ramp*(vabe(j)-va(im,j))
-!     West:
-          uaf(2,j) = 2.*uabw(j)
-     $               /(h(1,j)+elf(1,j)+h(2,j)+elf(2,j))
-          vaf(1,j) = va(2,j)+ramp*(vabw(j)-va(2,j))
-          uaf(1,j) = uaf(2,j)
-        end do
-!
-        do i=2,imm1
-!     North:
-          vaf(i,jm) = 2.*vabn(i)
-     $               /(h(i,jm)+elf(i,jm)+h(i,jmm1)+elf(i,jmm1))
-          uaf(i,jm) = ua(i,jm)+ramp*(uabn(i)-ua(i,jm))
-!     South:
-          vaf(i,2) = 2.*vabs(i)
-     $               /(h(i,1)+elf(i,1)+h(i,2)+elf(i,2))
-          uaf(i,1) = ua(i,2)+ramp*(uabs(i)-ua(i,2))
-          vaf(i,1) = vaf(i,2)
-        end do
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            uaf(i,j)=uaf(i,j)*dum(i,j)
-            vaf(i,j)=vaf(i,j)*dvm(i,j)
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-!     Бароклинные скорости на границе:
-!
-        do k=1,kbm1
-          do j=1,jm
-!     East:
-            uf(im,j,k) = u(im,j,k)+ramp*(ube(j,k)-u(im,j,k))
-            vf(im,j,k) = v(im,j,k)+ramp*(vbe(j,k)-v(im,j,k))
-!     West:
-            uf(2,j,k) = u(2,j,k)+ramp*(ubw(j,k)-u(2,j,k))
-            vf(1,j,k) = v(2,j,k)+ramp*(vbw(j,k)-v(2,j,k))
-            uf(1,j,k) = uf(2,j,k)
-          end do
-        end do
-!
-        do k=1,kbm1
-          do i=1,im
-!     North:
-            vf(i,jm,k) = v(i,jm,k)+ramp*(vbn(i,k)-v(i,jm,k))
-            uf(i,jm,k) = u(i,jm,k)+ramp*(ubn(i,k)-u(i,jm,k))
-!     South:
-            vf(i,2,k) = v(i,2,k)+ramp*(vbs(i,k)-v(i,2,k))
-            uf(i,1,k) = u(i,2,k)+ramp*(ubs(i,k)-u(i,2,k))
-            vf(i,1,k) = vf(i,2,k)
-          end do
-        end do
-!     Наложение маски свободной поверхности
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*dum(i,j)
-              vf(i,j,k)=vf(i,j,k)*dvm(i,j)
-            end do
-          end do
-        end do
-!
-        return
-!
-      else if(idx.eq.4) then
-!
-!     Temperature and salinity boundary conditions (using uf and vf,
-!     respectively):
-!
-!     ГУ температуры и солёности:
-        do k=1,kbm1
-          do j=1,jm
-!
-!     East:
-!
-            uf(im,j,k) = t(im,j,k)-dti/(dx(im,j)+dx(imm1,j))
-     $                  *(
-     $                    (u(im,j,k)+abs(u(im,j,k)))
-     $                    *(t(im,j,k)-t(imm1,j,k))
-     $                   +(u(im,j,k)-abs(u(im,j,k)))
-     $                    *(tbe(j,k)-t(im,j,k))
-     $                   )
-            vf(im,j,k) = s(im,j,k)-dti/(dx(im,j)+dx(imm1,j))
-     $                  *(
-     $                    (u(im,j,k)+abs(u(im,j,k)))
-     $                    *(s(im,j,k)-s(imm1,j,k))
-     $                   +(u(im,j,k)-abs(u(im,j,k)))
-     $                    *(sbe(j,k)-s(im,j,k))
-     $                   )
-!     West:
-            uf(1,j,k) = t(1,j,k)-dti/(dx(1,j)+dx(2,j))
-     $                  *(
-     $                    (u(2,j,k)+abs(u(2,j,k)))
-     $                    *(t(1,j,k)-tbw(j,k))
-     $                   +(u(2,j,k)-abs(u(2,j,k)))
-     $                    *(t(2,j,k)-t(1,j,k))
-     $                   )
-            vf(1,j,k) = s(1,j,k)-dti/(dx(1,j)+dx(2,j))
-     $                  *(
-     $                    (u(2,j,k)+abs(u(2,j,k)))
-     $                    *(s(1,j,k)-sbw(j,k))
-     $                   +(u(2,j,k)-abs(u(2,j,k)))
-     $                    *(s(2,j,k)-s(1,j,k))
-     $                   )
-          end do
-        end do
-C
-        do k=1,kbm1
-          do i=1,im
-!     North:
-            uf(i,jm,k) = t(i,jm,k)-dti/(dy(i,jm)+dy(i,jmm1))
-     $                  *(
-     $                    (v(i,jm,k)+abs(v(i,jm,k)))
-     $                    *(t(i,jm,k)-t(i,jmm1,k))
-     $                   +(v(i,jm,k)-abs(v(i,jm,k)))
-     $                    *(tbn(i,k)-t(i,jm,k))
-     $                   )
-            vf(i,jm,k) = s(i,jm,k)-dti/(dy(i,jm)+dy(i,jmm1))
-     $                  *(
-     $                    (v(i,jm,k)+abs(v(i,jm,k)))
-     $                    *(s(i,jm,k)-s(i,jmm1,k))
-     $                   +(v(i,jm,k)-abs(v(i,jm,k)))
-     $                    *(sbn(i,k)-s(i,jm,k))
-     $                   )
-!     South:
-            uf(i,1,k) = t(i,1,k)-dti/(dy(i,1)+dy(i,2))
-     $                  *(
-     $                    (v(i,2,k)+abs(v(i,2,k)))
-     $                    *(t(i,1,k)-tbs(i,k))
-     $                   +(v(i,2,k)-abs(v(i,2,k)))
-     $                    *(t(i,2,k)-t(i,1,k))
-     $                   )
-            vf(i,1,k) = s(i,1,k)-dti/(dy(i,1)+dy(i,2))
-     $                  *(
-     $                    (v(i,2,k)+abs(v(i,2,k)))
-     $                    *(s(i,1,k)-sbs(i,k))
-     $                   +(v(i,2,k)-abs(v(i,2,k)))
-     $                    *(s(i,2,k)-s(i,1,k))
-     $                   )
-          end do
-        end do
-!
-        return
-C
-      else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
-!     Условие вертикальной скорости на границе:
-!     Отсутствует. Просто накладывается маска свободной поверхности.
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              w(i,j,k)=w(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
-!     ГУ турбулентной кинетической энергии и турб. масштаба:
-        do k=1,kb
-          do j=1,jm
-C
-C     East:
-C
-            uf(1,j,k) = 1.e-10
-            vf(1,j,k) = 1.e-10
-C
-C     West:
-C
-            uf(im,j,k) = 1.e-10
-            vf(im,j,k) = 1.e-10
-!
-          end do
-        end do
-C
-        do k=1,kb
-          do i=1,im
-C
-C     North:
-C
-            uf(i,1,k) = 1.e-10
-            vf(i,1,k) = 1.e-10
-C
-C     South:
-C
-            uf(i,jm,k) = 1.e-10
-            vf(i,jm,k) = 1.e-10
-!
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
-!       Left from original pom2k
-        do k=1,kb
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)+1.e-10
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)+1.e-10
-            end do
-          end do
-        end do
-C
-        return
-C
-      endif
-C
-      end
-!
-      subroutine bcond_clamped(idx)
-C **********************************************************************
-C   My clamped BCs
-C **********************************************************************
-
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer idx
-      real ga,u1,wm
-      integer i,j,k
-C
-      if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-        do j=2,jmm1
-!     West:
-          elf(2,j)    = el(2,j)+ramp*(elw(j)-el(2,j))
-          elf(1,j)    = elf(2,j)
-!     East:
-          elf(imm1,j) = el(imm1,j)+ramp*(ele(j)-el(imm1,j))
-          elf( im ,j) = elf(imm1,j)
-        end do
-!
-        do i=2,imm1
-!     South:
-          elf(i,2)    = el(i,2)+ramp*(els(i)-el(i,2))
-          elf(i,1)    = elf(i,2)
-!     North:
-          elf(i,jmm1) = el(i,jmm1)+ramp*(eln(i)-el(i,jmm1))
-          elf(i, jm ) = elf(i,jmm1)
-        end do
-!
-        elf(1, 1) = (elf(1,  2 )+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
-        elf(1,jm) = (elf(1,jmm1)+el(2,jm))*.5
-!       Two next lines were not present in RaSBCs.
-        elf(im, 1) = (elf(im,  2 )+el(imm1, 1))*.5
-        elf(im,jm) = (elf(im,jmm1)+el(imm1,jm))*.5
-!
-!        do j=1,jm
-!          elf(1,j)=elf(2,j)     ! (з_внутр -> з_внешн)
-!          elf(im,j)=elf(imm1,j) ! (в_внутр -> в_внешн)
-!        end do
-!
-!        do i=1,im
-!          elf(i,1)=elf(i,2)     ! (ю_внутр -> ю_внешн)
-!          elf(i,jm)=elf(i,jmm1) ! (с_внутр -> с_внешн)
-!        end do
-!
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            elf(i,j)=elf(i,j)*fsm(i,j)
-          end do
-        end do
-C
-        return  ! выход из процедуры
-C
-      else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-!     Баротропные скорости на границе:
-!
-        do j=2,jmm1
-!
-!     East:
-!
-          uaf(im,j) = ua(im,j)+ramp*(uabe(j)-ua(im,j))
-          vaf(im,j) = ramp*vabe(j)
-!     West:
-!
-          uaf(2,j) = ramp*uabw(j)
-          vaf(1,j) = ramp*vabw(j)
-          uaf(1,j) = uaf(2,j)
-!
-        end do
-!
-        do i=2,imm1
-!
-!     North:
-!
-          vaf(i,jm) = ramp*vabn(i)
-          uaf(i,jm) = ramp*uabn(i)
-!
-!     South:
-!
-          vaf(i,2) = ramp*vabs(i)
-          uaf(i,1) = ramp*uabs(i)
-          vaf(i,1) = vaf(i,2)
-!
-        end do
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            uaf(i,j)=uaf(i,j)*dum(i,j)
-            vaf(i,j)=vaf(i,j)*dvm(i,j)
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-!     Бароклинные скорости на границе:
-!
-        do k=1,kbm1
-          do j=2,jmm1
-!
-!     East:
-!
-            uf(im,j,k) = ramp*ube(j,k)
-            vf(im,j,k) = ramp*vbe(j,k)
-!
-!     West:
-!
-            uf(2,j,k) = ramp*ubw(j,k)
-            vf(1,j,k) = ramp*vbw(j,k)
-            uf(1,j,k) = uf(2,j,k)
-!
-          end do
-        end do
-!
-        do k=1,kbm1
-          do i=2,imm1
-!
-!     North:
-!
-            vf(i,jm,k) = ramp*vbn(i,k)
-            uf(i,jm,k) = ramp*ubn(i,k)
-!
-!     South:
-!
-            vf(i,2,k) = ramp*vbs(i,k)
-            uf(i,1,k) = ramp*ubs(i,k)
-            vf(i,1,k) = vf(i,2,k)
-!
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*dum(i,j)
-              vf(i,j,k)=vf(i,j,k)*dvm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.4) then
-!
-!     Temperature and salinity boundary conditions (using uf and vf,
-!     respectively):
-!
-!     ГУ температуры и солёности:
-        do k=1,kbm1
-          do j=2,jmm1
-!
-!     East:
-!
-            uf(im,j,k) = ramp*tbe(j,k)
-            vf(im,j,k) = ramp*sbs(j,k)
-!
-!     West:
-!
-            uf(1,j,k) = ramp*tbw(j,k)
-            vf(1,j,k) = ramp*sbw(j,k)
-!
-          end do
-        end do
-C
-        do k=1,kbm1
-          do i=2,imm1
-!
-!     North:
-!
-            uf(i,jm,k) = ramp*tbn(i,k)
-            vf(i,jm,k) = ramp*sbn(i,k)
-!
-!     South:
-!
-            uf(i,1,k) = ramp*tbs(i,k)
-            vf(i,1,k) = ramp*sbs(i,k)
-!
-          end do
-        end do
-C
-        do k=1,kbm1
-!     Average corner cells
-          uf(1, 1,k) = (uf(2, 1,k)+uf(1,   2,k))*.5
-          vf(1, 1,k) = (vf(2, 1,k)+vf(1,   2,k))*.5
-          uf(1,jm,k) = (uf(2,jm,k)+uf(1,jmm1,k))*.5
-          vf(1,jm,k) = (vf(2,jm,k)+vf(1,jmm1,k))*.5
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
-!     Условие вертикальной скорости на границе:
-!     Отсутствует. Просто накладывается маска свободной поверхности.
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              w(i,j,k)=w(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
-!     ГУ турбулентной кинетической энергии и турб. масштаба:
-        do k=1,kb
-          do j=1,jm
-C
-C     East:
-C
-            uf(1,j,k) = 1.e-10
-            vf(1,j,k) = 1.e-10
-C
-C     West:
-C
-            uf(im,j,k) = 1.e-10
-            vf(im,j,k) = 1.e-10
-!
-          end do
-        end do
-C
-        do k=1,kb
-          do i=1,im
-C
-C     North:
-C
-            uf(i,1,k) = 1.e-10
-            vf(i,1,k) = 1.e-10
-C
-C     South:
-C
-            uf(i,jm,k) = 1.e-10
-            vf(i,jm,k) = 1.e-10
-!
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
-!       Left from original pom2k
-        do k=1,kb
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)+1.e-10
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)+1.e-10
-            end do
-          end do
-        end do
-C
-        return
-C
-      endif
-C
-      end
-C
-      subroutine bcond_ras(idx) ! bcond_ras(idx)
-C **********************************************************************
-C   Rochford and Shulman
-C **********************************************************************
-
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer idx
-      real ga,u1,wm
-      integer i,j,k
-C
-      if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-        do j=2,jmm1
-!     West:
-          ga = sqrt( (h(1,j)+h(2,j))*.5*grav )
-     $        *dte/( (dx(1,j)+dx(2,j))*.5 )         ! Change 1->2 and 2->3 maybe...?
-          elf(1,j) =     ga*(.25*el(2,j-1)+.5*el(2,j)+.25*el(2,j+1))
-     $              +(1-ga)*(.25*el(1,j-1)+.5*el(1,j)+.25*el(1,j+1))
-!     East:
-          ga = sqrt( (h(im,j)+h(imm1,j))*.5*grav )
-     $        *dte/( (dx(im,j)+dx(imm1,j))*.5 )
-          elf(im,j) =     ga*(.25*el(imm1,j-1)+.5*el(imm1,j)
-     $                        +.25*el(imm1,j+1))
-     $               +(1-ga)*(.25*el( im ,j-1)+.5*el( im ,j)
-     $                        +.25*el( im ,j+1))
-        end do
-!
-        do i=2,imm1
-!     South:
-          ga = sqrt( (h(i,1)+h(i,2))*.5*grav )
-     $        *dte/( (dy(i,1)+dy(i,2))*.5 )         ! Change 1->2 and 2->3 maybe...?
-          elf(i,1) =     ga*(.25*el(i-1,2)+.5*el(i,2)+.25*el(i+1,2))
-     $              +(1-ga)*(.25*el(i-1,1)+.5*el(i,1)+.25*el(i+1,1))
-!     North:
-          ga = sqrt( (h(i,jm)+h(i,jmm1))*.5*grav )
-     $        *dte/( (dy(i,jm)+dy(i,jmm1))*.5 )
-          elf(i,jm) =     ga*(.25*el(i-1,jmm1)+.5*el(i,jmm1)
-     $                        +.25*el(i+1,jmm1))
-     $               +(1-ga)*(.25*el(i-1,jm)+.5*el(i,jm)
-     $                        +.25*el(i+1,jm))
-        end do
-!
-        elf(1, 1) = (elf(1,  2 )+el(2, 1))*.5   ! Why elf+el? And not elf+elf?
-        elf(1,jm) = (elf(1,jmm1)+el(2,jm))*.5
-!       Two next lines were not present in RaSBCs.
-        elf(im, 1) = (elf(im,  2 )+el(imm1, 1))*.5
-        elf(im,jm) = (elf(im,jmm1)+el(imm1,jm))*.5
-!
-!        do j=1,jm
-!          elf(1,j)=elf(2,j)     ! (з_внутр -> з_внешн)
-!          elf(im,j)=elf(imm1,j) ! (в_внутр -> в_внешн)
-!        end do
-!
-!        do i=1,im
-!          elf(i,1)=elf(i,2)     ! (ю_внутр -> ю_внешн)
-!          elf(i,jm)=elf(i,jmm1) ! (с_внутр -> с_внешн)
-!        end do
-!
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            elf(i,j)=elf(i,j)*fsm(i,j)
-          end do
-        end do
-C
-        return  ! выход из процедуры
-C
-      else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-!     Баротропные скорости на границе:
-!
-        do j=2,jmm1
-!
-!     East:
-!
-          !u1 = ( h(im,j)+h(imm1,j) )*( dy(im,j)+dy(imm1,j) )*.25
-          ga = sqrt( grav/h(imm1,j) )!*u1
-          uaf(im,j)=( uabe(j)*ramp-ga*( ele(j)*ramp-el(imm1,j) ) )!/u1
-!
-          wm = ( ua(imm1,j-1)+ua(imm1,j) )*.5
-          !u1 = ( h(im,j-1)+h(im,j) )*( dx(im,j-1)+dx(im,j) )*.25
-          u1 = ramp*vabe(j)!/u1
-          ga = dte/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))*2.
-          vaf(im,j) = va(im,j)-ga*
-     $               ( (wm+abs(wm))*(va(im,j)-va(imm1,j))
-     $                +(wm-abs(wm))*(u1      -va( im ,j)) )
-!          uaf(im,j) = 0.
-!          vaf(im,j) = 0.
-!
-!          uaf(im,j) = uaf(imm1,j)
-!
-!     West:
-!
-          !u1 = ( h(1,j)+h(2,j) )*( dy(1,j)+dy(2,j) )*.25
-          ga = sqrt( grav/h(2,j) )!*u1
-          uaf(2,j) = ( uabw(j)*ramp-ga*( el(2,j)-elw(j)*ramp ) )!/u1
-!          uaf(2,j) = 0.
-!
-          wm = ( ua(2,j-1)+ua(2,j) )*.5
-          !u1 = ( h(1,j-1)+h(1,j) )*( dx(1,j-1)+dx(1,j) )*.25
-          u1 = ramp*vabw(j)!/u1
-          ga = dte/(dx(1,j-1)+dx(1,j)+dx(2,j-1)+dx(2,j))*2.
-          vaf(1,j) = va(1,j)-ga*
-     $               ( (wm+abs(wm))*(va(1,j)-u1     )
-     $                +(wm-abs(wm))*(va(2,j)-va(1,j)) )
-!
-          uaf(1,j) = uaf(2,j)
-!
-        end do
-!
-        do i=2,imm1
-!
-!     North:
-!
-          !u1 = ( h(i,jm)+h(i,jmm1) )*( dx(i,jm)+dx(i,jmm1) )*.25
-          ga = sqrt( grav/h(i,jmm1) )!*u1
-          vaf(i,jm)=( vabn(i)*ramp-ga*( eln(i)*ramp-el(i,jmm1) ) )!/u1
-!          vaf(i,jm) = 0.
-!
-          wm = ( va(i-1,jmm1)+va(i,jmm1) )*.5
-          !u1 = ( h(i-1,jm)+h(i,jm) )*( dy(i-1,jm)+dy(i,jm) )*.25
-          u1 = ramp*uabn(i)!/u1
-          ga = dte/(dy(i-1,jm)+dy(i,jm)+dy(i-1,jmm1)+dy(i,jmm1))*2.
-          uaf(i,jm) = ua(i,jm)-ga*
-     $               ( (wm+abs(wm))*(ua(i,jm)-ua(i,jmm1))
-     $                +(wm-abs(wm))*(u1      -ua(i, jm )) )
-!
-!          vaf(i,jm) = vaf(i,jmm1)
-!
-!     South:
-!
-          !u1 = ( h(i,1)+h(i,2) )*( dx(i,1)+dx(i,2) )*.25
-          ga = sqrt( grav/h(i,2) )!*u1
-          vaf(i,2) = ( vabs(i)*ramp-ga*( el(i,2)-els(i)*ramp ) )!/u1
-!          vaf(i,2) = 0.
-!
-          wm = ( va(i-1,2)+va(i,2) )*.5
-          !u1 = ( h(i-1,1)+h(i,1) )*( dy(i-1,1)+dy(i,1) )*.25
-          u1 = ramp*uabs(i)!/u1
-          ga = dte/(dy(i-1,1)+dy(i,1)+dy(i-1,2)+dy(i,2))*2.
-          uaf(i,1) = ua(i,1)-ga*
-     $               ( (wm+abs(wm))*(ua(i,1)-u1     )
-     $                +(wm-abs(wm))*(ua(i,2)-ua(i,1)) )
-!
-          vaf(i,1) = vaf(i,2)
-!
-        end do
-C
-!     Наложение маски свободной поверхности
-        do j=1,jm
-          do i=1,im
-            uaf(i,j)=uaf(i,j)*dum(i,j)
-            vaf(i,j)=vaf(i,j)*dvm(i,j)
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-!     Бароклинные скорости на границе:
-!
-        do k=1,kbm1
-          do j=2,jmm1
-!
-!     East:
-!
-            ga = sqrt(h(imm1,j)*grav*5.e-3)*dti/dx(imm1,j)
-            uf(im,j,k) =     ga*(.25*u(imm1,j-1,k)+.5*u(imm1,j,k)
-     $                          +.25*u(imm1,j+1,k))
-     $                  +(1-ga)*(.25*u( im ,j-1,k)+.5*u( im ,j,k)
-     $                          +.25*u( im ,j+1,k))
-!
-            u1 = 2.*dti/(dx(im,j-1)+dx(im,j)+dx(imm1,j-1)+dx(imm1,j))
-            wm = ( u(im,j,k)+u(im,j-1,k) )*.5
-            vf(im,j,k) = v(im,j,k) - u1*
-     $                 ( (wm+abs(wm))*(u(im,j,k)-u(imm1,j,k))
-     $                  +(wm-abs(wm))*(0.e0     -u( im ,j,k)) )
-!            uf(im,j,k) = 0.
-!            vf(im,j,k) = 0.
-C
-C     West:
-C
-            ga = sqrt(h(2,j)*grav*5.e-3)*dti/dx(2,j)
-            uf(2,j,k) =     ga*(.25*u(3,j-1,k)+.5*u(3,j,k)
-     $                         +.25*u(3,j+1,k))
-     $                 +(1-ga)*(.25*u(2,j-1,k)+.5*u(2,j,k)
-     $                         +.25*u(2,j+1,k))
-!            uf(2,j,k) = 0.
-!
-            u1 = 2.*dti/(dx(1,j-1)+dx(1,j)+dx(2,j-1)+dx(2,j))
-            wm = ( u(2,j,k)+u(2,j-1,k) )*.5
-            vf(1,j,k) = v(1,j,k) - u1*
-     $                 ( (wm+abs(wm))*(u(1,j,k)-0.e0    )
-     $                  +(wm-abs(wm))*(u(2,j,k)-u(1,j,k)) )
-!
-            uf(1,j,k) = uf(2,j,k)
-!
-          end do
-        end do
-!     Fill corners for numerical safety
-        uf(1, 1,:) = (uf(1,   2,:)+u(2, 1,:))*.5
-        uf(1,jm,:) = (uf(1,jmm1,:)+u(2,jm,:))*.5
-C
-        do k=1,kbm1
-          do i=2,imm1
-C
-C     North:
-C
-            ga = sqrt(h(i,jmm1)*grav*5.e-3)*dti/dy(i,jmm1)
-            vf(i,jm,k) =     ga*(.25*v(i-1,jmm1,k)+.5*v(i,jmm1,k)
-     $                           +.25*v(i+1,jmm1,k))
-     $                  +(1-ga)*(.25*v(i-1, jm ,k)+.5*v(i, jm ,k)
-     $                           +.25*v(i+1, jm ,k))
-!            vf(i,jm,k) = 0.
-!
-            u1 = 2.*dti/(dy(i-1,jm)+dy(i,jm)+dy(i-1,jmm1)+dy(i,jmm1))
-            wm = ( v(i,jm,k)+v(i-1,jm,k) )*.5
-            uf(i,jm,k) = u(i,jm,k) - u1*
-     $                 ( (wm+abs(wm))*(u(i,jm,k)-u(i,jmm1,k))
-     $                  +(wm-abs(wm))*(0.e0     -u(i, jm ,k)) )
-C
-C     South:
-C
-            ga = sqrt(h(i,2)*grav*5.e-3)*dti/dy(i,2)
-            vf(i,2,k) =     ga*(.25*v(i-1,3,k)+.5*v(i,3,k)
-     $                          +.25*v(i+1,3,k))
-     $                 +(1-ga)*(.25*v(i-1,2,k)+.5*v(i,2,k)
-     $                          +.25*v(i+1,2,k))
-!            vf(i,2,k) =     ga*(.25*v(i-1,2,k)+.5*v(i,2,k)
-!     $                          +.25*v(i+1,2,k))
-!     $                 +(1-ga)*(.25*vbs(i-1,k)+.5*vbs(i,k)
-!     $                          +.25*vbs(i+1,k))
-!            vf(i,2,k) = 0.
-!
-            u1 = 2.*dti/(dy(i-1,1)+dy(i,1)+dy(i-1,2)+dy(i,2))
-            wm = ( v(i,2,k)+v(i-1,2,k) )*.5
-            uf(i,1,k) = u(i,1,k) - u1*
-     $                 ( (wm+abs(wm))*(u(i,1,k)-ubs(i,k))     ! 0.e0 -> ubs(i,k)
-     $                  +(wm-abs(wm))*(u(i,2,k)-u(i,1,k)) )
-!
-            vf(i,1,k) = vf(i,2,k)
-!
-          end do
-        end do
-!     Fill corners for numerical safety
-        vf( 1,1,:) = (vf(   2,1,:)+v(2, 1,:))*.5
-        vf(im,1,:) = (vf(imm1,1,:)+v(im,2,:))*.5
-C
-!     Наложение маски свободной поверхности
-        do k=1,kbm1
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*dum(i,j)
-              vf(i,j,k)=vf(i,j,k)*dvm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.4) then
-C
-C     Temperature and salinity boundary conditions (using uf and vf,
-C     respectively):
-C
-!     ГУ температуры и солёности:
-        do k=1,kbm1
-          do j=2,jmm1
-C
-C     East:
-C
-            ga = dti/(dx(im,j)+dx(imm1,j))
-            uf(im,j,k) = t(im,j,k) - ga *
-     $                 ( ( u(imm1,j,k)-abs(u(imm1,j,k)) )
-     $                  *(t(im,j,k)-tbe(j,k))
-     $                  +( u(imm1,j,k)+abs(u(imm1,j,k)) )
-     $                  *(t(imm1,j,k)-t(im,j,k)) )
-            vf(im,j,k) = s(im,j,k) - ga *
-     $                 ( ( u(imm1,j,k)-abs(v(imm1,j,k)) )
-     $                  *(s(im,j,k)-sbe(j,k))
-     $                  +( u(imm1,j,k)+abs(v(imm1,j,k)) )
-     $                  *(s(imm1,j,k)-s(im,j,k)) )
-C
-C     West:
-C
-            ga = dti/(dx(1,j)+dx(2,j))
-            uf(1,j,k) = t(1,j,k) - ga *
-     $                 ( ( u(2,j,k)+abs(u(2,j,k)) )
-     $                  *(t(1,j,k)-tbw(j,k))
-     $                  +( u(2,j,k)-abs(u(2,j,k)) )
-     $                  *(t(2,j,k)-t(1,j,k)) )
-            vf(1,j,k) = s(1,j,k) - ga *
-     $                 ( ( u(2,j,k)+abs(v(2,j,k)) )
-     $                  *(s(1,j,k)-sbw(j,k))
-     $                  +( u(2,j,k)-abs(v(2,j,k)) )
-     $                  *(s(2,j,k)-s(1,j,k)) )
-          end do
-        end do
-C
-        do k=1,kbm1
-          do i=2,imm1
-C
-C     North:
-C
-            ga = dti/(dy(i,jm)+dy(i,jmm1))
-            uf(i,jm,k) = t(i,jm,k) - ga *
-     $                 ( ( v(i,jmm1,k)-abs(v(i,jmm1,k)) )
-     $                  *(tbn(i,k)-t(i,jm,k))   !!!!! Revise!!!!
-     $                  +( v(i,jmm1,k)+abs(v(i,jmm1,k)) )
-     $                  *(t(i,jm,k)-t(i,jmm1,k)) ) !!
-            vf(i,jm,k) = s(i,jm,k) - ga *
-     $                 ( ( v(i,jmm1,k)-abs(v(i,jmm1,k)) )
-     $                  *(sbn(i,k)-s(i,jm,k))   !!!!! R!
-     $                  +( v(i,jmm1,k)+abs(v(i,jmm1,k)) )
-     $                  *(s(i,jm,k)-s(i,jmm1,k)) ) !!
-C
-C     South:
-C
-            ga = dti/(dy(i,1)+dy(i,2))
-            uf(i,1,k) = t(i,1,k) - ga *
-     $                 ( ( v(i,2,k)+abs(v(i,2,k)) )
-     $                  *(t(i,1,k)-tbs(i,k))
-     $                  +( v(i,2,k)-abs(v(i,2,k)) )
-     $                  *(t(i,2,k)-t(i,1,k)) )
-            vf(i,1,k) = s(i,1,k) - ga *
-     $                 ( ( v(i,2,k)+abs(v(i,2,k)) )
-     $                  *(s(i,1,k)-sbs(i,k))
-     $                  +( v(i,2,k)-abs(v(i,2,k)) )
-     $                  *(s(i,2,k)-s(i,1,k)) )
-          end do
-        end do
-C
-        do k=1,kbm1
-!     Average corner cells
-          uf(1, 1,k) = (uf(2, 1,k)+uf(1,   2,k))*.5
-          vf(1, 1,k) = (vf(2, 1,k)+vf(1,   2,k))*.5
-          uf(1,jm,k) = (uf(2,jm,k)+uf(1,jmm1,k))*.5
-          vf(1,jm,k) = (vf(2,jm,k)+vf(1,jmm1,k))*.5
-          do j=1,jm
-            do i=1,im
-              uf(i,j,k)=uf(i,j,k)*fsm(i,j)
-              vf(i,j,k)=vf(i,j,k)*fsm(i,j)
-            end do
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
-!     Условие вертикальной скорости на границе:
-        do k=1,kbm1
-          do j=1,jm
-            w( 1,j,k) = w(   2,j,k)*fsm( 1,j)
-            w(im,j,k) = w(imm1,j,k)*fsm(im,j)
-          end do
-          do i=2,im
-            w(i, 1,k) = w(i,   2,k)*fsm(i,   1)
-            w(i,jm,k) = w(i,jmm1,k)*fsm(i,jmm1)
-          end do
-        end do
-C
-        return
-C
-      else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
-!     ГУ турбулентной кинетической энергии и турб. масштаба:
-        do k=1,kb
-          do j=1,jm
-C
-C     East:
-C
-            uf(1,j,k) = 1.e-10
-            vf(1,j,k) = 1.e-10
-C
-C     West:
-C
-            uf(im,j,k) = 1.e-10
-            vf(im,j,k) = 1.e-10
-!
-          end do
-        end do
-C
-        do k=1,kb
-          do i=1,im
-C
-C     North:
-C
-            uf(i,1,k) = 1.e-10
-            vf(i,1,k) = 1.e-10
-C
-C     South:
-C
-            uf(i,jm,k) = 1.e-10
-            vf(i,jm,k) = 1.e-10
-!
-          end do
-        end do
-C
-!     Наложение маски свободной поверхности с предотвращением получения нулевых значений.
-!       Left from original pom2k
         do k=1,kb
           do j=1,jm
             do i=1,im
@@ -4982,7 +3573,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       integer idx
       real cl,denom
@@ -5223,7 +3814,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real depth,delx,tatm,satm
       integer i,j,k
@@ -5467,6 +4058,11 @@ C         defined relative to tbias and sbias.):
 C
       do j=1,jm
         do i=1,im
+!
+!lyo:!wad:!pom2k_bug:tsurf and ssurf were never defined, but should be:
+             tsurf(i,j)=tb(i,j,1)
+             ssurf(i,j)=sb(i,j,1)
+!
           if(i+j-57.le.0) then
             e_atmos(i,j)=1.e0
           else
@@ -5499,293 +4095,16 @@ C
         end do
       end do
 C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+         enddo; enddo; enddo
+!                                                                      !
       call dens(sb,tb,rho)
-C
-C     Generated horizontally averaged density field (in this
-C     application, the initial condition for density is a function
-C     of z (the vertical cartesian coordinate) -- when this is not
-C     so, make sure that rmean has been area averaged BEFORE transfer
-C     to sigma coordinates):
-C
-      do k=1,kbm1
-        do j=1,jm
-          do i=1,im
-            rmean(i,j,k)=rho(i,j,k)
-          end do
-        end do
-      end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     (in this problem, all lateral boundaries are closed through
-C     the specification of the masks fsm, dum and dvm):
-C
-      rfe=1.e0
-      rfw=1.e0
-      rfn=1.e0
-      rfs=1.e0
-C
-C     Set thermodynamic boundary conditions (for the seamount
-C     problem, and other possible applications, lateral thermodynamic
-C     boundary conditions are set equal to the initial conditions and
-C     are held constant thereafter - users may, of course, create
-C     variable boundary conditions):
-C
-      do k=1,kbm1
-C
-        do j=1,jm
-          tbe(j,k)=tb(im,j,k)
-          tbw(j,k)=tb(1,j,k)
-          sbe(j,k)=sb(im,j,k)
-          sbw(j,k)=sb(1,j,k)
-        end do
-C
-        do i=1,im
-          tbn(i,k)=tb(i,jm,k)
-          tbs(i,k)=tb(i,1,k)
-          sbn(i,k)=sb(i,jm,k)
-          sbs(i,k)=sb(i,1,k)
-        end do
-C
-      end do
-C
-      return
-C
-      end
-C
-      subroutine cortes                 ! rwnd :
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up coriolis test.                              *
-C *                                                                    *
-C **********************************************************************
-C
-      implicit none
-C
-      include 'pom2k.c'
-C
-      real depth,delx,tatm,satm
-      real rad,re,dlat,dlon
-      integer i,j,k
-      rad=0.01745329
-      re=6371.E3
-C
-C     Sigma layers:
-C
-      do k=1,kb
-        z(k) = -float(k-1)/float(kb-1)
-      end do
-      do k=1,kbm1
-        dz(k) = z(k)-z(k+1)
-        zz(k) = (z(k)+z(k+1))/2
-      end do
-      dz(kb) = 0.
-      zz(kb) = zz(kbm1)-dz(kbm1)
-      do k=1,kbm1
-        dzz(k) = zz(k)-zz(k+1)
-      end do
-      dzz(kb) = 0.
-C
-C     Water depth:
-C
-      depth=4500.e0
-C
-C     Grid size:
-C
-      delx=8000.e0
-C
-C     Set up grid dimensions, areas of free surface cells, and
-C     Coriolis parameter:
-C
-      do j=1,jm
-        do i=1,im
-
-          north_e(i,j) = float(j)*180/float(jm+1)-90.
-          east_e(i,j) = float(i)*360/float(im+1)-180.
-          cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
-C
-        end do
-      end do
-C
-        do j=1,jm
-          do i=2,im-1
-            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
-          end do
-            dx(1,j)=dx(2,j)
-            dx(im,j)=dx(im-1,j)
-        end do
-C
-        do i=1,im
-          do j=2,jm-1
-            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
-          end do
-            dy(i,1)=dy(i,2)
-            dy(i,jm)=dy(i,jm-1)
-        end do
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
-      do j=2,jm
-        do i=2,im
-          east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
-     $                  +east_e(i,j-1)+east_e(i-1,j-1))/4.e0
-          north_c(i,j)=(north_e(i,j)+north_e(i-1,j)
-     $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
-        end do
-      end do
-C
-C
-C     Extrapolate ends (approx.):
-C
-      do i=2,im
-        east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
-        north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
-      end do
-        east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
-      do j=2,jm
-        east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
-        north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
-      end do
-        north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
-      do j=1,jm-1
-        do i=1,im
-          east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
-          north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
-        end do
-      end do
-C
-C     Extrapolate ends:
-C
-      do i=1,im
-        east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
-        north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
-      end do
-C
-C     v-points:
-C
-      do j=1,jm
-        do i=1,im-1
-          east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
-          north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
-        end do
-      end do
-C
-C     Extrapolate ends:
-C
-      do j=1,jm
-        east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
-        north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
-      end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
-      do j=1,jm
-        do i=1,im-1
-          rot(i,j)=0.
-          dlat=north_e(i+1,j)-north_e(i,j)
-          dlon= east_e(i+1,j)- east_e(i,j)
-           if(dlon.ne.0.) rot(i,j)=atan(dlat/dlon)
-        end do
-       rot(im,j)=rot(im-1,j)
-      end do
-C
-C     Define depth:
-C
-      do i=1,im
-        do j=1,jm
-          h(i,j)=depth
-        end do
-      end do
-C
-C     Close the north and south boundaries:
-C
-      do i=1,im
-        h(i,1)=1.e0
-        h(i,jm)=1.e0
-      end do
-C
-C     Close the east and west boundaries:
-C
-      do j=1,jm
-        h(1,j)=1.e0
-        h(im,j)=1.e0
-      end do
-C
-C     Calculate areas and masks:
-C
-      call areas_masks
-C
-C     Adjust bottom topography so that cell to cell variations
-C     in h do not exceed parameter slmax:
-C
-      if(slmax.lt.1.e0) call slpmax
-C
-C     Set tbias and sbias here for test (tbias and sbias would
-C     normally only be set in the main program):
-C
-      tbias=10.e0
-      sbias=20.e0
-      write(6,1) tbias,sbias
-    1 format(/' tbias and sbias changed in subroutine cortes to:'/
-     $         2f10.3//)
-C
-C     Set initial conditions:
-C
-      do k=1,kbm1
-        do j=1,jm
-          do i=1,im
-            tb(i,j,k)=20.e0-tbias
-            sb(i,j,k)=35.e0-sbias
-            tclim(i,j,k)=tb(i,j,k)
-            sclim(i,j,k)=sb(i,j,k)
-          end do
-        end do
-      end do
-C
-C     Initialise uab and vab as necessary
-C     (NOTE that these have already been initialised to zero in the
-C     main program):
-C
-      do j=1,jm
-        do i=1,im
-C     No conditions necessary for this problem
-        end do
-      end do
-C
-C     Set surface boundary conditions, e_atmos, vflux, wusurf,
-C     wvsurf, wtsurf, wssurf and swrad, as necessary
-C     (NOTE:
-C      1. These have all been initialised to zero in the main program.
-C      2. The temperature and salinity of inflowing water must be
-C         defined relative to tbias and sbias.):
-C
-C
-C     See main program, just after "Begin numerical integration", for
-C     an explanation of these terms:
-C
-          tatm=20.e0
-          satm=35.e0
-C
-C     Initialise elb, etb, dt and aam2d:
-C
-      do j=1,jm
-        do i=1,im
-          elb(i,j)=-.5*(j-1)/jm+.5
-          etb(i,j)=elb(i,j)
-          dt(i,j)=h(i,j)+etb(i,j)
-          aam2d(i,j)=aam(i,j,1)
-        end do
-      end do
-C
-      call dens(sb,tb,rho)
+!                                                                      !
+!----------------------------------------------------------------------!
 C
 C     Generated horizontally averaged density field (in this
 C     application, the initial condition for density is a function
@@ -5860,10 +4179,10 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real si(im,jm,kb),ti(im,jm,kb),rhoo(im,jm,kb)
-      real cr,p,rhor,sr,tr,tr2,tr3,tr4
+      real cr,p,rhor,sr,tr,tr2,tr3,tr4  !,hij !lyo:!wad:define hij
       integer i,j,k
 C
       do k=1,kbm1
@@ -5878,7 +4197,13 @@ C
 C
 C     Approximate pressure in units of bars:
 C
-            p=grav*rhoref*(-zz(k)* h(i,j))*1.e-5
+!
+!lyo:!wad:Keep "p" defined as in original pom w/o hhi (i.e. "h" defined
+!         wrt MSL), but set p=0 for cells where input "h" indicates
+!         "dry" (i.e. where h-hhi < 0); i.e. use "pdens":
+!
+            p=pdens(i,j,k)
+!           p=grav*rhoref*(-zz(k)* h(i,j))*1.e-5
 C
             rhor=-0.157406e0+6.793952e-2*tr
      $            -9.095290e-3*tr2+1.001685e-4*tr3
@@ -5920,7 +4245,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real delz
       integer kdz(12)
@@ -5978,6 +4303,67 @@ C
 C
       end
 C
+      subroutine findpsi
+C **********************************************************************
+C *                                                                    *
+C * ROUTINE NAME:  findpsi                                             *
+C *                                                                    *
+C * FUNCTION    :  Calculates the stream function, first assuming      *
+C *                zero on the southern boundary and then, using the   *
+C *                values on the western boundary, the stream function *
+C *                is calculated again. If the elevation field is near *
+C *                steady state, the two calculations should agree;    *
+C *                otherwise not.                                      *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      include 'pom08.c'
+C
+      integer i,j
+C
+      do j=1,jm
+        do i=1,im
+          psi(i,j)=0.e0
+        end do
+      end do
+C
+C     Sweep northward:
+C
+      do j=2,jmm1
+        do i=2,im
+          psi(i,j+1)=psi(i,j)
+     $                +.25e0*uab(i,j)*(d(i,j)+d(i-1,j))
+     $                  *(dy(i,j)+dy(i-1,j))
+        end do
+      end do
+C
+      call prxy('Streamfunction, psi from u              ',
+     $          time,psi,im,iskp,jm,jskp,0.e0)
+C
+C    Sweep eastward:
+C
+      do j=2,jm
+        do i=2,imm1
+          psi(i+1,j)=psi(i,j)
+     $                -.25e0*vab(i,j)*(d(i,j)+d(i,j-1))
+     $                  *(dx(i,j)+dx(i,j-1))
+        end do
+      end do
+C
+      call prxy('Streamfunction, psi from v              ',
+     $          time,psi,im,iskp,jm,jskp,0.e0)
+C
+      return
+C
+      end
+C
+!----------------------------------------------------------------------!
+!lyo:_20080415:This version (of file2ic) is basically still the old one!
+!     from pom2k - I have not converted it to setup for realistic      !
+!     WAD runs - but see subr. wadseamount for an example of how-to.   !
+!----------------------------------------------------------------------!
       subroutine file2ic
 C **********************************************************************
 C *                                                                    *
@@ -5991,10 +4377,10 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real rad,re,dlat,dlon,cff
-      integer i,j,k
+      integer i,j,k,m
       character*5 field
       rad=0.01745329
       re=6371.E3
@@ -6023,7 +4409,7 @@ C--- 2D ---
        read(40,'(8E12.5)') north_e
       read(40,'(a5)') field
       write(6,'(a5)') field
-       read(40,'(8E12.5)') h
+       read(40,'(8E12.5)') h  !lyo:!wad:note:read +- topography
 C--- 3D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
@@ -6053,6 +4439,44 @@ C
     3   format((' ',i5,4f10.3))
       end do
       write(6,'(''  '',//)')
+!
+!lyo:_20080415:Move "calc. Coriolis etc" through "call areas_masks"
+!     from below (after call dens) to here; otherwise, fsm will not
+!     be defined but is used in subroutine dens. (This is a pom2k_bug).
+C
+C --- calc. Coriolis Parameter
+C
+        do j=1,jm
+          do i=1,im
+            cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
+!           aam2d(i,j)=aam(i,j,1) !lyo:_20080415:pom2k_bug:aam not defined
+            elb(i,j)=0.
+            etb(i,j)=0.
+            dt(i,j)=h(i,j)
+          end do
+        end do
+C
+        do j=1,jm
+          do i=2,im-1
+            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
+     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
+          end do
+            dx(1,j)=dx(2,j)
+            dx(im,j)=dx(im-1,j)
+        end do
+C
+        do i=1,im
+          do j=2,jm-1
+            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
+     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
+          end do
+            dy(i,1)=dy(i,2)
+            dy(i,jm)=dy(i,jm-1)
+        end do
+C
+C     Calculate areas and masks:
+C
+      call areas_masks
 C
 C --- calc. surface & lateral BC from climatology
 C
@@ -6112,97 +4536,16 @@ C
         end do
       end do
 C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+         enddo; enddo; enddo
+!                                                                      !
       call dens(sb,tb,rho)
-C
-C --- calc. Curiolis Parameter
-C
-        do j=1,jm
-          do i=1,im
-            cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
-            aam2d(i,j)=aam(i,j,1)
-            elb(i,j)=0.
-            etb(i,j)=0.
-            dt(i,j)=h(i,j)
-          end do
-        end do
-C
-        do j=1,jm
-          do i=2,im-1
-            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
-          end do
-            dx(1,j)=dx(2,j)
-            dx(im,j)=dx(im-1,j)
-        end do
-C
-        do i=1,im
-          do j=2,jm-1
-            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
-          end do
-            dy(i,1)=dy(i,2)
-            dy(i,jm)=dy(i,jm-1)
-        end do
-C
-C     Calculate areas and masks:
-C
-      call areas_masks
-C
-        do j=1,jm
-          do i=1,im
-             tsurf(i,j)=t(i,j,1)
-             ssurf(i,j)=s(i,j,1)
-            do k=1,kb
-              tclim(i,j,k)=t(i,j,k)
-              sclim(i,j,k)=s(i,j,k)
-            end do
-          end do
-        end do
-C
-C                    --- EAST & WEST BCs ---
-        do j=1,jm
-            ele(j)=0.
-            elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
-            do k=1,kb
-              ubw(j,k)=0                ! RWND
-              ube(j,k)=0                !
-              uabe(j) =0                ! RWND
-              uabw(j) =0                !  Calculate vertical averages
-              tbw(j,k)=tclim(1,j,k)
-              sbw(j,k)=sclim(1,j,k)
-              tbe(j,k)=tclim(im,j,k)
-              sbe(j,k)=sclim(im,j,k)
-            end do
-        end do
-C                    --- NORTH & SOUTH BCs ---
-        do i=1,im
-              els(i)=0. !elb(i,1)   ! RWND
-              eln(i)=0. !elb(i,jm)  !
-            do k=1,kb
-              vbs(i,k)=0                ! RWND
-              vbn(i,k)=0                !
-              vabs(j) =0                ! RWND
-              vabn(j) =0                !  Calculate vertical means
-              tbs(i,k)=tclim(i,1,k)
-              sbs(i,k)=sclim(i,1,k)
-              tbn(i,k)=tclim(i,jm,k)
-              sbn(i,k)=sclim(i,jm,k)
-            end do
-        end do
-C
-C     Set initial conditions:
-C
-      do k=1,kb
-        do j=1,jm
-          do i=1,im
-            tb(i,j,k)=t(i,j,k)
-            sb(i,j,k)=s(i,j,k)
-            ub(i,j,k)=u(i,j,k)
-            vb(i,j,k)=v(i,j,k)
-          end do
-        end do
-      end do
+!                                                                      !
+!----------------------------------------------------------------------!
 C
 C --- the following grids are needed only for netcdf plotting
 C
@@ -6288,7 +4631,174 @@ C
       return
       end
 C
-      subroutine profq(sm,sh,dh,cc)
+      subroutine printall
+C **********************************************************************
+C *                                                                    *
+C *                         POM2K SOURCE CODE                          *
+C *                                                                    *
+C * ROUTINE NAME:  printall                                            *
+C *                                                                    *
+C * FUNCTION    :  Prints a set of outputs to device 6                 *
+C *                                                                    *
+C *                Edit as approriate.                                 *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      integer io(100),jo(100),ko(100)
+C
+      include 'pom08.c'
+C
+C     2-D horizontal fields:
+C
+          call prxy('Depth-averaged u, uab                   ',
+     $              time,uab,im,iskp,jm,jskp,0.e0)
+C
+          call prxy('Depth-averaged v, vab                   ',
+     $              time,vab,im,iskp,jm,jskp,0.e0)
+C
+          call prxy('Surface elevation, elb                  ',
+     $              time,elb,im,iskp,jm,jskp,0.e0)
+C
+C     Calculate and print streamfunction:
+C
+          call findpsi
+C
+          if(mode.ne.2) then
+C
+C     2-D horizontal sections of 3-D fields:
+C
+C     Set levels for output:
+C
+            ko(1)=1
+            ko(2)=kb/2
+            ko(3)=kb-1
+C
+            call prxyz('x-velocity, u                           ',
+     $                 time,u    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+            call prxyz('y-velocity, v                           ',
+     $                 time,v    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+            ko(1)=2
+            call prxyz('z-velocity, w                           ',
+     $                 time,w    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+            ko(1)=1
+C
+            call prxyz('Potential temperature, t                ',
+     $                 time,t    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
+C
+            call prxyz('Salinity, s                              ',
+     $                 time,s    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
+C
+            call prxyz('(density-1000)/rhoref, rho              ',
+     $                 time,rho  ,im,iskp,jm,jskp,kb,ko,3,1.e-5)
+C
+c           call prxyz('Turbulent kinetic energy x 2, q2        ',
+c    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+c           call prxyz('Turbulent length scale, l               ',
+c    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+            call prxyz('Horizontal kinematic viscosity, aam     ',
+     $                 time,aam  ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+            call prxyz('Vertical kinematic viscosity, km        ',
+     $                 time,km   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+c           call prxyz('Vertical kinematic diffusivity, kh      ',
+c    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+C
+C     Vertical sections of 3-D fields, normal to j-axis:
+C
+C     Set sections for output:
+C
+            jo(1)=1
+            jo(2)=jm/2
+            jo(3)=jm-1
+C
+            call prxz('x-velocity, u                           ',
+     $                time,u    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+C
+            call prxz('y-velocity, v                           ',
+     $                time,v    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+C
+            call prxz('z-velocity, w                           ',
+     $                time,w    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+C
+            call prxz('Potential temperature, t                ',
+     $                time,t    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
+C
+            call prxz('Salinity, s                             ',
+     $                time,s    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
+C
+            call prxz('(density-1000)/rhoref, rho              ',
+     $                time,rho  ,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
+C
+c           call prxz('Turbulent kinetic energy x 2, q2        ',
+c    $                time,q2   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+C
+c           call prxz('Turbulent length scale, l               ',
+c    $                time,l    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+C
+c           call prxz('Horizontal kinematic viscosity, aam     ',
+c    $                time,aam  ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+C
+c           call prxz('Vertical kinematic viscosity, km        ',
+c    $                time,km   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+C
+c           call prxz('Vertical kinematic diffusivity, kh      ',
+c    $                time,kh   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+C
+C     Vertical sections of 3-D fields, normal to i-axis:
+C
+C     Set sections for output:
+C
+            io(1)=1
+            io(2)=im/2
+            io(3)=im-1
+C
+            call pryz('x-velocity, u                           ',
+     $                time,u    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+C
+            call pryz('y-velocity, v                           ',
+     $                time,v    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+C
+            call pryz('z-velocity, w                           ',
+     $                time,w    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+C
+            call pryz('Potential temperature, t                ',
+     $                time,t    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
+C
+c           call pryz('Salinity x rho / rhoref, s              ',
+c    $                time,s    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
+C
+c           call pryz('(density-1000)/rhoref, rho              ',
+c    $                time,rho  ,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
+C
+c           call pryz('Turbulent kinetic energy x 2, q2        ',
+c    $                time,q2   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+C
+c           call pryz('Turbulent length scale, l               ',
+c    $                time,l    ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+C
+c           call pryz('Horizontal kinematic viscosity, aam     ',
+c    $                time,aam  ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+C
+c           call pryz('Vertical kinematic viscosity, km        ',
+c    $                time,km   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+C
+c           call pryz('Vertical kinematic diffusivity, kh      ',
+c    $                time,kh   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+C
+          endif
+C
+      return
+C
+      end
+C
+      subroutine profq(sm,sh,dh,cc) !lyo:_20080415:see notes at beg.
 C **********************************************************************
 C *                                        Updated: Sep. 24, 2003      *
 C * FUNCTION    :  Solves for q2 (twice the turbulent kinetic energy), *
@@ -6325,7 +4835,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real sm(im,jm,kb),sh(im,jm,kb),cc(im,jm,kb)
       real gh(im,jm,kb),boygr(im,jm,kb),dh(im,jm),stf(im,jm,kb)
@@ -6420,7 +4930,13 @@ C
 C
 C     Calculate pressure in units of decibars:
 C
-            p=grav*rhoref*(-zz(k)* h(i,j))*1.e-4
+!
+!lyo:!wad:Keep "p" defined as in original pom w/o hhi (i.e. "h" defined
+!         wrt MSL), but set p=0 for cells where input "h" indicates
+!         "dry" (i.e. where h-hhi < 0); i.e. use "pdens":
+!
+            p=pdens(i,j,k)*10.e0
+!           p=grav*rhoref*(-zz(k)* h(i,j))*1.e-4
             cc(i,j,k)=1449.1e0+.00821e0*p+4.55e0*tp -.045e0*tp**2
      $                 +1.34e0*(sp-35.0e0)
             cc(i,j,k)=cc(i,j,k)
@@ -6439,7 +4955,11 @@ C
             q2b(i,j,k)=abs(q2b(i,j,k))
             q2lb(i,j,k)=abs(q2lb(i,j,k))
             boygr(i,j,k)=grav*(rho(i,j,k-1)-rho(i,j,k))
-     $                    /(dzz(k-1)* h(i,j))
+!lyo:!wad:Note in MAIN, call profq is before call proft/dens. So T&S
+!         (hence rho) are defined on sigma-grid using (h+etf),
+!         so use "h+et" here:
+!    $                    /(dzz(k-1)* h(i,j))
+     $                    /(dzz(k-1)* (h(i,j)+et(i,j)))
 C *** NOTE: comment out next line if dens does not include pressure
      $      +(grav**2)*2.e0/(cc(i,j,k-1)**2+cc(i,j,k)**2)
           end do
@@ -6530,12 +5050,13 @@ C       dti2(kq*q2l')' - q2l*(dti2*dtef+1.) = -q2lb
 C
       do j=1,jm
         do i=1,im
+          vf(i,j,1)=0.
+          vf(i,j,kb)=0.
           ee(i,j,2)=0.e0
-          gg(i,j,2)=0.e0
-          vf(i,j,kb)=0.e0
+          gg(i,j,2)=-kappa*z(2)*dh(i,j)*q2(i,j,2)
+          vf(i,j,kb-1)=kappa*(1+z(kbm1))*dh(i,j)*q2(i,j,kbm1)
         end do
       end do
-C
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -6543,6 +5064,12 @@ C
      $                   *(1.e0+e2*((1.e0/abs(z(k)-z(1))
      $                               +1.e0/abs(z(k)-z(kb)))
      $                                *l(i,j,k)/(dh(i,j)*kappa))**2)
+          end do
+        end do
+      end do
+      do k=3,kbm1
+        do j=1,jm
+          do i=1,im
             gg(i,j,k)=1.e0/(a(i,j,k)+c(i,j,k)*(1.e0-ee(i,j,k-1))
      $                      -(dti2*dtef(i,j,k)+1.e0))
             ee(i,j,k)=a(i,j,k)*gg(i,j,k)
@@ -6560,20 +5087,23 @@ C
           end do
         end do
       end do
-C
+C The following is to counter the problem of the ratio of two
+C small numbers (l = q2l/q2). Two options are included below.
       do k=2,kbm1
         do j=1,jm
           do i=1,im
-            if(uf(i,j,k).le.small.or.vf(i,j,k).le.small) then
-              uf(i,j,k)=small
-              vf(i,j,k)=0.1*dt(i,j)*small
-            endif
+c           if(uf(i,j,k).le.small.or.vf(i,j,k).le.small) then
+c             uf(i,j,k)=small
+c             vf(i,j,k)=0.1*dt(i,j)*small
+c           endif
+          uf(i,j,k)=abs(uf(i,j,k))
+          vf(i,j,k)=abs(vf(i,j,k))
           end do
         end do
       end do
 C
 C-----------------------------------------------------------------------
-C
+c
 C     The following section solves for km and kh:
 C
       coef4=18.e0*a1*a1+9.e0*a1*a2
@@ -6594,11 +5124,27 @@ C
         end do
       end do
 C
+C  There are 2 options for kq which, unlike km and kh, was
+C  was not derived by Mellor and Yamada but was purely
+C  empirical based on neutral boundary layer data.
+C  The choice is whether or not it should be subject to
+C  the stability factor, sh. Generally, there is not a great
+C  difference in output.
+C
       do k=1,kb
         do j=1,jm
           do i=1,im
-            kn(i,j,k)=l(i,j,k)*sqrt(abs(q2(i,j,k)))
-            kq(i,j,k)=(kn(i,j,k)*.41e0*sh(i,j,k)+kq(i,j,k))*.5e0
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:See O2006, Appendix A:                                       !
+!                                                                      !
+!           kn(i,j,k)=l(i,j,k)*sqrt(abs(q2(i,j,k)))
+            kn(i,j,k)=(kappa*zsh+l(i,j,k))*sqrt(abs(q2(i,j,k)))
+!                                                                      !
+!----------------------------------------------------------------------!
+!
+!           kq(i,j,k)=(kn(i,j,k)*.41e0*sh(i,j,k)+kq(i,j,k))*.5e0
+            kq(i,j,k)=(kn(i,j,k)*.20+kq(i,j,k))*.5e0
             km(i,j,k)=(kn(i,j,k)*sm(i,j,k)+km(i,j,k))*.5e0
             kh(i,j,k)=(kn(i,j,k)*sh(i,j,k)+kh(i,j,k))*.5e0
           end do
@@ -6657,7 +5203,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real f(im,jm,kb),wfsurf(im,jm)
       real fsurf(im,jm),dh(im,jm)
@@ -6829,7 +5375,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
       real dh(im,jm)
       integer i,j,k,ki
 C
@@ -6939,7 +5485,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
       real dh(im,jm)
       integer i,j,k,ki
 C
@@ -7028,6 +5574,398 @@ C
 C
       end
 C
+      subroutine prxy(label,time,a,im,iskp,jm,jskp,scala)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Writes a horizontal 2-D field.                      *
+C *                                                                    *
+C *                label ....... label for output                      *
+C *                time ........ time (days)                           *
+C *                a(im,jm,kb).. array to be printed                   *
+C *                iskp ........ skipping interval for i               *
+C *                jskp ........ skipping interval for j               *
+C *                scala ....... < 0 for floating point numbers output *
+C *                              0 for integer output, divisor for a   *
+C *                                based on magnitudes of |a| values   *
+C *                              > 0 for integer output, divisor for a *
+C *                                given by scala                      *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      integer im,jm
+      real a(im,jm)
+      real time,scala
+      integer iskp,jskp
+      character label*(*)
+      real amx,scale
+      integer i,ib,ie,j,jwr,cols
+C
+      if(scala.ge.0.e0) then
+        cols=24
+      else
+        cols=12
+      endif
+C
+      if (scala.lt.0.e0) scale = 1.e0
+      if (scala.eq.0.e0) then
+        amx=1.e-12
+        do j=1,jm,jskp
+          do i=1,im,iskp
+            amx=max(abs(a(i,j)),amx)
+          end do
+        end do
+          scale=10.e0**(int(log10(amx)+100.e0)-103)
+        endif
+      if(scala.gt.0.e0) scale=scala
+C
+      write(6,1) label
+    1 format(1x,a40/)
+      write(6,2) time,scale
+    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
+C
+      do ib=1,im,cols*iskp
+C
+        ie=ib+(cols-1)*iskp
+        if(ie.gt.im) ie=im
+C
+        if(scala.ge.0.e0) then
+          write(6,3) (i,i=ib,ie,iskp)
+    3     format(/,2x,24i5,/)
+        else
+          write(6,4) (i,i=ib,ie,iskp)
+    4     format(/,12i10,/)
+        endif
+C
+        do j=1,jm,jskp
+          jwr=jm+1-j
+          if(scala.ge.0.e0) then
+            write(6,5) jwr,(nint(a(i,jwr)/scale),i=ib,ie,iskp)
+    5       format(1x,i3,24i5)
+          else
+            write(6,6) jwr,(a(i,jwr),i=ib,ie,iskp)
+    6       format(1x,i2,12(e10.2))
+          endif
+        end do
+C
+        write(6,7)
+    7   format(//)
+C
+      end do
+C
+      return
+C
+      end
+C
+      subroutine prxyz(label,time,a,im,iskp,jm,jskp,kb,ko,nko,scala)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Writes horizontal layers of a 3-D field with        *
+C *                integers or floating point numbers.                 *
+C *                                                                    *
+C *                label ....... label for output                      *
+C *                time ........ time (days)                           *
+C *                a(im,jm,kb).. array to be printed                   *
+C *                iskp ........ skipping interval for i               *
+C *                jskp ........ skipping interval for j               *
+C *                ko .......... 1-D array of k-indices for output     *
+C *                nko ......... number of elements in ko              *
+C *                scala ....... < 0 for floating point numbers output *
+C *                              0 for integer output, divisor for a   *
+C *                                based on magnitudes of |a| values   *
+C *                              > 0 for integer output, divisor for a *
+C *                                given by scala                      *
+C *                                                                    *
+C *                (NOTE that this combines functions of old prxyz and *
+C *                 eprxyz)                                            *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      integer im,jm,kb
+      real a(im,jm,kb)
+      real time,scala
+      integer ko(*)
+      integer iskp,jskp,nko
+      character label*(*)
+      real amx,scale
+      integer i,ib,ie,j,jwr,k,iko,cols
+C
+      if(scala.ge.0.e0) then
+        cols=24
+      else
+        cols=12
+      endif
+C
+      if (scala.lt.0.e0) scale = 1.e0
+      if (scala.eq.0.e0) then
+        amx=1.e-12
+        do iko=1,nko
+          k=ko(iko)
+          do j=1,jm,jskp
+            do i=1,im,iskp
+              amx=max(abs(a(i,j,k)),amx)
+            end do
+          end do
+        end do
+          scale=10.e0**(int(log10(amx)+100.e0)-103)
+        endif
+      if(scala.gt.0.e0) scale=scala
+C
+      write(6,1) label
+    1 format(1x,a40/)
+      write(6,2) time,scale
+    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
+C
+      do iko=1,nko
+C
+        k=ko(iko)
+C
+        write(6,3) k
+    3   format(3x,/' Layer k = ',i2)
+C
+        do ib=1,im,cols*iskp
+C
+          ie=ib+(cols-1)*iskp
+          if(ie.gt.im) ie=im
+C
+          if(scala.ge.0.e0) then
+            write(6,4) (i,i=ib,ie,iskp)
+    4       format(/,2x,24i5,/)
+          else
+            write(6,5) (i,i=ib,ie,iskp)
+    5       format(/,12i10,/)
+          endif
+C
+          do j=1,jm,jskp
+            jwr=jm+1-j
+            if(scala.ge.0.e0) then
+              write(6,6) jwr,(nint(a(i,jwr,k)/scale),i=ib,ie,iskp)
+    6         format(1x,i3,24i5)
+            else
+              write(6,7) jwr,(a(i,jwr,k),i=ib,ie,iskp)
+    7         format(1x,i2,12(e10.2))
+            endif
+          end do
+C
+          write(6,8)
+    8     format(//)
+C
+        end do
+C
+      end do
+C
+      return
+C
+      end
+C
+      subroutine prxz(label,time,a,im,iskp,jm,kb,jo,njo,scala,dt,zz)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
+C *                x- or i-direction .                                 *
+C *                                                                    *
+C *                label ....... label for output                      *
+C *                time ........ time (days)                           *
+C *                a(im,jm,kb).. array to be printed                   *
+C *                iskp ........ skipping interval for i               *
+C *                jo .......... 1-D array of j-indices for output     *
+C *                njo ......... number of elements in jo              *
+C *                scala ....... < 0 for floating point numbers output *
+C *                              0 for integer output, divisor for a   *
+C *                                based on magnitudes of |a| values   *
+C *                              > 0 for integer output, divisor for a *
+C *                                given by scala                      *
+C *                dt(im,jm) ... total depth                           *
+C *                zz(kb) ...... sigma coordinate                      *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      integer im,jm,kb
+      real a(im,jm,kb),dt(im,jm),zz(kb)
+      real time,scala
+      integer jo(*)
+      integer iskp,njo
+      character label*(*)
+      real amx,scale
+      integer i,ib,ie,j,k,ijo,cols
+C
+      if(scala.ge.0.e0) then
+        cols=24
+      else
+        cols=12
+      endif
+C
+      if (scala.lt.0.e0) scale = 1.e0
+      if (scala.eq.0.e0) then
+        amx=1.e-12
+        do  k=1,kb
+          do ijo=1,njo
+            j=jo(ijo)
+            do i=1,im,iskp
+              amx=max(abs(a(i,j,k)),amx)
+            end do
+          end do
+        end do
+          scale=10.e0**(int(log10(amx)+100.e0)-103)
+        endif
+      if(scala.gt.0.e0) scale=scala
+C
+      write(6,1) label
+    1 format(1x,a40/)
+      write(6,2) time,scale
+    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
+C
+      do ijo=1,njo
+C
+        j=jo(ijo)
+C
+        write(6,3) j
+    3   format(3x,/' Section j =',i3)
+C
+        do ib=1,im,cols*iskp
+C
+          ie=ib+(cols-1)*iskp
+          if(ie.gt.im) ie=im
+C
+          if(scala.ge.0.e0) then
+            write(6,4) (i,i=ib,ie,iskp)
+    4       format(/,'    i =  ',24i5,/)
+          else
+            write(6,5) (i,i=ib,ie,iskp)
+    5       format(/,'    i =  ',12i10,/)
+          endif
+C
+          write(6,6) (nint(dt(i,j)),i=ib,ie,iskp)
+    6     format(8x,'d =',24i5.0,/,'     z or zz')
+C
+          do k=1,kb
+            if(scala.ge.0.e0) then
+              write(6,7) k,zz(k),(nint(a(i,j,k)/scale),i=ib,ie,iskp)
+    7         format(1x,i2,2x,f6.3,24i5)
+            else
+              write(6,8) k,zz(k),(a(i,j,k),i=ib,ie,iskp)
+    8         format(1x,i2,2x,f6.3,12(e10.2))
+            endif
+          end do
+C
+          write(6,9)
+    9     format(//)
+C
+        end do
+C
+      end do
+C
+      return
+C
+      end
+C
+      subroutine pryz(label,time,a,im,jm,jskp,kb,io,nio,scala,dt,zz)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
+C *                y- or j-direction.                                  *
+C *                                                                    *
+C *                label ....... label for output                      *
+C *                time ........ time (days)                           *
+C *                a(im,jm,kb).. array to be printed                   *
+C *                jskp ........ skipping interval for j               *
+C *                io .......... 1-D array of i-indices for output     *
+C *                nio ......... number of elements in io              *
+C *                scala ....... < 0 for floating point numbers output *
+C *                              0 for integer output, divisor for a   *
+C *                                based on magnitudes of |a| values   *
+C *                              > 0 for integer output, divisor for a *
+C *                                given by scala                      *
+C *                dt(im,jm) ... total depth                           *
+C *                zz(kb) ...... sigma coordinate                      *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+      integer im,jm,kb
+      real a(im,jm,kb),dt(im,jm),zz(kb)
+      real time,scala
+      integer io(*)
+      integer jskp,nio
+      character label*(*)
+      real amx,scale
+      integer i,j,jb,je,k,iio,cols
+C
+      if(scala.ge.0.e0) then
+        cols=24
+      else
+        cols=12
+      endif
+C
+      if (scala.lt.0.e0) scale = 1.e0
+      if (scala.eq.0.e0) then
+        amx=1.e-12
+        do  k=1,kb
+          do j=1,jm,jskp
+            do iio=1,nio
+              i=io(iio)
+              amx=max(abs(a(i,j,k)),amx)
+            end do
+          end do
+        end do
+          scale=10.e0**(int(log10(amx)+100.e0)-103)
+        endif
+      if(scala.gt.0.e0) scale=scala
+C
+      write(6,1) label
+    1 format(1x,a40/)
+      write(6,2) time,scale
+    2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
+C
+      do iio=1,nio
+C
+        i=io(iio)
+C
+        write(6,3) i
+    3   format(3x,/' Section i =',i3)
+C
+        do jb=1,jm,cols*jskp
+C
+          je=jb+(cols-1)*jskp
+          if(je.gt.jm) je=jm
+C
+          if(scala.ge.0.e0) then
+            write(6,4) (j,j=jb,je,jskp)
+    4       format(/,'    j =  ',24i5,/)
+          else
+            write(6,5) (j,j=jb,je,jskp)
+    5       format(/,'    j =  ',12i10,/)
+          endif
+C
+          write(6,6) (nint(dt(i,j)),j=jb,je,jskp)
+    6     format(8x,'d =',24i5.0,/,'     z or zz')
+C
+          do k=1,kb
+            if(scala.ge.0.e0) then
+              write(6,7) k,zz(k),(nint(a(i,j,k)/scale),j=jb,je,jskp)
+    7         format(1x,i2,2x,f6.3,24i5)
+            else
+              write(6,8) k,zz(k),(a(i,j,k),j=jb,je,jskp)
+    8         format(1x,i2,2x,f6.3,12(e10.2))
+            endif
+          end do
+C
+          write(6,9)
+    9     format(//)
+C
+        end do
+C
+      end do
+C
+      return
+C
+      end
+C
       subroutine seamount
 C **********************************************************************
 C *                                                                    *
@@ -7037,7 +5975,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real delh,delx,elejmid,elwjmid,ra,vel
       integer i,j,k
@@ -7219,10 +6157,11 @@ C
 C
 C     Define depth:
 C
+      hmax=4500.e0   !tne:!wad: deep open ocean (orig val - not wad-related)
       do i=1,im
         do j=1,jm
 C
-          h(i,j)=4500.e0*(1.e0-delh
+          h(i,j)=hmax*(1.e0-delh
      $                          *exp(-((east_c(i,j)
      $                                   -east_c((im+1)/2,j))**2
      $                                +(north_c(i,j)
@@ -7283,6 +6222,11 @@ C
       do j=1,jm
         do i=1,im
 C     No conditions necessary for this problem
+!
+!lyo:!wad:!pom2k_bug:tsurf and ssurf were never defined, but should be:
+             tsurf(i,j)=tb(i,j,1)
+             ssurf(i,j)=sb(i,j,1)
+!
         end do
       end do
 C
@@ -7297,7 +6241,16 @@ C
         end do
       end do
 C
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+         enddo; enddo; enddo
+!                                                                      !
       call dens(sb,tb,rho)
+!                                                                      !
+!----------------------------------------------------------------------!
 C
 C     Generated horizontally averaged density field (in this
 C     application, the initial condition for density is a function
@@ -7385,7 +6338,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real mean,del
       integer i,j,loop
@@ -7477,7 +6430,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real ff(im,jm,kb)
       real xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
@@ -7576,7 +6529,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pom08.c'
 C
       real xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
@@ -7627,790 +6580,602 @@ C
       return
 C
       end
-C
-      subroutine ncdf2ic
+c
+!lyo:!wad:                                                             !
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+!     Here are WAD-related subroutines in alphabatical order;          !
+!     all names begin with "wad"                                       !
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      subroutine wadadvt2d(fb,f,ff,nitera,sw,dx,dy,u,v,art,aru,arv,
+     1    fsm,dum,dvm,aam,dti2)
+!                                                                      !
+!     2-d version of Smolarkiewicz from /home/lyo/pom/pom2k/           !
+!     pom2k.f's subroutine advt2:                                      !
+!                                                                      !
+!     This version gets rid of common block, i.e. the routine is now   !
+!     self-contained, except that im & jm need to be specified below   !
+!     if "include 'grid'" is NOT used; also, 2-d calculation, i.e,     !
+!     solve for  D:                                                    !
+!                                                                      !
+!     d(D)/dt + d(UD)/dx + d(VD)/dy = Diffusion_of_(D)                 !
+!                                                                      !
 C **********************************************************************
 C *                                                                    *
-C * FUNCTION    :  Sets up my own problem.                             *
+C * FUNCTION    :  Integrates conservative scalar equations.           *
 C *                                                                    *
-C * This example reads IC from NetCDF files, generated by <deleted>    *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
+C *                This is a first-order upstream scheme, which        *
+C *                reduces implicit diffusion using the Smolarkiewicz  *
+C *                iterative upstream scheme with an antidiffusive     *
+C *                velocity.                                           *
+C *                                                                    *
+C *                It is based on the subroutines of Gianmaria Sannino *
+C *                (Inter-university Computing Consortium, Rome, Italy)*
+C *                and Vincenzo Artale (Italian National Agency for    *
+C *                New Technology and Environment, Rome, Italy),       *
+C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+C *                The calculations have been simplified by removing   *
+C *                the shock switch option. It should be noted that    *
+C *                this implementation does not include cross-terms    *
+C *                which are in the original formulation.              *
+C *                                                                    *
+C *                fb,f,fclim,ff . as used in subroutine advt1         *
+C *                xflux,yflux ... working arrays used to save memory  *
+C *                nitera ........ number of iterations. This should   *
+C *                                be in the range 1 - 4. 1 is         *
+C *                                standard upstream differencing;     *
+C *                                3 adds 50% CPU time to POM.         *
+C *                sw ............ smoothing parameter. This should    *
+C *                                preferably be 1, but 0 < sw < 1     *
+C *                                gives smoother solutions with less  *
+C *                                overshoot when nitera > 1.          *
+C *                                                                    *
+C *                Reference:                                          *
+C *                                                                    *
+C *                Smolarkiewicz, P.K.; A fully multidimensional       *
+C *                  positive definite advection transport algorithm   *
+C *                  with small implicit diffusion, Journal of         *
+C *                  Computational Physics, 54, 325-362, 1984.         *
 C *                                                                    *
 C **********************************************************************
 C
-      use netcdf
       implicit none
 C
-      include 'pom2k.c'
-C
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
-!
-      real rad,re,dlat,dlon,cff
-      integer i,j,k,mm
-      real lom(12)   ! length of month
-      data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
-      rad=0.01745329
-      re=6371.E3
-C
-      write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"roms_lvl.nc"   ! `roms_lvl` is actually `roms_bry` but the new one which has incorrect velocities but has new sigma-levels.
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-      call check( nf90_inq_varid(ncid, "Cs_w", varid) )
-      call check( nf90_get_var(ncid, varid, z(kb:1:-1)) )
-      write(*, *) "[O] z retrieved"
-      call check( nf90_inq_varid(ncid, "Cs_r", varid) )
-      call check( nf90_get_var(ncid, varid, zz(kbm1:1:-1)) )
-      zz(kb) = zz(kbm1)+zz(kbm1)-zz(kbm1-1)
-      write(*, *) "[O] zz retrieved"
-      do k=1,kbm1
-        dz(k)  =  z(k)- z(k+1)
-        dzz(k) = zz(k)-zz(k+1)
-      end do
-      dz(kb)  = 0.
-      dzz(kb) = 0.
-      write(*, *) "[O] z derivatives (dz,dzz) calculated"
-      call check( nf90_close(ncid) )
+      real sw,dti2
+      integer nitera,im,jm,kb  !lyo:!wad:kb not required but defined
+                               !         in "grid" below
+c
+!     PARAMETER (IM=65,JM=49)
+!     PARAMETER (IM=131,JM=99)
+      include 'grid'
+c
+      real fb(im,jm),f(im,jm),ff(im,jm)
+      real dx(im,jm),dy(im,jm),u(im,jm),v(im,jm),aam(im,jm)
+      real fsm(im,jm),dum(im,jm),dvm(im,jm)
+      real art(im,jm),aru(im,jm),arv(im,jm)
 
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"roms_ini.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 3D ---
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-      call check( nf90_get_var(ncid, varid, t(:,:,kbm1:1:-1)) )
-      t(:,:,kb) = t(:,:,kbm1)
-      write(*, *) "[O] potential temperature retrieved"
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-      call check( nf90_get_var(ncid, varid, s(:,:,kbm1:1:-1)) )
-      s(:,:,kb) = s(:,:,kbm1)
-      write(*, *) "[O] salinity retrieved"
-      call check( nf90_close(ncid) )
-      
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"roms_grd.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 2D ---
-      call check( nf90_inq_varid(ncid, "lon_rho", varid) )      ! Read east_u, east_v as well, maybe?
-      call check( nf90_get_var(ncid, varid, east_e) )
-      write(*, *) "[O] east_e retrieved"
-      call check( nf90_inq_varid(ncid, "lat_rho", varid) )
-      call check( nf90_get_var(ncid, varid, north_e) )
-      write(*, *) "[O] north_e retrieved"
-      call check( nf90_inq_varid(ncid, "mask_rho", varid) )
-      call check( nf90_get_var(ncid, varid, fsm) )
-      write(*, *) "[O] free surface mask retrieved"
-      call check( nf90_inq_varid(ncid, "h", varid) )
-      call check( nf90_get_var(ncid, varid, h) )
-      do i=1,im
+c     integer ix,jx
+c     PARAMETER (IX=62,JX=18)
+      real xflux(im,jm),yflux(im,jm)
+      real fbmem(im,jm)
+      real xmassflux(im,jm),ymassflux(im,jm)
+      integer i,j,k,itera,imm1,jmm1
+C
+C     Calculate horizontal mass fluxes:
+C
+      imm1=im-1; jmm1=jm-1
+c
         do j=1,jm
-            if (fsm(i,j)==0) h(i,j) = 1.
-        end do
-      end do
-      write(*, *) "[O] bottom depth retrieved"
-      call check( nf90_close(ncid) )
-
-!      filename = trim(pth_wrk)//trim(pth_flx)//
-!     $           trim(pfx_dmn)//"roms_frc.nc"
-!      write(*,*) "\\",trim(filename)
-!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- (Constant) Wind stress
-!      call check( nf90_inq_varid(ncid, "sustr", varid) )
-!      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
-!      wusurf(1,:) = wusurf(2,:)*.5
-!      wusurf(:,:) = wusurf(:,:)/rhoref
-!      write(*, *) "[O] Zonal component of momentum flux retrieved"
-!      call check( nf90_inq_varid(ncid, "svstr", varid) )
-!      call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)) )
-!      wvsurf(:,1) = wvsurf(:,2)*.5
-!      wvsurf(:,:) = wvsurf(:,:)/rhoref
-!      write(*, *) "[O] Meridional component of momentum flux retrieved"
-
-C      Simulate from zero elevation to avoid artificial waves during spin-up
-
-!      call check( nf90_close(ncid) )
-
-!    Read from roms_clm and interpolate in time depending on time_offset
-      filename = trim(pth_wrk)//trim(pth_bry)//
-     $           trim(pfx_dmn)//"roms_clm.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!    Get month for time0
-      call upd_mnth
-
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-
-      if (m.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,:),
-     $                          (/1,1,1,m-1/), (/im,jm,kbm1,2/)) )
-      else
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
-
-!    FSM is not defined yet! Be careful not to apply it!
-      t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
-     $               -datr(:,:,1:kbm1,1))
-
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-
-      if (m.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr,
-     $                          (/1,1,1,m-1/), (/im,jm,kbm1,2/)) )
-      else
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
-
-      do k=1,kbm1
-        s(:,:,k) = datr(:,:,kb-k,1)+fac*(datr(:,:,kb-k,2)
-     $            -datr(:,:,kb-k,1))
-      end do
-!
-!   Read elevation
-!
-      elb = 0.
-      el  = 0.
-!      call check( nf90_inq_varid(ncid, "zeta", varid) )
-!
-!      if (m.ne.1) then
-!        call check( nf90_get_var(ncid, varid, datr,
-!     $                          (/1,1,1,m-1/), (/im,jm,1,2/)) )
-!      else
-!        call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
-!     $                          (/1,1,1,12/),(/im,jm,1,1/)) )
-!        call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
-!     $                          (/1,1,1,1/), (/im,jm,1,1/)) )
-!      end if
-!
-!      elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
-!     $            -datr(:,:,1,1))
-!      el = elb      ! rwnd: Is this correct?
-!
-!    Calculate annual means
-!
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-      do mm=1,12
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,m/),(/im,jm,kbm1,1/)) )
-        do i=1,im
-          do j=1,jm
-            do k=1,kb
-              tclim(i,j,k) = tclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-            end do
+          do i=1,im
+            xmassflux(i,j)=0.e0
+            ymassflux(i,j)=0.e0
           end do
         end do
-      end do
-      tclim = tclim/365.25
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-      do mm=1,12
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,m/),(/im,jm,kbm1,1/)) )
-        do i=1,im
-          do j=1,jm
-            do k=1,kb
-              sclim(i,j,k) = sclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-            end do
+C
+        do j=2,jmm1
+          do i=2,im
+            xmassflux(i,j)=0.5e0*(dy(i-1,j)+dy(i,j))*u(i,j)
           end do
         end do
-      end do
-      sclim = sclim/365.25
-!      call check( nf90_close(ncid) )
-!
-!    Read annual means
-!
-!      filename = trim(pth_wrk)//trim(pth_grd)//
-!     $           trim(pfx_dmn)//"pom_ann.nc"
-!      write(*,*) "\\",trim(filename)
-!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-
-!      call check( nf90_inq_varid(ncid, "t_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, tclim) )
-!      call check( nf90_inq_varid(ncid, "s_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, sclim) )
-!      call check( nf90_inq_varid(ncid, "r_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, rmean) )
-!    Test rmean calculations
-!      call dens(sclim,tclim,rho)
-!      rho = rmean-rho
-!      cff = 0.
-!      dlon = 0.
-!      do i=1,im
-!        do j=1,jm
-!          do k=1,kb
-!            cff = cff+rho(i,j,k)
-!            if (dlon<abs(rho(i,j,k))) dlon=rho(i,j,k)
-!          end do
-!        end do
-!      end do
-!      write(*,*) "Max difference in densities:  ", dlon
-!      cff = cff/im/jm/kb
-!      write(*,*) "Mean difference in densities: ", cff
-      call check( nf90_close(ncid) )
-      tclim = t
-      sclim = s
-      call dens(sclim,tclim,rmean)
-!
-      write(*, *) "[+] Finished reading IC."
 C
-C --- print vertical grid distribution
-C
-      write(6,2)
-    2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
-      write(6,'(''  '',/)')
-      do k=1,kb
-        write(6,3) k,z(k),zz(k),dz(k),dzz(k)
-    3   format((' ',i5,4f10.3))
-      end do
-      write(6,'(''  '',//)')
-C
-C --- calc. Curiolis Parameter
+        do j=2,jm
+          do i=2,imm1
+            ymassflux(i,j)=0.5e0*(dx(i,j-1)+dx(i,j))*v(i,j)
+          end do
+        end do
 C
         do j=1,jm
           do i=1,im
-            cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
-            aam2d(i,j)=aam(i,j,1)   ! RWND: aam is initialized with aam_init already
-            !elb(i,j)=0.            ! RWND (Read few lines above or initialized to zero)
-            etb(i,j)=elb(i,j)       ! RWND //PV: 0.
-            dt(i,j)=h(i,j)+etb(i,j) ! RWND //PV: h(i,j)
+            fbmem(i,j)=fb(i,j)
           end do
         end do
 C
-        do j=1,jm
-          do i=2,im-1
-            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
-          end do
-            dx(1,j)=dx(2,j)
-            dx(im,j)=dx(im-1,j)
-        end do
+C     Start Smolarkiewicz scheme:
 C
-        do i=1,im
-          do j=2,jm-1
-            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
-          end do
-            dy(i,1)=dy(i,2)
-            dy(i,jm)=dy(i,jm-1)
-        end do
+      do itera=1,nitera
 C
-C     Calculate areas and masks:
+C     Upwind advection scheme:
 C
-      call areas_masks
-!
-!      Comment the code below to avoid forced closed boundary.
-!      do j=1,jm
-!        fsm( 1, j) = 0.0
-!        fsm(im, j) = 0.0
-!      end do
-!      do i=1,im
-!        fsm( i, 1) = 0.0
-!        fsm( i,jm) = 0.0
-!      end do
-!!      Recalculate masks for u and v
-!!      TODO: this can be done simplier by touching only near-boundary cells
-!      do j=2,jm
-!        do i=2,im
-!          dum(i,j)=fsm(i,j)*fsm(i-1,j)
-!          dvm(i,j)=fsm(i,j)*fsm(i,j-1)
-!        end do
-!      end do
-!!!!!        call slpmax
+          do j=2,jm
+            do i=2,im
+              xflux(i,j)=0.5e0
+     $                      *((xmassflux(i,j)+abs(xmassflux(i,j)))
+     $                        *fbmem(i-1,j)+
+     $                        (xmassflux(i,j)-abs(xmassflux(i,j)))
+     $                        *fbmem(i,j))
 C
-C --- calc. surface & lateral BC from climatology
-C
-!        do j=1,jm
-!          do i=1,im
-!             tsurf(i,j)=t(i,j,1)
-!             ssurf(i,j)=s(i,j,1)
-!            do k=1,kb
-!              tclim(i,j,k)=t(i,j,k)
-!              sclim(i,j,k)=s(i,j,k)
-!            end do
-!          end do
-!        end do
-C
-C                    --- EAST & WEST BCs ---
-        do j=1,jm
-            ele(j)=0.
-            elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
-            do k=1,kb
-              ubw(j,k)=0.                ! RWND
-              ube(j,k)=0.                !
-              uabe(j) =0.                ! RWND
-              uabw(j) =0.                !  Calculate vertical averages
-              tbw(j,k)=tclim(1,j,k)
-              sbw(j,k)=sclim(1,j,k)
-              tbe(j,k)=tclim(im,j,k)
-              sbe(j,k)=sclim(im,j,k)
+              yflux(i,j)=0.5e0
+     $                      *((ymassflux(i,j)+abs(ymassflux(i,j)))
+     $                        *fbmem(i,j-1)+
+     $                        (ymassflux(i,j)-abs(ymassflux(i,j)))
+     $                        *fbmem(i,j))
             end do
-        end do
-C                    --- NORTH & SOUTH BCs ---
-        do i=1,im
-              els(i)=0. !elb(i,1)   ! RWND
-              eln(i)=0. !elb(i,jm)  !
-            do k=1,kb
-              vbs(i,k)=0.                ! RWND
-              vbn(i,k)=0.                !
-              vabs(j) =0.                ! RWND
-              vabn(j) =0.                !  Calculate vertical means
-              tbs(i,k)=tclim(i,1,k)
-              sbs(i,k)=sclim(i,1,k)
-              tbn(i,k)=tclim(i,jm,k)
-              sbn(i,k)=sclim(i,jm,k)
-            end do
-        end do
+          end do
 C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
-      do k=1,kb
-        t(:,:,k) = t(:,:,k)*fsm(:,:)
-        s(:,:,k) = s(:,:,k)*fsm(:,:)
+C     Add net advective fluxes and step forward in time:
+C
+          do j=2,jmm1
+            do i=2,imm1
+              ff(i,j)=xflux(i+1,j)-xflux(i,j)
+     $                 +yflux(i,j+1)-yflux(i,j)
+              ff(i,j)=(fbmem(i,j)*art(i,j)
+     $                   -dti2*ff(i,j))/(art(i,j))
+            end do
+          end do
+C
+C     Calculate antidiffusion velocity:
+C
+      call wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2)
+c     call wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2,im,jm)
+C
         do j=1,jm
           do i=1,im
-            tb(i,j,k)=t(i,j,k)
-            sb(i,j,k)=s(i,j,k)
-            ub(i,j,k)=u(i,j,k)
-            vb(i,j,k)=v(i,j,k)
+              fbmem(i,j)=ff(i,j)
+          end do
+
+        end do
+C
+C     End of Smolarkiewicz scheme
+C
+      end do
+C
+C     Add horizontal diffusive fluxes:
+C
+        do j=2,jm
+          do i=2,im
+            xmassflux(i,j)=0.5e0*(aam(i,j)+aam(i-1,j))
+            ymassflux(i,j)=0.5e0*(aam(i,j)+aam(i,j-1))
           end do
         end do
-      end do
 C
-      call dens(sb,tb,rho)
-!      rmean = rho   ! remove the line to avoid rmean overriding
-C
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
-      do j=2,jm
-        do i=2,im
-          east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
-     $                  +east_e(i,j-1)+east_e(i-1,j-1))/4.e0
-          north_c(i,j)=(north_e(i,j)+north_e(i-1,j)
-     $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
+        do j=2,jm
+          do i=2,im
+           xflux(i,j)=-xmassflux(i,j)
+     $                   *(fb(i,j)-fb(i-1,j))*dum(i,j)
+     $                   *(dy(i,j)+dy(i-1,j))/(dx(i,j)+dx(i-1,j))
+           yflux(i,j)=-ymassflux(i,j)
+     $                   *(fb(i,j)-fb(i,j-1))*dvm(i,j)
+     $                   *(dx(i,j)+dx(i,j-1))/(dy(i,j)+dy(i,j-1))
+          end do
         end do
-      end do
 C
+C     Add net horizontal fluxes and step forward in time:
 C
-C     Extrapolate ends (approx.):
-C
-      do i=2,im
-        east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
-        north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
-      end do
-        east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
-      do j=2,jm
-        east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
-        north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
-      end do
-        north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
-      do j=1,jm-1
-        do i=1,im
-          east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
-          north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
+        do j=2,jmm1
+          do i=2,imm1
+            ff(i,j)=ff(i,j)-dti2*(xflux(i+1,j)-xflux(i,j)
+     $                               +yflux(i,j+1)-yflux(i,j))
+     $                           /(art(i,j))
+          end do
         end do
-      end do
-C
-C     Extrapolate ends:
-C
-      do i=1,im
-        east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
-        north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
-      end do
-C
-C     v-points:
-C
-      do j=1,jm
-        do i=1,im-1
-          east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
-          north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
-        end do
-      end do
-C
-C     Extrapolate ends:
-C
-      do j=1,jm
-        east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
-        north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
-      end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
-      do j=1,jm
-        do i=1,im-1
-          rot(i,j)=0.
-          dlat=north_e(i+1,j)-north_e(i,j)
-          dlon= east_e(i+1,j)- east_e(i,j)
-           if(dlon.ne.0.) rot(i,j)=atan(dlat/dlon)
-        end do
-       rot(im,j)=rot(im-1,j)
-      end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=0.e0
-      rfw=0.e0
-      rfn=0.e0
-      rfs=0.e0  ! Meaningless with RaS boundary conditions.
 C
       return
-
-      contains
-      subroutine check(status)
-        integer, intent ( in) :: status
-        if(status /= nf90_noerr) then
-          stop "Stopped"
-        end if
-      end subroutine check
+C
       end
 C
-      subroutine ncdf2ic_orig
-C **********************************************************************
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      subroutine wadout
+!                                                                      !
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  WAD Outputs (temporary subroutine to be merged with *
+! *                the rest of the code later)                         *
+! *                                                                    *
+C *                Edit as approriate.                                 *
 C *                                                                    *
-C * FUNCTION    :  Sets up my own problem.                             *
-C *                                                                    *
-C * This example reads IC from NetCDF files, generated by <deleted>    *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
-C *                                                                    *
-C **********************************************************************
-C
-      use netcdf
+! **********************************************************************
+!                                                                      !
       implicit none
 C
-      include 'pom2k.c'
-C
-      real dat(imm1, kbm1)
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
-C
-      real rad,re,dlat,dlon,cff
       integer i,j,k
-      character*5 field
-      rad=0.01745329
-      re=6371.E3
 C
-      write(6,'(/,'' Read grid and initial conditions '',/)')
+      include 'pom08.c'
 C
-C--- 1D ---
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"pom_grd.nc"
-      write(*,*) filename
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-      write(*, *) ncid
-      call check( nf90_inq_varid(ncid, "z", varid) )
-      call check( nf90_get_var(ncid, varid, z) )
-      write(*, *) "[O] z retrieved"
-      call check( nf90_inq_varid(ncid, "zz", varid) )
-      call check( nf90_get_var(ncid, varid, zz) )
-      write(*, *) "[O] zz retrieved"
-      call check( nf90_inq_varid(ncid, "dz", varid) )
-      call check( nf90_get_var(ncid, varid, dz) )
-      write(*, *) "[O] dz retrieved"
-      call check( nf90_inq_varid(ncid, "dzz", varid) )
-      call check( nf90_get_var(ncid, varid, dzz) )
-      write(*, *) "[O] dzz retrieved"
-C--- 2D ---
-      call check( nf90_inq_varid(ncid, "lon_rho", varid) )
-      call check( nf90_get_var(ncid, varid, east_e) )
-      write(*, *) "[O] east_e retrieved"
-      call check( nf90_inq_varid(ncid, "lat_rho", varid) )
-      call check( nf90_get_var(ncid, varid, north_e) )
-      write(*, *) "[O] north_e retrieved"
-      call check( nf90_inq_varid(ncid, "h", varid) )
-      call check( nf90_get_var(ncid, varid, h) )
-      write(*, *) "[O] bottom depth retrieved"
-C--- 3D ---
-      call check( nf90_inq_varid(ncid, "T", varid) )
-      call check( nf90_get_var(ncid, varid, t) )
-      write(*, *) "[O] potential temperature retrieved"
-      call check( nf90_inq_varid(ncid, "S", varid) )
-      call check( nf90_get_var(ncid, varid, s) )
-      write(*, *) "[O] salinity retrieved"
-      call check( nf90_inq_varid(ncid, "rmean", varid) )
-      call check( nf90_get_var(ncid, varid, rmean) )
-      write(*, *) "[O] mean density retrieved"
-C--- (Constant) Wind stress
-      call check( nf90_inq_varid(ncid, "WUsur", varid) )
-      call check( nf90_get_var(ncid, varid, wusurf) )
-      write(*, *) "[O] Zonal component of momentum flux retrieved"
-      call check( nf90_inq_varid(ncid, "WVsur", varid) )
-      call check( nf90_get_var(ncid, varid, wvsurf) )
-      write(*, *) "[O] Meridional component of momentum flux retrieved"
-      call check( nf90_inq_varid(ncid, "swrad", varid) )
-      call check( nf90_get_var(ncid, varid, swrad) )
-      write(*, *) "[O] Short wave radiation retrieved"
-!      call check( nf90_inq_varid(ncid, "wtsur", varid) )
-!      call check( nf90_get_var(ncid, varid, wtsurf) )
-!      write(*, *) "[O] Heat flux retrieved"
-!      call check( nf90_inq_varid(ncid, "U", varid) )
-!      call check( nf90_get_var(ncid, varid, u) )
-!      write(*, *) "[O] Longitudal component of current velocity ",
-!     $"retrieved"
-!      do i=1,im
-!        do j=1,jm
-!          do k=1,kb
-!            uab(i,j) = uab(i,j)+u(i,j,k)*dz(k)
-!          end do
-!        end do
-!      end do
-!      write(*, *) "[O] Integrals of longitudal component of current",
-!     $"velocity computed"
-!      call check( nf90_inq_varid(ncid, "V", varid) )
-!      call check( nf90_get_var(ncid, varid, v) )
-!      write(*, *) "[O] Latitudal component of current velocity ",
-!     $"retrieved"
-!      do i=1,im
-!        do j=1,jm
-!          do k=1,kb
-!            vab(i,j) = vab(i,j)+v(i,j,k)*dz(k)
-!          end do
-!        end do
-!      end do
-!      write(*, *) "[O] Integrals of latitudal component of current ",
-!     $"velocity computed"
-!      call check( nf90_inq_varid(ncid, "SSH", varid) )
-!      call check( nf90_get_var(ncid, varid, elb) )
-!      el = elb  ! RWND
-!      write(*, *) "[O] Sea surface height retrieved"
-
-C      Simulate from zero elevation to avoid artificial waves during spin-up
-
-      call check( nf90_close(ncid) )
-
-!    Read from roms_clm and interpolate in time depending on time_offset
-      filename = trim(pth_wrk)//trim(pth_bry)//
-     $           trim(pfx_dmn)//"roms_clm.nc"
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!    Get month for time0
-      call upd_mnth
-
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-
-      if (m.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,:),
-     $                          (/1,1,1,m-1/), (/im,jm,kbm1,2/)) )
+C     2-D horizontal fields:
+C
+          call prxy('wetmask; =0 are land or dry, =1 are wet ',
+     $              time,wetmask,im,iskp,jm,jskp,1.e0)
+C
+          do j=1,jm; do i=1,im
+             tps(i,j)=fsm(i,j)-wetmask(i,j)
+             enddo; enddo
+          call prxy('fsm-wetmask; WAD: =1 are dry cells      ',
+     $              time,tps,im,iskp,jm,jskp,1.e0)
+C
+          do j=1,jm; do i=1,im
+             tps(i,j)=(elb(i,j)+hhi)*wetmask(i,j)
+             enddo; enddo
+          call prxy('elb+hhi (m; w.r.t MSL)                  ',
+     $              time,tps,im,iskp,jm,jskp,0.e0)
+c
+          do j=1,jm; do i=1,im
+             tps(i,j)=d(i,j)*fsm(i,j)
+             enddo; enddo
+          call prxy('Total Water Depth (m)                   ',
+     $              time,tps,im,iskp,jm,jskp,0.e0)
+c
+ctne: -------------- save for matlab plot
+c
+       write(88,'(2i5,4f8.3)')im-2,jm-2,time*24.,99.9,99.9,99.9
+      do j=2,jm-1; do i=2,im-1
+       write(88,'(2i5,4f8.3)')i,j,tps(i,j),uab(i,j),vab(i,j),d(i,j)
+      enddo; enddo
+c
+      return
+      end
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      subroutine wadh
+!                                                                      !
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up WAD definitions of topography [see Fig.1 of *
+! *                O2006]                                              *
+! *                                                                    *
+! **********************************************************************
+!                                                                      !
+!     Input (through common block) is "h" defined as follows:          !
+!                                                                      !
+!     "h" is wrt MSL (Mean Sea Level) at which level h=0, and h<0 for  !
+!     depth below the MSL, and h>0 for "land" above the MSL (i.e. for  !
+!     marshes, wetlands, hills & mountains etc.)                       !
+!                                                                      !
+!     Also, nwad, hhi, slmax                                           !
+!                                                                      !
+!     Outputs:                                                         !
+!                                                                      !
+!     h --> (i.e. becomes) h_old_pom + hhi (which can be zero)         !
+!       i.e. "h" is wrt to some high land-datum (Absolute Land Boundary!
+!       or ALB), "hhi" meters above the MSL. All cells other than the  !
+!       ALB cells are either always wet or can potentially become wet. !
+!                                                                      !
+!     Also, fsm, dum, dvm, wetmask, cell areas etc, and hmax           !
+!       see more detailed definitions inside the subroutine            !
+!                                                                      !
+!----------------------------------------------------------------------!
+      implicit none
+!                                                                      !
+      include 'pom08.c'
+!                                                                      !
+      integer npos,nneg
+      real hwatmin
+      integer i,j
+!                                                                      !
+!----------------------------------------------------------------------!
+!     Do a rudimentary check on "h:"                                   !
+!                                                                      !
+      npos=0; nneg=0
+      do j=1,jm; do i=1,im
+      if (h(i,j).ge.0.0) then
+      npos=+1
       else
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
-
-!    FSM is not defined yet! Be careful not to apply it!
-        t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
-     $             -datr(:,:,1:kbm1,1))
-
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-
-      if (m.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr,
-     $                          (/1,1,1,m-1/), (/im,jm,kbm1,2/)) )
+      nneg=-1
+      endif
+      if (npos*nneg .lt. 0) go to 101
+      enddo; enddo
+!                                                                      !
+      write(6,'('' Stopped in subr. wadh; incorrect defn of h:'')')
+      write(6,'('' h is one-sign only; see comments in subr.wadh'',/)')
+      write(6,'('' npos,nneg ='',2i5,/)') npos,nneg
+      call prxy('Undisturbed water depth, h',time,h,im,1,jm,1,0.0)
+      stop
+!                                                                      !
+ 101  continue
+!                                                                      !
+      hkeep(:,:)=h(:,:) !Keep original for plots etc
+!                                                                      !
+!     HMIN & HC (all +ve) are defined as:                              !
+!                                                                      !
+!     h = hmin ---> absolute land area [never flooded], FSM=0.0;       !
+!     h >= hc  ---> water depth wrt High water level, FSM=1.0;         !
+!                                                                      !
+!     Note that hc is defined in MAIN --                               !
+!     hmin=0.01; hc=0.05; hco=hc       !hco is used to avoid round-
+      hmin=0.01; hco=hc                !hco is used to avoid round-
+      hc=hc*1.0001                     !off in initial elevation
+!     hc=hc*1.01                       !tne:!wad:- using a larger
+!                 multiplying factor, "1.01" instead of "1.0001",      !
+!                 can help eliminate singular wet spots due to roundoff!
+!                                                                      !
+      write(6,'('' Outputs from subr. wadh ---------------------'',/)')
+      write(6,'('' hmin,hc,hco ='',1p3e13.4,/)') hmin,hc,hco
+!                                                                      !
+!     Reverse sign of "h", and shift reference if hhi.ne.0, see below..!
+!     (Note that hhi is defined in MAIN)                               !
+      h(:,:)=-h(:,:)+hhi
+!                                                                      !
+      if (nwad.eq.1) then
+!                                                                      !
+!     If nwad=1, then hhi.ne.0.0, and line "h(:,:)=-h(:,:)+hhi" above  !
+!     already shifts the reference level from MSL to ALB, the Absolute !
+!     Land Boundary, according to O2006, Fig.1:                        !
+!                                                                      !
+      do j=1,jm; do i=1,im
+      FSM(I,J)=1.; DUM(I,J)=1.; DVM(I,J)=1.
+      IF(h(I,J).LT.0.0)THEN !Define absolute land areas (never flood):
+                            ! temporarily set h=-1.0 (some -ve number)
+      h(I,J)=-1.0; FSM(I,J)=0.; DUM(I,J)=0.; DVM(I,J)=0.
+      ENDIF
+      enddo; enddo
+      DO J=1,JM-1; DO I=1,IM
+      IF(FSM(I,J).EQ.0..AND.FSM(I,J+1).NE.0.)DVM(I,J+1)=0.
+      enddo; enddo
+      DO J=1,JM;   DO I=1,IM-1
+      IF(FSM(I,J).EQ.0..AND.FSM(I+1,J).NE.0.)DUM(I+1,J)=0.
+      enddo; enddo
+!                                                                      !
+!     The above yields the following definitions for h:                !
+!                                                                      !
+!     h=-1, absolute land areas [never flooded], FSM=0.0, always       !
+!     h>=0, wet but potentially dry areas,  FSM also=1.0, always       !
+!                                                                      !
+!     Note that slpmax touches fsm=1 points only - wet or potentially  !
+!     WAD cells; it changes "h" so a wet cell might become dry; so it  !
+!     must be called here before wetmask is defined:                   !
+!                                                                      !
+!     Adjust bottom topography so that cell to cell variations         !
+!     in h do not exceed parameter slmax:                              !
+!                                                                      !
+      if(slmax.lt.1.e0) call slpmax
+!                                                                      !
+!     We now define a wetmask, assuming that at t=0, the free surface  !
+!     is at the MSL (i.e. elevation=0 wrt MSL).  If this run does not  !
+!     begin with time=0 (or if other special free-surface distribution !
+!     is desired), then wetmask needs to be redefined or read in e.g.  !
+!     from a RESTART file, as done later in MAIN if NREAD.ne.0         !
+!                                                                      !
+      wetmask(:,:)=fsm(:,:)
+      do j=1,jm; do i=1,im
+      if (h(i,j).lt.hhi) wetmask(i,j)=0.0
+      enddo; enddo
+!                                                                      !
+!     Finalize definitions of "h":                                     !
+!                                                                      !
+!     h=hmin, absolute land areas [never flooded], FSM=0.0, always     !
+!     h>=hc,  wet but potentially dry areas,  FSM also=1.0, always     !
+!                                   ...  but wetmask can be 0 or 1     !
+!                                                                      !
+      do j=1,jm; do i=1,im
+      if (h(i,j).lt.0.0) then
+      h(i,j)=hmin
       else
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
-
-      do k=1,kbm1
-        s(:,:,k) = datr(:,:,kb-k,1)+fac*(datr(:,:,kb-k,2)
-     $            -datr(:,:,kb-k,1))
-      end do
-
-      call check( nf90_close(ncid) )
-!
-!    Read annual means
-!
-      filename = trim(pth_wrk)//trim(pth_bry)//
-     $           trim(pfx_dmn)//"pom_ann.nc"
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-      call check( nf90_inq_varid(ncid, "t_ann", varid) )
-      call check( nf90_get_var(ncid, varid, tclim) )
-      call check( nf90_inq_varid(ncid, "s_ann", varid) )
-      call check( nf90_get_var(ncid, varid, sclim) )
-      call check( nf90_inq_varid(ncid, "r_ann", varid) )
-      call check( nf90_get_var(ncid, varid, rmean) )
-      call check( nf90_close(ncid) )
-!
-      write(*, *) "[+] Finished reading IC."
+      h(i,j)=h(i,j)+hc
+      endif
+      enddo; enddo
+!                                                                      !
+      call areas_masks !Calc. cells' areas etc but do not alter fsm...
+                       !if nwad=1
+!                                                                      !
+      else    !nwad.eq.0
+!                                                                      !
+      DO J=1,JM; DO I=1,IM
+      IF (h(I,J).LE.0.0) h(I,J)=hmin
+      ENDDO; ENDDO
+!                                                                      !
+!     Set minimum water depth to hwatmin:                              !
+!     hwatmin=min water depth, must be >1 to match subr.areas_masks'   !
+!     definition of land, and large enough to avoid grid cells from    !
+!     becoming dry                                                     !
+!                                                                      !
+      hwatmin=10.0
+      DO J=1,JM; DO I=1,IM
+      IF (h(I,J).GT.hmin.and.h(I,J).LT.hwatmin) h(I,J)=hwatmin
+      ENDDO; ENDDO
+!                                                                      !
+      call areas_masks      !Calc. cells' areas etc & fsm if nwad=0
+!                                                                      !
+!     Adjust bottom topography so that cell to cell variations         !
+!     in h do not exceed parameter slmax:                              !
+!                                                                      !
+      if(slmax.lt.1.e0) call slpmax
+!                                                                      !
+      wetmask(:,:)=fsm(:,:) !wetmask is same as fsm if nwad=0
+!                                                                      !
+      endif   !if (nwad.eq.1) then...else...
+!                                                                      !
+!     Print to check:                                                  !
+!                                                                      !
+      CALL PRXY(' Input h ',TIME, hkeep(1,1),IM,1,JM,1,0.0)
+      CALL PRXY(' h after wadh ',TIME, h(1,1),IM,1,JM,1,0.0)
+      CALL PRXY(' FSM ',TIME, FSM(1,1),IM,1,JM,1,1.0)
+      CALL PRXY(' WETMASK ',TIME, WETMASK(1,1),IM,1,JM,1,1.0)
+      tps(:,:)=FSM(:,:)-WETMASK(:,:)
+      CALL PRXY('FSM-WETMASK',TIME,tps(1,1),IM,1,JM,1,1.0)
+!                                                                      !
+!     Double-check masks for nwad=0:                                   !
+!                                                                      !
+      if (nwad.eq.0) then
+      do j=1,jm; do i=1,im
+      if (fsm(i,j).ne.wetmask(i,j)) then
+      write(6,'('' Stopped, nwad ='',i4)') nwad
+      write(6,'('' fsm.ne.wetmask @ (i,j) ='',2i4,/)') i,j
+      stop
+      endif
+      enddo; enddo
+      endif
+!                                                                      !
+      return
+      end
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      subroutine wadseamount
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Sets up for seamount problem w/wad.                 *
+C *                                                                    *
+C **********************************************************************
 C
-C --- print vertical grid distribution
+      implicit none
 C
-      write(6,2)
-    2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
-      write(6,'(''  '',/)')
-      do k=1,kb
-        write(6,3) k,z(k),zz(k),dz(k),dzz(k)
-    3   format((' ',i5,4f10.3))
-      end do
-      write(6,'(''  '',//)')
+      include 'pom08.c'
 C
-C --- calc. Curiolis Parameter
+      real delh,delx,elejmid,elwjmid,ra,vel,hland  !lyo:!wad:define hland
+      integer nvar                                 !lyo:!wad:define nvar
+      integer i,j,k
 C
-        do j=1,jm
-          do i=1,im
-            cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
-            aam2d(i,j)=aam(i,j,1)   ! RWND: aam is initialized with aam_init already
-            !elb(i,j)=0.            ! RWND (Read few lines above or initialized to zero)
-            etb(i,j)=elb(i,j)       ! RWND //PV: 0.
-            dt(i,j)=h(i,j)+etb(i,j) ! RWND //PV: h(i,j)
-          end do
-        end do
+C     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
 C
-        do j=1,jm
-          do i=2,im-1
-            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
-          end do
-            dx(1,j)=dx(2,j)
-            dx(im,j)=dx(im-1,j)
-        end do
+      delh=1.15e0   !tne:!wad: island (for wad) =0.9e0 for orig.seamount
 C
+C     Grid size:
+C
+      delx=8000.e0
+c
+!lyo:!wad:Define variable or uniform grid option:
+      nvar=1  !=1 for variable grid; =0 otherwise
+!lyo:!wad:Special test case for smaller delx=4km:
+      if ((nvar.eq.0).or.(im.eq.131.and.jm.eq.99)) delx=delx*0.5
+C
+C     Radius island or seamount:
+C
+      ra=50000.e0   !tne:!wad:
+C
+C     Current velocity:
+C
+      vel=0.2e0
+C
+C     Set up grid dimensions, areas of free surface cells, and
+C     Coriolis parameter:
+C
+      do j=1,jm
         do i=1,im
-          do j=2,jm-1
-            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
-          end do
-            dy(i,1)=dy(i,2)
-            dy(i,jm)=dy(i,jm-1)
-        end do
 C
-C     Calculate areas and masks:
+C     For constant grid size:
 C
-      call areas_masks
-!
-!      Comment the code below to avoid forced closed boundary.
-!      do j=1,jm
-!        fsm( 1, j) = 0.0
-!        fsm(im, j) = 0.0
-!      end do
-!      do i=1,im
-!        fsm( i, 1) = 0.0
-!        fsm( i,jm) = 0.0
-!      end do
-!!      Recalculate masks for u and v
-!!      TODO: this can be done simplier by touching only near-boundary cells
-!      do j=2,jm
-!        do i=2,im
-!          dum(i,j)=fsm(i,j)*fsm(i-1,j)
-!          dvm(i,j)=fsm(i,j)*fsm(i,j-1)
-!        end do
-!      end do
-!!!!!        call slpmax
+C         dx(i,j)=delx
+C         dy(i,j)=delx
 C
-C --- calc. surface & lateral BC from climatology
+C     For variable grid size:
 C
-        do j=1,jm
-          do i=1,im
-             tsurf(i,j)=t(i,j,1)
-             ssurf(i,j)=s(i,j,1)
-!            do k=1,kb
-!              tclim(i,j,k)=t(i,j,k)
-!              sclim(i,j,k)=s(i,j,k)
-!            end do
-          end do
-        end do
+!lyo:!wad:variable or uniform grid--
+          dx(i,j)=delx-float(nvar)*delx*sin(pi*float(i)/float(im))/2.e0
+          dy(i,j)=delx-float(nvar)*delx*sin(pi*float(j)/float(jm))/2.e0
 C
-C                    --- EAST & WEST BCs ---
-        do j=1,jm
-            ele(j)=0.
-            elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
-            do k=1,kb
-              ubw(j,k)=0                ! RWND
-              ube(j,k)=0                !
-              uabe(j) =0                ! RWND
-              uabw(j) =0                !  Calculate vertical averages
-              tbw(j,k)=tclim(1,j,k)
-              sbw(j,k)=sclim(1,j,k)
-              tbe(j,k)=tclim(im,j,k)
-              sbe(j,k)=sclim(im,j,k)
-            end do
-        end do
-C                    --- NORTH & SOUTH BCs ---
-        do i=1,im
-              els(i)=0. !elb(i,1)   ! RWND
-              eln(i)=0. !elb(i,jm)  !
-            do k=1,kb
-              vbs(i,k)=0                ! RWND
-              vbn(i,k)=0                !
-              vabs(j) =0                ! RWND
-              vabn(j) =0                !  Calculate vertical means
-              tbs(i,k)=tclim(i,1,k)
-              sbs(i,k)=sclim(i,1,k)
-              tbn(i,k)=tclim(i,jm,k)
-              sbn(i,k)=sclim(i,jm,k)
-            end do
-        end do
+          cor(i,j)=1.e-4
 C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
-      do k=1,kb
-        t(:,:,k) = t(:,:,k)*fsm(:,:)
-        s(:,:,k) = s(:,:,k)*fsm(:,:)
-        do j=1,jm
-          do i=1,im
-            tb(i,j,k)=t(i,j,k)
-            sb(i,j,k)=s(i,j,k)
-            ub(i,j,k)=u(i,j,k)
-            vb(i,j,k)=v(i,j,k)
-          end do
         end do
       end do
 C
-      call dens(sb,tb,rho)
-!      rmean = rho   ! remove the line to avoid rmean overriding
+C     Calculate horizontal coordinates of grid points and rotation
+C     angle.
+C
+C     NOTE that this is introduced solely for the benefit of any post-
+C     processing software, and in order to conform with the requirements
+C     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
+C
+C     There are four horizontal coordinate systems, denoted by the
+C     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
+C     "e" is an elevation point and "c" is a cell corner), as shown
+C     below. In addition, "east_*" is an easting and "north_*" is a
+C     northing. Hence the coordinates of the "u" points are given by
+C     (east_u,north_u).
+C
+C     Also, if the centre point of the cell shown below is at
+C     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
+C     the coordinates of the western of the two "u" points,
+C     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
+C     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
+C     coordinates of the southwestern corner point of the cell. The
+C     southwest corner of the entire grid is at
+C     (east_c(1,1),north_c(1,1)).
+C
+C                      |              |
+C                    --c------v-------c--
+C                      |              |
+C                      |              |
+C                      |              |
+C                      |              |
+C                      u      e       u
+C                      |              |
+C                      |              |
+C                      |              |
+C                      |              |
+C                    --c------v-------c--
+C                      |              |
 C
 C
-C --- the following grids are needed only for netcdf plotting
+C     NOTE that the following calculation of east_c and north_c only
+C     works properly for a rectangular grid with east and north aligned
+C     with i and j, respectively:
 C
-C     Corner of cell points:
-C
-      do j=2,jm
+      do j=1,jm
+        east_c(1,j)=0.e0
         do i=2,im
-          east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
-     $                  +east_e(i,j-1)+east_e(i-1,j-1))/4.e0
-          north_c(i,j)=(north_e(i,j)+north_e(i-1,j)
-     $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
+          east_c(i,j)=east_c(i-1,j)+dx(i-1,j)
         end do
       end do
 C
-C
-C     Extrapolate ends (approx.):
-C
-      do i=2,im
-        east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
-        north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
+      do i=1,im
+        north_c(i,1)=0.e0
+        do j=2,jm
+          north_c(i,j)=north_c(i,j-1)+dy(i,j-1)
+        end do
       end do
-        east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
 C
-      do j=2,jm
-        east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
-        north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
+C     The following works properly for any grid:
+C
+C     Elevation points:
+C
+      do j=1,jm-1
+        do i=1,im-1
+          east_e(i,j)=(east_c(i,j)+east_c(i+1,j)
+     $                  +east_c(i,j+1)+east_c(i+1,j+1))/4.e0
+          north_e(i,j)=(north_c(i,j)+north_c(i+1,j)
+     $                   +north_c(i,j+1)+north_c(i+1,j+1))/4.e0
+        end do
       end do
-        north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
+C
+C     Extrapolate ends:
+C
+      do i=1,im-1
+        east_e(i,jm)
+     $    =((east_c(i,jm)+east_c(i+1,jm))*3.e0
+     $       -east_c(i,jm-1)-east_c(i+1,jm-1))/4.e0
+        north_e(i,jm)
+     $    =((north_c(i,jm)+north_c(i+1,jm))*3.e0
+     $       -north_c(i,jm-1)-north_c(i+1,jm-1))/4.e0
+      end do
+C
+      do j=1,jm-1
+        east_e(im,j)
+     $    =((east_c(im,j)+east_c(im,j+1))*3.e0
+     $       -east_c(im-1,j)-east_c(im-1,j+1))/4.e0
+        north_e(im,j)
+     $    =((north_c(im,j)+north_c(im,j+1))*3.e0
+     $       -north_c(im-1,j)-north_c(im-1,j+1))/4.e0
+      end do
+C
+      east_e(im,jm)=east_e(im-1,jm)+east_e(im,jm-1)
+     $               -(east_e(im-2,jm)+east_e(im,jm-2))/2.e0
+      north_e(im,jm)=north_e(im-1,jm)+north_e(im,jm-1)
+     $               -(north_e(im-2,jm)+north_e(im,jm-2))/2.e0
 C
 C     u-points:
 C
@@ -8445,2212 +7210,351 @@ C
       end do
 C
 C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
+C     to east, averaged to a cell centre:
+C
+C     (NOTE that the following calculation of rot only works properly
+C     for this particular rectangular grid)
 C
       do j=1,jm
-        do i=1,im-1
-          rot(i,j)=0.
-          dlat=north_e(i+1,j)-north_e(i,j)
-          dlon= east_e(i+1,j)- east_e(i,j)
-           if(dlon.ne.0.) rot(i,j)=atan(dlat/dlon)
+        do i=1,im
+          rot(i,j)=0.e0
         end do
-       rot(im,j)=rot(im-1,j)
+      end do
+C
+C     Define depth:
+C
+!tne:!wad:!lyo:!wad:
+!     Note that unlike original seamount, h<0 is now water below MSL, and
+!     h>0 is above the MSL and is either land (if h>hland, see below)
+!     or is potential wet-and-dry region
+!
+      hmax=50.e0; hland=5.e0 !note all pnts are potential WAD if we set
+                             !hland >= -hmax*(1.e0-delh) (=7.5m);
+                             !i.e. "if" below is NOT satisfied
+!
+      do i=1,im
+        do j=1,jm
+C
+          h(i,j)=-hmax*(1.e0-delh
+     $                          *exp(-((east_c(i,j)
+     $                                   -east_c((im+1)/2,j))**2
+     $                                +(north_c(i,j)
+     $                                   -north_c(i,(jm+1)/2))**2)
+     $                                /ra**2))
+!lyo:!wad:Make region near top of seamount absolute land region:
+          if(h(i,j).gt.hland) h(i,j)=hhi+1.e0
+C
+        end do
+      end do
+C
+C     Close the north and south boundaries to form a channel:
+C
+      do i=1,im
+        h(i,1)=hhi+1.e0  !tne:!wad:
+        h(i,jm)=hhi+1.e0 !tne:!wad:
+      end do
+C
+C     Calculate areas and masks:
+C
+!lyo:!wad:Define "h" consistent with WAD and calculate wetmask, cell areas
+!         and fsm etc.
+!     call areas_masks
+      call wadh
+C
+C     Adjust bottom topography so that cell to cell variations
+C     in h do not exceed parameter slmax:
+C
+!     if(slmax.lt.1.e0) call slpmax  !lyo:wad:now done in wadh above
+C
+C     Set initial conditions:
+C
+      do k=1,kbm1
+        do j=1,jm
+          do i=1,im
+!lyo:wad:
+!           tb(i,j,k)=5.e0+15.e0*exp(zz(k)*h(i,j)/1000.e0)-tbias
+             if (h(i,j).gt.hhi) then !lyo:wad:stratified water below MSL:
+                tb(i,j,k)=5.e0+15.e0*exp(zz(k)*(h(i,j)-hhi)/1000.e0)
+             else                    !lyo:wad:well-mixed water above MSL:
+                tb(i,j,k)=5.e0+15.e0
+             endif
+            tb(i,j,k)=tb(i,j,k)-tbias
+!
+            sb(i,j,k)=35.e0-sbias
+            tclim(i,j,k)=tb(i,j,k)
+            sclim(i,j,k)=sb(i,j,k)
+            ub(i,j,k)=vel*dum(i,j)
+          end do
+        end do
+      end do
+C
+C     Initialise uab and vab as necessary
+C     (NOTE that these have already been initialised to zero in the
+C     main program):
+C
+      do j=1,jm
+        do i=1,im
+          uab(i,j)=vel*dum(i,j)
+        end do
+      end do
+C
+C     Set surface boundary conditions, e_atmos, vflux, wusurf,
+C     wvsurf, wtsurf, wssurf and swrad, as necessary
+C     (NOTE:
+C      1. These have all been initialised to zero in the main program.
+C      2. The temperature and salinity of inflowing water must be
+C         defined relative to tbias and sbias.):
+C
+      do j=1,jm
+        do i=1,im
+C     No conditions necessary for this problem
+!
+!lyo:!wad:!pom2k_bug:tsurf and ssurf were never defined, but should be:
+             tsurf(i,j)=tb(i,j,1)
+             ssurf(i,j)=sb(i,j,1)
+!
+        end do
+      end do
+C
+C     Initialise elb, etb, dt and aam2d:
+C
+      do j=1,jm
+        do i=1,im
+          elb(i,j)=(-e_atmos(i,j)-hhi)*fsm(i,j)      !lyo:!wad:
+!lyo:!wad:note:The following "if" is not satisfied if nwad=0 since     !
+!     then fsm=wetmask at all cells                                    !
+!     if (fsm(i,j).ne.0.0.and.wetmask(i,j).eq.0.0) ! dry but not land
+      if (fsm(i,j).ne.wetmask(i,j))                ! dry but not land
+     &elb(i,j)=-h(i,j)+hco !note slightly smaller hco<hc to ensure that
+                           !initially, cell is wet with elb+h=hco < hc
+          etb(i,j)=elb(i,j)               !lyo:!wad:
+          dt(i,j)=h(i,j)+elb(i,j)         !lyo:!wad:
+          aam2d(i,j)=aam(i,j,1)
+        end do
+      end do
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad:Make sure that initial wetmask remains compatible with       !
+!     initial elb.  Also define marsh evaporation, +ve upward or       !
+!     evaporate.  Also initialize wriv for rivers.                     !
+!lyo:!wad:note:wriv is added here but the implementation following     !
+!     Oey [1996; JPO, 26, 145-175; but see p.154 in particular] is not !
+!     complete in this code.  E-mail me if want to implement it.       !
+!                                                                      !
+      if (nwad.eq.1) then
+      do j=1,jm; do i=1,im
+      wetmask(i,j)=fsm(i,j)
+      if ((h(i,j)+elb(i,j)).le.hc) wetmask(i,j)=0.0
+      enddo; enddo
+      endif
+!                                                                      !
+      do j=1,jm; do i=1,im
+      wmarsh(i,j)=0.0; wriv(i,j)=0.0
+      if (fsm(i,j).ne.wetmask(i,j)) then           ! dry but not land
+!     2 examples of wmarsh:
+!--   wmarsh(i,j)=fsm(i,j)*10./art(i,j)
+!--   wmarsh(i,j)=fsm(i,j)*(4.e-7)  !Gill's [1982] value
+      endif
+      enddo; enddo
+!                                                                      !
+!----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+         enddo; enddo; enddo
+!                                                                      !
+      call dens(sb,tb,rho)
+!                                                                      !
+!----------------------------------------------------------------------!
+C
+C     Generated horizontally averaged density field (in this
+C     application, the initial condition for density is a function
+C     of z (the vertical cartesian coordinate) -- when this is not
+C     so, make sure that rmean has been area averaged BEFORE transfer
+C     to sigma coordinates):
+C
+      do k=1,kbm1
+        do j=1,jm
+          do i=1,im
+            rmean(i,j,k)=rho(i,j,k)
+          end do
+        end do
       end do
 C
 C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=0.e0
-      rfw=0.e0
+C     (in the seamount problem, the east and west boundaries are open,
+C     while the south and north boundaries are closed through the
+C     specification of the masks fsm, dum and dvm):
+C
+      rfe=1.e0
+      rfw=1.e0
       rfn=1.e0
-      rfs=1.e0  ! Meaningless with RaS boundary conditions.
-C
-      return
-
-      contains
-      subroutine check(status)
-        integer, intent ( in) :: status
-        if(status /= nf90_noerr) then
-          stop "Stopped"
-        end if
-      end subroutine check
-      end
-C
-      subroutine ic2ncdf
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  ic2ncdf                                             *
-C *                                                                    *
-C * FUNCTION    :  Creates a netCDF file for further output            *
-C *                                                                    *
-C **********************************************************************
-C
-        use netcdf
-        implicit none
-C
-        include 'pom2k.c'
-C
-        integer i, j, k, dim_strim, dim_auxuv
-        real bot_depth(im,jm,kb)
-C
-        filename = trim(pth_wrk)//trim(pth_out)//
-     $             trim(title)//"_data.nc"
-        call check( nf90_create(filename, NF90_CLASSIC_MODEL, ncid) )
-        call check( nf90_def_dim(ncid, "time", NF90_UNLIMITED
-     $          , dim_time) )
-        call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
-        call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
-        call check( nf90_def_dim(ncid, "s_trim", 3, dim_strim) )
-        call check( nf90_def_dim(ncid, "aux_uv", 2, dim_auxuv) )
-        call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
-        call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
-        call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Level", NF90_DOUBLE,
-     $          (/ dim_sw /), varid) )
-        if (mode.ge.3) then
-          call check( nf90_def_var(ncid, "Depth", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_sw /), varid) )
-        end if
-!        call check( nf90_def_var(ncid, "FSM", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat /), varid) )
-!        call check( nf90_def_var(ncid, "CFL", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat /), varid) )
-        call check( nf90_def_var(ncid, "Tavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "Vtot", NF90_DOUBLE,
-!     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Eavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Qavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
-!     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
-        call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat /), varid) )
-        call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat /), varid) )
-        if (mode.ge.3) then
-!          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "V", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-
-!          call check( nf90_def_var(ncid, "W", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-! TODO: Is it normal to leave it with dim_srho and not change to dim_sw?
-!          call check( nf90_def_var(ncid, "T", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "S", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "RHO", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "AAM",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "KM",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "Q2",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-        end if
-!
-        if (mode.ge.3) then
-        call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        end if
-        call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "T_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "S_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "T_W",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "S_W",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELS",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELW",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "PSI_nw",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "PSI_ew",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_enddef(ncid) )
-        if (mode.ge.3) then
-        ! Calculate Depth array
-          do k=1,kb
-            do j=1,jm
-              do i=1,im
-                bot_depth(i,j,k) = z(k)*h(i,j)
-              end do
-            end do
-          end do
-          call check( nf90_inq_varid(ncid, "Depth", varid) )
-          call check( nf90_put_var(ncid, varid, bot_depth) )
-        end if
-        call check( nf90_inq_varid(ncid, "Latitude", varid) )
-        call check( nf90_put_var(ncid, varid, north_e) )
-        call check( nf90_inq_varid(ncid, "Longitude", varid) )
-        call check( nf90_put_var(ncid, varid, east_e) )
-        call check( nf90_inq_varid(ncid, "Level", varid) )
-        call check( nf90_put_var(ncid, varid, z) )
-!        call check( nf90_inq_varid(ncid, "FSM", varid) )
-!        call check( nf90_put_var(ncid, varid, fsm) )
-!        call check( nf90_inq_varid(ncid, "CFL", varid) )
-!        call check( nf90_put_var(ncid, varid, tps) )
-        write(*, *) "NetCDF output has been initialized (",ncid,")."
-        call check( nf90_close(ncid) )
-C
-        return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-            if(status /= nf90_noerr) then
-              write(*,*) "Error status: ", status
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-C
-      subroutine ncTgtFlush(idx)
-!
-        implicit none
-!
-        include 'pom2k.c'
-!
-        integer :: idx
-!
-        write(*,*) "...print..."
-        write(idx, *) time, ";", u(70,155,1), ";", v(70,155,1)
-!
-      end
-!
-      subroutine ncflush(ptime)
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  ncflush                                             *
-C *                                                                    *
-C * FUNCTION    :  Writes a set of outputs to netCDF file              *
-C *                                                                    *
-C **********************************************************************
-C
-        use netcdf
-        implicit none
-C
-        include 'pom2k.c'
-C
-        integer :: ptime
-        logical :: NOK
-        integer :: count
-        integer :: i, j, k
-        real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
-        real :: darea, dvol
-        integer nlyrs
-        parameter (nlyrs = 3)
-        integer :: lyrs(nlyrs)
-        data lyrs /1,2,15/
-C
-        count = 0
-        NOK = .true.
-        filename = trim(pth_wrk)//trim(pth_out)//
-     $             trim(title)//'_data.nc'
-        call check( nf90_open(filename, NF90_WRITE, ncid) )
-        call check( nf90_inq_varid(ncid, "Time", varid) )
-        do while (NOK)
-          count = count+1
-          status = nf90_put_var(ncid, varid, time, (/ptime/))
-          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
-        end do
-C
-          vtot=0.e0
-          atot=0.e0
-          qtot=0
-          mtot=0
-          tavg=0.e0
-          qavg=0
-C
-          do j=1,jm
-            do i=1,im
-              darea=dx(i,j)*dy(i,j)*fsm(i,j)
-              do k=1,kbm1
-                dvol=darea*dt(i,j)*dz(k)
-                mtot=mtot+(rho(i,j,k)*rhoref+1000)*dvol
-                vtot=vtot+dvol
-                tavg=tavg+tb(i,j,k)*dvol
-                qavg=qavg+q2(i,j,k)*dvol
-              end do
-              atot=atot+darea
-              eavg=eavg+et(i,j)*darea
-            end do
-          end do
-C
-          eavg=eavg/atot
-          tavg=tavg/vtot
-          qtot=qavg
-          qavg=qtot/vtot
-C
-        call check( nf90_inq_varid(ncid, "Tavg", varid) )
-        call check( nf90_put_var(ncid, varid, tavg, (/ptime/)) )
-!        call check( nf90_inq_varid(ncid, "Vtot", varid) )
-!        call check( nf90_put_var(ncid, varid, vtot, (/ptime/)) )
-        call check( nf90_inq_varid(ncid, "Eavg", varid) )
-        call check( nf90_put_var(ncid, varid, eavg, (/ptime/)) )
-!        call check( nf90_inq_varid(ncid, "Etot", varid) )
-!        call check( nf90_put_var(ncid, varid, eavg+qavg, (/ptime/)) )
-        call check( nf90_inq_varid(ncid, "Qavg", varid) )
-        call check( nf90_put_var(ncid, varid, qavg, (/ptime/)) )
-        call check( nf90_inq_varid(ncid, "Mtot", varid) )
-        call check( nf90_put_var(ncid, varid, mtot, (/ptime/)) )
-!        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
-!        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
-!        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
-        if (mode.ge.3) then
-!          call check( nf90_inq_varid(ncid, "U", varid) )
-!          call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "V", varid) )
-!          call check( nf90_put_var(ncid, varid, v, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "W", varid) )
-!          call check( nf90_put_var(ncid, varid, w, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "T", varid) )
-!          call check( nf90_put_var(ncid, varid, t, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "S", varid) )
-!          call check( nf90_put_var(ncid, varid, s, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "RHO", varid) )
-!          call check( nf90_put_var(ncid, varid, rho, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "AAM", varid) )
-!          call check( nf90_put_var(ncid, varid, aam, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "KM", varid) )
-!          call check( nf90_put_var(ncid, varid, km, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "Q2", varid) )
-!          call check( nf90_put_var(ncid, varid, q2, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-        end if
-!
-        if (mode.ge.3) then
-        call check( nf90_inq_varid(ncid, "SSU", varid) )
-        call check( nf90_put_var(ncid, varid,   u(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSV", varid) )
-        call check( nf90_put_var(ncid, varid,   v(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SST", varid) )
-        call check( nf90_put_var(ncid, varid,   t(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSS", varid) )
-        call check( nf90_put_var(ncid, varid,   s(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSR", varid) )
-        call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        end if
-        call check( nf90_inq_varid(ncid, "EL", varid) )
-        call check( nf90_put_var(ncid, varid, elb, (/1,1,ptime/)
-     $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "UA", varid) )
-        call check( nf90_put_var(ncid, varid, uab, (/1,1,ptime/)
-     $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "VA", varid) )
-        call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
-     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "T_S", varid) )
-!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "S_S", varid) )
-!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "T_W", varid) )
-!        call check( nf90_put_var(ncid, varid, tbw, (/1,1,ptime/)
-!     $   ,(/jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "S_W", varid) )
-!        call check( nf90_put_var(ncid, varid, sbw, (/1,1,ptime/)
-!     $   ,(/jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELS", varid) )
-!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
-!     $   ,(/im,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELW", varid) )
-!        call check( nf90_put_var(ncid, varid, elw, (/1,ptime/)
-!     $   ,(/jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "aux1", varid) )
-!        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
-!     $   ,(/im,jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "aux2", varid) )
-!        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-        call check( nf90_close(ncid) )
-Cc
-        call findpsi2nc(ptime)
-C
-        return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-C
-      subroutine findpsi2nc(tind)
-C **********************************************************************
-C *                                                                    *
-C * ROUTINE NAME:  findpsi2nc                                          *
-C *                                                                    *
-C * FUNCTION    :  Calculates the stream function, first assuming      *
-C *                zero on the southern boundary and then, using the   *
-C *                values on the western boundary, the stream function *
-C *                is calculated again. If the elevation field is near *
-C *                steady state, the two calculations should agree;    *
-C *                otherwise not.                                      *
-C *                                                                    *
-C **********************************************************************
-C
-      use netcdf
-      implicit none
-C
-      include 'pom2k.c'
-C
-      integer i,j, tind
-C
-      filename = trim(pth_wrk)//trim(pth_out)//trim(title)//"_data.nc"
-
-      call check( nf90_open(filename, NF90_WRITE, ncid) )
-
-      do j=1,jm
-        do i=1,im
-          psi(i,j)=0.e0
-        end do
-      end do
-C
-C     Sweep northward:
+      rfs=1.e0
 C
       do j=2,jmm1
-        do i=2,im
-          psi(i,j+1)=psi(i,j)
-     $                +.25e0*uab(i,j)*(d(i,j)+d(i-1,j))
-     $                  *(dy(i,j)+dy(i-1,j))
-        end do
+        uabw(j)=uab(2,j)
+        uabe(j)=uab(imm1,j)
+C
+C     Set geostrophically conditioned elevations at the boundaries:
+C
+!lyo:!wad:Note keep (temporarily) all el* defined wrt MSL - ele, elw,
+!         eln & els were initialized to be =0 in MAIN; then adjust
+!         them later (below) with hhi:
+!
+        ele(j)=ele(j-1)-cor(imm1,j)*uab(imm1,j)/grav*dy(imm1,j-1)
+        elw(j)=elw(j-1)-cor(2,j)*uab(2,j)/grav*dy(2,j-1)
       end do
 C
-      call check( nf90_inq_varid(ncid, "PSI_nw", varid) )
-      call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
+C     Adjust boundary elevations so that they are zero in the middle
+C     of the channel:
 C
-C    Sweep eastward:
+      elejmid=ele(jmm1/2)
+      elwjmid=elw(jmm1/2)
+      do j=2,jmm1
+        ele(j)=(ele(j)-elejmid)*fsm(im,j)
+        elw(j)=(elw(j)-elwjmid)*fsm(2,j)
+      end do
+!
+!tne:!wad:!lyo:wad:
+      do i=1,im
+         eln(i)=(0.-hhi)*fsm(i,jm)
+         els(i)=(0.-hhi)*fsm(i,2)
+      enddo
+      do j=1,jm
+         ele(j)=(ele(j)-hhi)*fsm(im,j)
+         elw(j)=(elw(j)-hhi)*fsm(2,j)
+      enddo
 C
-      do j=2,jm
-        do i=2,imm1
-          psi(i+1,j)=psi(i,j)
-     $                -.25e0*vab(i,j)*(d(i,j)+d(i,j-1))
-     $                  *(dx(i,j)+dx(i,j-1))
+C     Set thermodynamic boundary conditions (for the seamount
+C     problem, and other possible applications, lateral thermodynamic
+C     boundary conditions are set equal to the initial conditions and
+C     are held constant thereafter - users may, of course, create
+C     variable boundary conditions):
+C
+      do k=1,kbm1
+C
+        do j=1,jm
+          tbe(j,k)=tb(im,j,k)
+          tbw(j,k)=tb(1,j,k)
+          sbe(j,k)=sb(im,j,k)
+          sbw(j,k)=sb(1,j,k)
         end do
+C
+        do i=1,im
+          tbn(i,k)=tb(i,jm,k)
+          tbs(i,k)=tb(i,1,k)
+          sbn(i,k)=sb(i,jm,k)
+          sbs(i,k)=sb(i,1,k)
+        end do
+C
       end do
 C
-      call check( nf90_inq_varid(ncid, "PSI_ew", varid) )
-      call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
-      call check( nf90_close(ncid) )
-C
       return
 C
-      contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
       end
-C
-      subroutine flux(idx)
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      subroutine wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2)
+!                                                                      !
 C **********************************************************************
 C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) forcing dataset                *
-C *                and interpolates in time.                           *
+C * FUNCTION    :  Calculates the antidiffusive velocity used to       *
+C *                reduce the numerical diffusion associated with the  *
+C *                upstream differencing scheme.                       *
+C *                                                                    *
+C *                This is based on a subroutine of Gianmaria Sannino  *
+C *                (Inter-university Computing Consortium, Rome, Italy)*
+C *                and Vincenzo Artale (Italian National Agency for    *
+C *                New Technology and Environment, Rome, Italy),       *
+C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+C *                The calculations have been simplified by removing   *
+C *                the shock switch option.                            *
 C *                                                                    *
 C **********************************************************************
 C
-      use netcdf
       implicit none
 C
-      include 'pom2k.c'
-!
-      integer, intent (in) :: idx
-      integer :: i,j
-      real :: qq, dq, sst
-
-      real :: hf_fac = -4.1876e6 ! Heat flux covertion factor
+      integer im,jm,kb  !lyo:!wad:kb not required but defined
+                        !         in "grid" below
+c
+!     PARAMETER (IM=65,JM=49)
+!     PARAMETER (IM=131,JM=99)
+      include 'grid'
+c
+      real ff(im,jm)
+      real xmassflux(im,jm),ymassflux(im,jm)
+      real fsm(im,jm),aru(im,jm),arv(im,jm)
+      real sw,dti2
+      real mol,abs_1,abs_2
+      real value_min,epsilon
+      real udx,u2dt,vdy,v2dt,wdz,w2dt
+      integer i,j,k,imm1,jmm1
 C
-      select case (idx)
-
-        case (4) ! Long wave radiation and other fluxes
-
-          if (m.ne.rf_wtsur) then
+      parameter (value_min=1.e-9,epsilon=1.0e-14)
 C
-            rf_wtsur = m
+c
+      imm1=im-1; jmm1=jm-1
+c
+C     Apply temperature and salinity mask:
 C
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"roms_frc.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "shflux", varid) )
-            if (m.ne.1) then
-              call check(nf90_get_var(ncid, varid, qqb,(/1,1,m-1/)))
-              call check( nf90_get_var(ncid, varid, qqf, (/1,1,m/)))
-            else
-              call check( nf90_get_var(ncid, varid, qqb,(/1,1,12/)))
-              call check( nf90_get_var(ncid, varid, qqf, (/1,1,1/)))
-            end if
-            call check( nf90_inq_varid(ncid, "dQdSST", varid) )
-            if (m.ne.1) then
-              call check(nf90_get_var(ncid, varid, dqb,(/1,1,m-1/)))
-              call check( nf90_get_var(ncid, varid, dqf, (/1,1,m/)))
-            else
-              call check(nf90_get_var(ncid, varid, dqb, (/1,1,12/)))
-              call check( nf90_get_var(ncid, varid, dqf, (/1,1,1/)))
-            end if
-            ! We need to read tsurf again, since we cannot be sure whether it has been read or not.
-            call check( nf90_inq_varid(ncid, "SST", varid) )
-            if (m.ne.1) then
-              call check(nf90_get_var(ncid, varid, tsurfb, (/1,1,m-1/)))
-              call check( nf90_get_var(ncid, varid, tsurff, (/1,1,m/)))
-            else
-              call check( nf90_get_var(ncid, varid, tsurfb, (/1,1,12/)))
-              call check( nf90_get_var(ncid, varid, tsurff, (/1,1,1/)))
-            end if
-
-            call check( nf90_close(ncid) )
-C
-            write(*,*) "Read wtsurf:  ", m
-C
-          end if
-
-          do i=1,im
-            do j=1,jm
-              ! Interpolate
-              qq  = qqb(i,j)   +fac*(qqf(i,j)   -qqb(i,j)   )
-              dq  = dqb(i,j)   +fac*(dqf(i,j)   -dqb(i,j)   )
-              sst = tsurfb(i,j)+fac*(tsurff(i,j)-tsurfb(i,j))
-              ! Convert wtsurf from W/m^2 to K m/s. TODO: convert the qq,dq,sst while reading, maybe?
-              wtsurf(i,j) = (qq+dq*(t(i,j,1)-sst))/hf_fac-swrad(i,j)  ! Be sure to read swrad with flux(3) before calling flux(4).
-!              write(*,*) wtsurf(i,j)
-            end do
+        do i=1,im
+          do j=1,jm
+            ff(i,j)=ff(i,j)*fsm(i,j)
           end do
-!
-          return
+        end do
 C
-        case (3) ! Short wave radiation flux
+C     Recalculate mass fluxes with antidiffusion velocity:
 C
-          if (m.ne.rf_swrad) then
-C
-            rf_swrad = m
-C
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"roms_frc.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "swrad", varid) )
-            if (m.ne.1) then
-              call check(nf90_get_var(ncid, varid, swradb, (/1,1,m-1/)))
-              call check( nf90_get_var(ncid, varid, swradf, (/1,1,m/)) )
+        do j=2,jmm1
+          do i=2,im
+            if(ff(i,j).lt.value_min.or.
+     $         ff(i-1,j).lt.value_min) then
+              xmassflux(i,j)=0.e0
             else
-              call check( nf90_get_var(ncid, varid, swradb, (/1,1,12/)))
-              call check( nf90_get_var(ncid, varid, swradf, (/1,1,1/)) )
+              udx=abs(xmassflux(i,j))
+              u2dt=dti2*xmassflux(i,j)*xmassflux(i,j)
+     $              /(aru(i,j))
+              mol=(ff(i,j)-ff(i-1,j))
+     $             /(ff(i-1,j)+ff(i,j)+epsilon)
+              xmassflux(i,j)=(udx-u2dt)*mol*sw
+
+              abs_1=abs(udx)
+              abs_2=abs(u2dt)
+              if(abs_1.lt.abs_2) xmassflux(i,j)=0.e0
             end if
-            call check( nf90_close(ncid) )
-
-            ! Convert swrad from W/m^2 to K m/s.
-            swradb = swradb/hf_fac
+          end do
+        end do
 C
-            write(*,*) "Read swrad:   ", m
-
-          end if
-!       Interpolate
-          swrad = swradb+fac*(swradf-swradb)
-
-          return
-C
-        case (52) ! momentum flux
-C
-          if (m.ne.rf_wsurf) then
-C
-            rf_wsurf = m
-C
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"roms_frc.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "sustr", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
-     $                   , (/1,1,m-1/), (/imm1,jm,1/)) )
-              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
-     $                   , (/1,1,m/),   (/imm1,jm,1/)) )
+        do j=2,jm
+          do i=2,imm1
+            if(ff(i,j).lt.value_min.or.
+     $         ff(i,j-1).lt.value_min) then
+              ymassflux(i,j)=0.e0
             else
-              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
-     $                   , (/1,1,12/), (/imm1,jm,1/)) )
-              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
-     $                   , (/1,1,1/),  (/imm1,jm,1/)) )
+             vdy=abs(ymassflux(i,j))
+             v2dt=dti2*ymassflux(i,j)*ymassflux(i,j)
+     $             /(arv(i,j))
+             mol=(ff(i,j)-ff(i,j-1))
+     $            /(ff(i,j-1)+ff(i,j)+epsilon)
+             ymassflux(i,j)=(vdy-v2dt)*mol*sw
+             abs_1=abs(vdy)
+             abs_2=abs(v2dt)
+             if(abs_1.lt.abs_2) ymassflux(i,j)=0.e0
             end if
-            call check( nf90_inq_varid(ncid, "svstr", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
-     $                   , (/1,1,m-1/), (/im,jmm1,1/)) )
-              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
-     $                   , (/1,1,m/),   (/im,jmm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
-     $                   , (/1,1,12/), (/im,jmm1,1/)) )
-              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
-     $                   , (/1,1,1/),  (/im,jmm1,1/)) )
-            end if
-            call check( nf90_close(ncid) )
-
-            ! Fill in boundary values (and taper them, maybe?)
-            wusurfb(:,1) = wusurfb(:,2)!*.5
-            wusurff(:,1) = wusurff(:,2)!*.5
-            wvsurfb(1,:) = wvsurfb(2,:)!*.5
-            wvsurff(1,:) = wvsurff(2,:)!*.5
-
-            ! Convert s?str (in N/m^2) to w?surf (in m^2/s^2).
-            wusurfb = -wusurfb/rhoref
-            wvsurfb = -wvsurfb/rhoref
-            wusurff = -wusurff/rhoref
-            wvsurff = -wvsurff/rhoref
-
-            write(*,*) "Read w*surf:  ", m
-
-          end if
-
-          wusurf = wusurfb+fac*(wusurff-wusurfb)
-          wvsurf = wvsurfb+fac*(wvsurff-wvsurfb)
-
-          return
-
-      end select
+          end do
+        end do
 C
       return
 C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
       end
-!
-      subroutine flux_obs(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) forcing dataset                *
-C *          !TODO and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
-      use netcdf
-      implicit none
-C
-      integer, intent (in) :: idx
-      integer :: i,j
-      integer :: tind
-      character*2 :: mm
-      include 'pom2k.c'
-      real :: qq, dq, sst
-      dimension :: qq(im, jm), dq(im, jm), sst(im, jm)
-C
-      select case (idx)
-
-        case (4) ! Long wave radiation and other fluxes
-C
-C          tsplt_flx = 1
-C
-          tind = int(time/tsplt_wtsur)+1
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_wtsur) then
-C
-            rf_wtsur = tind
-C
-            ! The code below assumes a 365 days long year
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                           else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_flx_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "hf", varid) )
-            call check( nf90_get_var(ncid, varid, qq, (/1,1,tind/)))
-            call check( nf90_inq_varid(ncid, "dq", varid) )
-            call check( nf90_get_var(ncid, varid, dq, (/1,1,tind/)))
-            call check( nf90_inq_varid(ncid, "sst", varid) )
-            call check( nf90_get_var(ncid, varid, sst, (/1,1,tind/)))
-            do i=1,im
-              do j=1,jm
-                wtsurf(i,j) = -(qq(i,j)+dq(i,j)
-     $                        *(t(i,j,1)-sst(i,j)))
-     $                        /4.1876e6-swrad(i,j)
-C                write(*,*) wtsurf(i,j)
-              end do
-            end do
-            call check( nf90_close(ncid) )
-C
-            write(*,*) "Read wtsurf:  ", tind, "@", mm
-C
-          end if
-C
-        case (3) ! Short wave radiation flux
-C
-          tind = int(time/tsplt_swrad)+1
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_swrad) then
-C
-            rf_swrad = tind
-C
-            ! The code below assumes a 365 days long year
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                           else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_flx_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "swrad", varid) )
-            call check( nf90_get_var(ncid, varid, swrad, (/1,1,tind/)) )
-            do i=1,im
-              do j=1,jm
-                swrad(i,j) = -swrad(i,j)/4.1876e6
-              end do
-            end do
-            call check( nf90_close(ncid) )
-C
-            write(*,*) "Read swrad:   ", tind, "@", mm
-C
-          end if
-C
-        case (51) ! Momentum flux
-C
-          tind = int(time/tsplt_wsurf)+1
-C
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_wsurf) then
-C
-            rf_wsurf = tind
-C
-            if (tind.gt.1464) then
-              tind = 1464
-              write(*,*) "w*surf limit of 1464 records",
-     $                   "has been reached *spam*"
-            end if
-
-            filename = "/home/pkharlamov/POM/pom_in/"//
-     $                 "PACO-15_pom_wusur.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "uwnd", varid) )
-            call check( nf90_get_var(ncid, varid, wusurf, (/1,1,tind/)))
-            call check( nf90_close(ncid) )
-C
-            filename = "/home/pkharlamov/POM/pom_in/"//
-     $                 "PACO-15_pom_wvsur.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "uwnd", varid) )
-            call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,tind/)))
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read w*surf:  ", tind
-
-          end if
-
-        case (52) ! Daily clim. momentum flux
-C
-          tsplt_wsurf = 1
-          tind = int(time/tsplt_wsurf)+1
-C
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_wsurf) then
-C
-            rf_wsurf = tind
-C
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                           else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-C
-            filename = trim(pth_wrk)//trim(pth_flx)//
-     $                 trim(pfx_dmn)//"pom_flx_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "wusurf", varid) )
-            call check( nf90_get_var(ncid, varid, wusurf, (/1,1,tind/)))
-            call check( nf90_inq_varid(ncid, "wvsurf", varid) )
-            call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,tind/)))
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read w*surf:  ", tind, "@", mm
-
-          end if
-
-      end select
-C
-      return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-C
-      subroutine bry_obs(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
-C *          !TODO and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
-      use netcdf
-      implicit none
-C
-      integer, intent ( in) :: idx
-      integer :: i,j,k
-      integer :: tind
-      character*2 :: mm
-
-      include 'pom2k.c'
-
-      real :: datXZm(im,kbm1), datXmZm(imm1,kbm1)
-      real :: v3f(im,jm,kbm1)
-
-C
-      select case (idx)
-C
-          case (2) ! elevation
-C
-          tind = int(time/tsplt_el)+1
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_el) then
-C
-            rf_el = tind
-C
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                            else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"pom_bry_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C
-!            call check( nf90_inq_varid(ncid, "Z_N", varid) )
-!            call check( nf90_get_var(ncid, varid, eln,(/1,tind/)))
-!            call check( nf90_inq_varid(ncid, "Z_E", varid) )
-!            call check( nf90_get_var(ncid, varid, ele,(/1,tind/)) )
-            call check( nf90_inq_varid(ncid, "Z_S", varid) )
-            call check( nf90_get_var(ncid, varid, els,(/1,tind/)) )
-!            call check( nf90_inq_varid(ncid, "Z_W", varid) )
-!            call check( nf90_get_var(ncid, varid, elw,(/1,tind/)) )
-            call check( nf90_close(ncid) )
-C
-!            do i=1,im
-!              elf( i, jmm1) = eln(i)
-!              elf( i, 2   ) = els(i)
-!            end do
-!            do j=1,jm
-!              elf(imm1, j ) = elw(i)
-!              elf(2   , j ) = ele(i)
-!            end do
-C
-            write(*,*) "Read el BCs:  ", tind, "@", mm
-C
-          end if
-C
-        case (3) ! u and v
-C
-          tind = int(time/tsplt_uv)+1
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_uv) then
-C
-            rf_uv = tind
-C
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                            else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"pom_bry_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C
-            call check( nf90_inq_varid(ncid, "U_S", varid) )
-            call check( nf90_get_var(ncid, varid, datXmZm,(/1,1,tind/),
-     $                  (/imm1,kbm1,1/)))
-            call check( nf90_inq_varid(ncid, "V_S", varid) )
-            call check( nf90_get_var(ncid, varid, vbs,(/1,1,tind/),
-     $                  (/im,kbm1,1/)))
-!
-!     Shift u-data to the right by 1 cell
-!     
-            do i=1,imm1
-              do k=1,kbm1
-                ubs(i+1,k) = datXmZm(i,k)
-              end do
-              ubs(i+1,kb) = 0.
-            end do
-!
-!     Blank the unfilled values for safety
-!
-            do k=1,kb
-              ubs(1,k) = ubs(2,k)
-            end do
-!
-!       Calculate vertical mean BCs for 2D mode
-!
-            do i=1,im
-              uabs(i) = 0.
-              vabs(i) = 0.
-              do k=1,kb
-                uabs(i) = uabs(i)+ubs(i,k)*dz(k)
-                vabs(i) = vabs(i)+vbs(i,k)*dz(k)
-              end do
-            end do
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read vel BCs: ", tind, "@", mm
-C
-          end if
-C
-        case (4) ! temperature and salinity
-C
-          tind = int(time/tsplt_ts)+1
-          do
-            if (tind.gt.365) then
-              tind = tind-365
-            else
-              exit
-            end if
-          end do
-C
-          if (tind.ne.rf_ts) then
-C
-            rf_ts = tind
-C
-            mm = '01'
-            if (tind.lt.32) then
-              mm  = '01'
-            else
-              if (tind.lt.60) then
-                mm  = '02'
-                tind = tind-31
-              else
-                if (tind.lt.91) then
-                  mm  = '03'
-                  tind = tind-59
-                else
-                  if (tind.lt.121) then
-                    mm  = '04'
-                    tind = tind-90
-                  else
-                    if (tind.lt.152) then
-                      mm  = '05'
-                      tind = tind-120
-                    else
-                      if (tind.lt.182) then
-                        mm  = '06'
-                        tind = tind-151
-                      else
-                        if (tind.lt.213) then
-                          mm  = '07'
-                          tind = tind-181
-                        else
-                          if (tind.lt.244) then
-                            mm  = '08'
-                            tind = tind-212
-                          else
-                            if (tind.lt.274) then
-                              mm  = '09'
-                              tind = tind-243
-                            else
-                              if (tind.lt.305) then
-                                mm  = '10'
-                                tind = tind-273
-                              else
-                                if (tind.lt.335) then
-                                  mm  = '11'
-                                  tind = tind-304
-                                else
-                                  if (tind.lt.366) then
-                                    mm  = '12'
-                                    tind = tind-334
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-C
-!           filename = trim(pth_wrk)//trim(pth_bry)//
-!     $                 trim(pfx_dmn)//"pom_clm_"//mm//".nc"
-!            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!            call check( nf90_inq_varid(ncid, "t", varid) )
-!            call check( nf90_get_var(ncid, varid, v3f,(/1,1,1,tind/)) )
-!            do i=1,im
-!              do k=1,kbm1
-!                tbs(i,k) = v3f(i, 1,k)
-!                tbn(i,k) = v3f(i,jm,k)
-!              end do
-!              tbs(i,kb) = tbs(i,kbm1)
-!              tbn(i,kb) = tbn(i,kbm1)
-!            end do
-!            do j=1,jm
-!              do k=1,kbm1
-!                tbw(j,k) = v3f( 1,j,k)
-!                tbe(j,k) = v3f(im,j,k)
-!              end do
-!              tbw(j,kb) = tbw(j,kbm1)
-!              tbe(j,kb) = tbe(j,kbm1)
-!            end do
-!            call check( nf90_close(ncid) )
-C
-C           Test to understand where bry t and s are from.
-C           Override climatological with boundary
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"pom_bry_"//mm//".nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "T_S", varid) )
-            call check( nf90_get_var(ncid, varid, tbs,(/1,1,tind/),
-     $                  (/im,kbm1,1/)))
-!            call check( nf90_inq_varid(ncid, "T_N", varid) )
-!            call check( nf90_get_var(ncid, varid, tmpXZm,(/1,1,tind/)) )
-!            do i=1,im
-!              do k=1,kbm1
-!                tbn(i,k) = tmpXZm(i,k)
-!              end do
-!              tbn(i,kb) = tmpXZm(i,kbm1)
-!            end do
-!            call check( nf90_inq_varid(ncid, "T_E", varid) )
-!            call check( nf90_get_var(ncid, varid, tbe,
-!     $                              (/1,1,time_index/) ) )
-!            call check( nf90_inq_varid(ncid, "T_W", varid) )
-!            call check( nf90_get_var(ncid, varid, tmpYZm,(/1,1,tind/)) )
-!            do j=1,im
-!              do k=1,kbm1
-!                tbw(j,k) = tmpYZm(j,k)
-!              end do
-!              tbw(j,kb) = tmpYZm(j,kbm1)
-!            end do
-            call check( nf90_inq_varid(ncid, "S_S", varid) )
-            call check( nf90_get_var(ncid, varid, sbs,(/1,1,tind/),
-     $                  (/im,kbm1,1/)))
-!            call check( nf90_inq_varid(ncid, "S_N", varid) )
-!            call check( nf90_get_var(ncid, varid, tmpXZm,(/1,1,tind/)) )
-!            do i=1,im
-!              do k=1,kbm1
-!                sbn(i,k) = tmpXZm(i,k)
-!              end do
-!              sbn(i,kb) = tmpXZm(i,kbm1)
-!            end do
-!            call check( nf90_inq_varid(ncid, "S_E", varid) )
-!            call check( nf90_get_var(ncid, varid, sbe,
-!     $                              (/1,1,time_index/) ) )
-!            call check( nf90_inq_varid(ncid, "S_W", varid) )
-!            call check( nf90_get_var(ncid, varid, tmpYZm,(/1,1,tind/)) )
-!            do j=1,im
-!              do k=1,kbm1
-!                sbw(j,k) = tmpYZm(j,k)
-!              end do
-!              sbw(j,kb) = tmpYZm(j,kbm1)
-!            end do
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read TS BCs:  ", tind, "@", mm
-C
-          end if
-C
-          case (43)
-
-            tind = int(time/tsplt_ts)+1
-            do
-              if (tind.gt.365) then
-                tind = tind-365
-              else
-                exit
-              end if
-            end do
-C
-            if (tind.ne.rf_sts) then
-C
-              rf_sts = tind
-C
-              mm = '01'
-              if (tind.lt.32) then
-                mm  = '01'
-              else
-                if (tind.lt.60) then
-                  mm  = '02'
-                  tind = tind-31
-                else
-                  if (tind.lt.91) then
-                    mm  = '03'
-                    tind = tind-59
-                  else
-                    if (tind.lt.121) then
-                      mm  = '04'
-                      tind = tind-90
-                    else
-                      if (tind.lt.152) then
-                        mm  = '05'
-                        tind = tind-120
-                      else
-                        if (tind.lt.182) then
-                          mm  = '06'
-                          tind = tind-151
-                        else
-                          if (tind.lt.213) then
-                            mm  = '07'
-                            tind = tind-181
-                          else
-                            if (tind.lt.244) then
-                              mm  = '08'
-                              tind = tind-212
-                            else
-                              if (tind.lt.274) then
-                                mm  = '09'
-                                tind = tind-243
-                              else
-                                if (tind.lt.305) then
-                                  mm  = '10'
-                                  tind = tind-273
-                                else
-                                  if (tind.lt.335) then
-                                    mm  = '11'
-                                    tind = tind-304
-                                  else
-                                    if (tind.lt.366) then
-                                      mm  = '12'
-                                      tind = tind-334
-                                    end if
-                                  end if
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-
-              filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"pom_flx_"//mm//".nc"
-              call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-              call check( nf90_inq_varid(ncid, "sst", varid) )
-              call check( nf90_get_var(ncid, varid, tsurf,(/1,1,tind/)))
-              call check( nf90_inq_varid(ncid, "sss", varid) )
-              call check( nf90_get_var(ncid, varid, ssurf,(/1,1,tind/)))
-              call check( nf90_close(ncid) )
-              write(*,*) "Read ST/S BCs:", tind, "@", mm
-
-            end if
-C
-      end select
-C
-      return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-!
-      subroutine bry(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
-C *                and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
-      use netcdf
-      implicit none
-C
-      integer, intent ( in) :: idx
-      integer :: i,j,k
-
-      include 'pom2k.c'
-
-C
-      select case (idx)
-C
-        case (2) ! elevation
-!
-          if (m.ne.rf_el) then
-!     If we move to the next month...
-            rf_el = m
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_bry.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "zeta_south", varid) )
-!     ...read neccessary fields
-!     South:
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid, elsb,
-     $                          (/1,m-1/), (/im,1/)) )
-              call check( nf90_get_var(ncid, varid, elsf,
-     $                          (/1,m/), (/im,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid, elsb,
-     $                          (/1,12/),(/im,1/)) )
-              call check( nf90_get_var(ncid, varid, elsf,
-     $                          (/1,1/), (/im,1/)) )
-            end if
-
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read el BCs:  ", m
-
-          end if
-!     Perform interpolation
-!     South:
-          ! FSM is already defined! Feel free to apply it! (But DON'T!!! Really! Don't! It just boundary conditions.)
-          els(:) = (elsb(:)+fac*(elsf(:)-elsb(:)))*fsm(:,1)
-
-          return
-C
-        case (3) ! u and v
-C
-          if (m.ne.rf_uv) then
-!        If we move to the next month...
-            rf_uv = m
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_bry.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!        ...read neccessary fields
-!     South:
-            call check( nf90_inq_varid(ncid, "u_south", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         ubsb(2:im,kbm1:1:-1),(/1,1,m-1/),(/imm1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ubsf(2:im,kbm1:1:-1),(/1,1,m/),  (/imm1,kbm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         ubsb(2:im,kbm1:1:-1),(/1,1,12/),(/imm1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ubsf(2:im,kbm1:1:-1),(/1,1,1/), (/imm1,kbm1,1/)) )
-            end if
-            call check( nf90_inq_varid(ncid, "v_south", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         vbsb(:,kbm1:1:-1),(/1,1,m-1/), (/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         vbsf(:,kbm1:1:-1),(/1,1,m/),   (/im,kbm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         vbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         vbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
-            end if
-
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read vel BCs: ", m
-
-          end if
-!     Perform interpolation
-!     South:
-!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
-            ubs(:,1:kbm1) = ubsb(:,1:kbm1)
-     $                     +fac*(ubsf(:,1:kbm1)-ubsb(:,1:kbm1))
-            vbs(:,1:kbm1) = vbsb(:,1:kbm1)
-     $                     +fac*(vbsf(:,1:kbm1)-vbsb(:,1:kbm1))
-!          do k=1,kbm1              ! This doesn't work, since it completely wipes out u
-!            ubs(:,k) = ubs(:,k)*dum(:,1)
-!            vbs(:,k) = vbs(:,k)*dvm(:,2) ! index 1, maybe?
-!          end do
-!          end do
-
-!     Calculate vertical mean BCs for 2D mode
-!
-          do i=1,im
-            uabs(i) = 0.
-            vabs(i) = 0.
-            do k=1,kb
-              uabs(i) = uabs(i)+ubs(i,k)*dz(k)
-              vabs(i) = vabs(i)+vbs(i,k)*dz(k)
-            end do
-          end do
-
-          return
-C
-        case (4) ! temperature and salinity
-C
-          if (m.ne.rf_ts) then
-!        If we move to the next month...
-            rf_ts = m
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_clm.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-            call check( nf90_inq_varid(ncid, "temp", varid) )
-!    Read climatological BCs
-            if (m.ne.1) then
-!            south
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,1,m-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,1,m/),   (/im,1,kbm1,1/)) )
-!            north
-              call check( nf90_get_var(ncid, varid,
-     $         tbnb(:,kbm1:1:-1),(/1,jm,1,m-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbnf(:,kbm1:1:-1),(/1,jm,1,m/),   (/im,1,kbm1,1/)) )
-!            west
-              call check( nf90_get_var(ncid, varid,
-     $         tbwb(:,kbm1:1:-1),(/1,1,1,m-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbwf(:,kbm1:1:-1),(/1,1,1,m/),   (/1,jm,kbm1,1/)) )
-!            east
-              call check( nf90_get_var(ncid, varid,
-     $         tbeb(:,kbm1:1:-1),(/im,1,1,m-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbef(:,kbm1:1:-1),(/im,1,1,m/),   (/1,jm,kbm1,1/)) )
-            else
-!            south
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
-!            north
-              call check( nf90_get_var(ncid, varid,
-     $         tbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
-!            west
-              call check( nf90_get_var(ncid, varid,
-     $         tbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
-!            east
-              call check( nf90_get_var(ncid, varid,
-     $         tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
-            end if
-!
-            call check( nf90_inq_varid(ncid, "salt", varid) )
-!    Read climatological salinity BCs
-            if (m.ne.1) then
-!            south
-              call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,1,m-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,1,m/),   (/im,1,kbm1,1/)) )
-!            north
-              call check( nf90_get_var(ncid, varid,
-     $         sbnb(:,kbm1:1:-1),(/1,jm,1,m-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbnf(:,kbm1:1:-1),(/1,jm,1,m/),   (/im,1,kbm1,1/)) )
-!            west
-              call check( nf90_get_var(ncid, varid,
-     $         sbwb(:,kbm1:1:-1),(/1,1,1,m-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbwf(:,kbm1:1:-1),(/1,1,1,m/),   (/1,jm,kbm1,1/)) )
-!            east
-              call check( nf90_get_var(ncid, varid,
-     $         sbeb(:,kbm1:1:-1),(/im,1,1,m-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbef(:,kbm1:1:-1),(/im,1,1,m/),   (/1,jm,kbm1,1/)) )
-            else
-!            south
-              call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
-!            north
-              call check( nf90_get_var(ncid, varid,
-     $         sbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
-!            west
-              call check( nf90_get_var(ncid, varid,
-     $         sbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
-!            east
-              call check( nf90_get_var(ncid, varid,
-     $         sbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
-            end if
-!
-            call check( nf90_close(ncid) )
-!
-            if (.false.) then   ! Disable it for now
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_bry.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!        ...read neccessary fields
-!     South:
-            call check( nf90_inq_varid(ncid, "temp_south", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,m-1/), (/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,m/),   (/im,kbm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
-            end if
-            call check( nf90_inq_varid(ncid, "salt_south", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,m-1/), (/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,m/),   (/im,kbm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
-            end if
-
-            call check( nf90_close(ncid) )
-            end if
-
-            write(*,*) "Read TS BCs:  ", m
-
-          end if
-!     Perform interpolation
-!     South:
-            tbs(:,1:kbm1) = tbsb(:,1:kbm1)
-     $                     +fac*(tbsf(:,1:kbm1)-tbsb(:,1:kbm1))
-            sbs(:,1:kbm1) = sbsb(:,1:kbm1)
-     $                     +fac*(sbsf(:,1:kbm1)-sbsb(:,1:kbm1))
-!     North:
-            tbn(:,1:kbm1) = tbnb(:,1:kbm1)
-     $                     +fac*(tbnf(:,1:kbm1)-tbnb(:,1:kbm1))
-            sbn(:,1:kbm1) = sbnb(:,1:kbm1)
-     $                     +fac*(sbnf(:,1:kbm1)-sbnb(:,1:kbm1))
-!     East:
-            tbe(:,1:kbm1) = tbeb(:,1:kbm1)
-     $                     +fac*(tbef(:,1:kbm1)-tbeb(:,1:kbm1))
-            sbe(:,1:kbm1) = sbeb(:,1:kbm1)
-     $                     +fac*(sbef(:,1:kbm1)-sbeb(:,1:kbm1))
-!     West:
-            tbw(:,1:kbm1) = tbwb(:,1:kbm1)
-     $                     +fac*(tbwf(:,1:kbm1)-tbwb(:,1:kbm1))
-            sbw(:,1:kbm1) = sbwb(:,1:kbm1)
-     $                     +fac*(sbwf(:,1:kbm1)-sbwb(:,1:kbm1))
-          return
-C
-        case (43)
-
-          if (m.ne.rf_sts) then
-!        If we move to the next month...
-            rf_sts = m
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_frc.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-!        ...read neccessary fields
-!     South:
-            call check( nf90_inq_varid(ncid, "SST", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,m-1/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1,m  /), (/im,jm,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,12/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1, 1/), (/im,jm,1/)) )
-            end if
-            call check( nf90_inq_varid(ncid, "SSS", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,m-1/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,m  /), (/im,jm,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,12/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1, 1/), (/im,jm,1/)) )
-            end if
-
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read ST/S BCs:", m
-
-          end if
-!     Perform interpolation
-!     South:
-!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
-            tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
-            ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
-!          end do
-          return
-!
-        case (45)
-
-          if (m.ne.rf_sts) then
-!        If we move to the next month...
-            rf_sts = m
-
-            filename = trim(pth_wrk)//trim(pth_bry)//
-     $                 trim(pfx_dmn)//"roms_clm.nc"
-            call check(nf90_open(filename, NF90_NOWRITE, ncid))
-!        ...read neccessary fields
-!     South:
-            call check( nf90_inq_varid(ncid, "temp", varid) )
-            if (m.ne.1) then
-              call check( nf90_get_var(ncid, varid, tsurfb,
-     $         (/1,1,kbm1,m-1/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid, tsurff,
-     $         (/1,1,kbm1,m  /), (/im,jm,1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
-            end if
-            call check( nf90_inq_varid(ncid, "salt", varid) )
-            if (m.ne.1) then
-            call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,kbm1,m-1/), (/im,jm,1,1/)) )
-            call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,kbm1,m  /), (/im,jm,1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
-            end if
-
-            call check( nf90_close(ncid) )
-
-            write(*,*) "Read 1l TS BCs:", m
-
-          end if
-!     Perform interpolation
-!     South:
-!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
-          tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
-          ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
-!          end do
-          return
-C
-      end select
-C
-      return
-C
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-C
-      end
-c     include 'pom2k.n'                                       ! *netCDF*
+!                                                                      !
+!lyo:!wad:END of WAD-related subroutines.                              !
+!                                                                      !
+!----------------------------------------------------------------------!
+!                                                                      !
+      include 'pom08.n'                                       ! *netCDF*
 C
 C     End of source code
 C
 C-----------------------------------------------------------------------
-C
-      subroutine debug_write_txt_xy(var, caption, step)
-
-        implicit none
-        include 'pom2k.c'
-
-        real, intent (in)             :: var(im,jm)
-        character(len=*), intent (in) :: caption
-        integer, intent (in)          :: step
-        character*4                   :: path, prefix
-        character*64                  :: fmt
-
-        integer                       :: lft,rht,top,bot,hst,vst
-
-        lft = 1
-        rht = im
-        top = jm
-        bot = 1
-        hst = 1
-        vst =-1
-        write(fmt,*) '('
-        write(fmt,'(i3)') (rht-lft+1)
-        write(fmt,*) '(F10.5,";"))'
-        write(path,'(I4.4)') step
-        call system('mkdir -p '//trim(pth_wrk)
-     $                         //trim(pth_dbg)//trim(path))
-        write(prefix, '(I3.3,".")') dbg_seq_i
-        dbg_seq_i = dbg_seq_i + 1
-        open(42, file=trim(pth_wrk)//trim(pth_dbg)
-     $                //path//"/"//trim(prefix)
-     $                //trim(pfx_dbg)//"_"//caption//".csv")
-        write(42, fmt) var(lft:rht:hst,top:bot:vst)
-        close(42)
-
-      end
-!!!!
-      subroutine debug_write_xy(var, caption, step)
-
-        implicit none
-        include 'pom2k.c'
-
-        real, intent (in)             :: var(im,jm)
-        character(len=*), intent (in) :: caption
-        integer, intent (in)          :: step
-        character*4                   :: path, prefix
-
-        write(path,'(I4.4)') step
-        call system('mkdir -p '//trim(pth_wrk)
-     $                         //trim(pth_dbg)//trim(path))
-        write(prefix, '(I3.3,".")') dbg_seq_i
-        dbg_seq_i = dbg_seq_i + 1
-        open(42, file=trim(pth_wrk)//trim(pth_dbg)
-     $                //path//"/"//trim(prefix)
-     $                //trim(pfx_dbg)//"_"//caption
-     $          ,form='unformatted')
-        write(42) var
-        close(42)
-
-      end
-
-      subroutine debug_write_xz(var, caption, step)
-
-        implicit none
-        include 'pom2k.c'
-
-        real, intent (in)             :: var(im,kb)
-        character(len=*), intent (in) :: caption
-        integer, intent (in)          :: step
-        character*4                   :: path, prefix
-
-        write(path,'(I4.4)') step
-        call system('mkdir -p '//trim(pth_wrk)
-     $                         //trim(pth_dbg)//trim(path))
-        write(prefix, '(I3.3,".")') dbg_seq_i
-        dbg_seq_i = dbg_seq_i + 1
-        open(42, file=trim(pth_wrk)//trim(pth_dbg)
-     $                //path//"/"//trim(prefix)
-     $                //trim(pfx_dbg)//"_"//caption
-     $          ,form='unformatted')
-        write(42) var
-        close(42)
-
-      end
-
-      subroutine debug_write_x(var, caption, step)
-
-        implicit none
-        include 'pom2k.c'
-
-        real, intent (in)             :: var(im)
-        character(len=*), intent (in) :: caption
-        integer, intent (in)          :: step
-        character*4                   :: path, prefix
-
-        write(path,'(I4.4)') step
-        call system('mkdir -p '//trim(pth_wrk)
-     $                         //trim(pth_dbg)//trim(path))
-        write(prefix, '(I3.3,".")') dbg_seq_i
-        dbg_seq_i = dbg_seq_i + 1
-        open(42, file=trim(pth_wrk)//trim(pth_dbg)
-     $                //path//"/"//trim(prefix)
-     $                //trim(pfx_dbg)//"_"//caption
-     $          ,form='unformatted')
-        write(42) var
-        close(42)
-
-      end
-
-      subroutine debug_write_3d(var, caption, step)
-
-        implicit none
-        include 'pom2k.c'
-
-        real, intent (in)             :: var(im,jm,kb)
-        character(len=*), intent (in) :: caption
-        integer, intent (in)          :: step
-        character*4                   :: path, prefix
-
-        write(path,'(I4.4)') step
-        call system('mkdir -p '//trim(pth_wrk)
-     $                         //trim(pth_dbg)//trim(path))
-        write(prefix, '(I3.3,".")') dbg_seq_i
-        dbg_seq_i = dbg_seq_i + 1
-        open(42, file=trim(pth_wrk)//trim(pth_dbg)
-     $                //path//"/"//trim(prefix)
-     $                //trim(pfx_dbg)//"_"//caption
-     $          ,form='unformatted',position='rewind')
-        write(42) var
-        close(42)
-
-      end
-
-      subroutine upd_mnth
-
-        include 'pom2k.c'
-
-        real :: tind, b, e
-
-        tind = mod(time,365.)
-C
-        if (tind.lt.15) then
-          m = 1
-          b = -15.5
-          e = 15.
-        else
-          if (tind.lt.44) then
-            m = 2
-            b = 15.
-            e = 44.
-          else
-            if (tind.lt.73.5) then
-              m = 3
-              b = 44.
-              e = 73.5
-            else
-              if (tind.lt.104) then
-                m = 4
-                b = 73.5
-                e = 104.
-              else
-                if (tind.lt.134.5) then
-                  m = 5
-                  b = 104.
-                  e = 134.5
-                else
-                  if (tind.lt.165) then
-                    m = 6
-                    b = 134.5
-                    e = 165.
-                  else
-                    if (tind.lt.195.5) then
-                      m = 7
-                      b = 165.
-                      e = 195.5
-                    else
-                      if (tind.lt.226.5) then
-                        m = 8
-                        b = 195.5
-                        e = 226.5
-                      else
-                        if (tind.lt.258) then
-                          m = 9
-                          b = 226.5
-                          e = 258.
-                        else
-                          if (tind.lt.288.5) then
-                            m = 10
-                            b = 258.
-                            e = 288.5
-                          else
-                            if (tind.lt.319) then
-                              m = 11
-                              b = 288.5
-                              e = 319.
-                            else
-                              if (tind.lt.349.5) then
-                                m = 12
-                                b = 319.
-                                e = 349.5
-                              else
-                                m = 1
-                                b = 349.5
-                                e = 380.5
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-          end if
-        end if
-!
-        fac = (tind-b)/(e-b)
-
-        return
-
-      end
-
-      subroutine time2date(time_in, time_off, date)
-
-        character(len=*), intent(in) :: time_off
-        real                         :: time_in,  time
-        character*26,     intent(out):: date
-        integer  :: YYYY, MM, DD, hh, mi, ss, th, tm
-        character :: sign
-
-        read(time_off,
-     $       '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a1,i2,1x,i2)')
-     $       YYYY, MM, DD, hh, mi, ss, sign, th, tm
-
-        time = time_in - float(floor(time_in))
-        ss   = ss + mod(floor(time*60.*60.*24.), 60)
-        mi   = mi + floor(ss/60.)
-        ss   = mod(ss, 60)
-        mi   = mi + mod(floor(time*60.*24.), 60)
-        hh   = hh + floor(mi/60.)
-        mi   = mod(mi, 60)
-        hh   = hh + mod(floor(time*24.), 24)
-        DD   = DD + floor(hh/24.)
-        hh   = mod(hh, 24)
-
-        time = floor(time_in)
-        YYYY = YYYY + floor((DD-1+time)/365.)
-        DD   = mod((DD+time),365.)
-
-        if (DD==0) then
-          MM = 12
-          DD = 31
-        else
-          if (DD.le.31) then
-            MM = 1
-          else
-            if (DD.le.59) then
-              MM = 2
-              DD = DD-31
-            else
-              if (DD.le.90) then
-                MM = 3
-                DD = DD-59
-              else
-                if (DD.le.120) then
-                  MM = 4
-                  DD = DD-90
-                else
-                  if (DD.le.151) then
-                    MM = 5
-                    DD = DD-120
-                  else
-                    if (DD.le.181) then
-                      MM = 6
-                      DD = DD-151
-                    else
-                      if (DD.le.212) then
-                        MM = 7
-                        DD = DD-181
-                      else
-                        if (DD.le.243) then
-                          MM = 8
-                          DD = DD-212
-                        else
-                          if (DD.le.273) then
-                            MM = 9
-                            DD = DD-243
-                          else
-                            if (DD.le.304) then
-                              MM = 10
-                              DD = DD-273
-                            else
-                              if (DD.le.334) then
-                                MM = 11
-                                DD = DD-304
-                              else
-                                if (DD.le.365) then
-                                  MM = 12
-                                  DD = DD-334
-                                else
-                                  ! How did you get here?
-                                  MM = 1
-                                  DD = DD-365
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-          end if
-        end if
-        !DD = DD+1
-
-        write(date,
-     $        '(i4,"-",i2.2,"-",i2.2," ",i2.2,":"
-     $         ,i2.2,":",i2.2," ",a1,i2.2,":",i2.2)')
-     $        YYYY, MM, DD, hh, mi, ss, sign, th, tm
-        !write(*, *) date
-        return
-
-      end
