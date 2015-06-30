@@ -219,6 +219,9 @@ C
       character*32 pfx_dmn, pfx_dbg
       common/pth/ pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
      $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
+      real    fac  ! fac - interpolation factor
+      integer mi   ! m   - month for interpolation
+      common/misc/ fac, mi
 C-----------------------------------------------------------------------
 C
 C     End of common blocks
