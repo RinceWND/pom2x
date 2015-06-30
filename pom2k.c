@@ -211,6 +211,14 @@ C
 !lyo:!wad:ends:                                                        !
 !----------------------------------------------------------------------!
 !                                                                      !
+!
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!rwnd: Path paramters
+      character*224 pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
+     $ , ptf_rst, pth_dbg
+      character*32 pfx_dmn, pfx_dbg
+      common/pth/ pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
+     $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
 C-----------------------------------------------------------------------
 C
 C     End of common blocks
