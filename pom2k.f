@@ -235,7 +235,8 @@ C
       logical lramp
       character*120 netcdf_file
 
-      real bkp_gap
+      real    bkp_gap
+      integer ncptime   !rwnd: Ncdf print step number.
 C
 C***********************************************************************
 C
@@ -300,7 +301,7 @@ C
 !     depths set at say 10m (defined in routine called depending on    !
 !                            value of iproblem)                        !
 !                                                                      !
-      nwad=1
+      nwad=0    !rwnd: PV=1
 !                                                                      !
 !lyo:!wad:set nsmolar=1 if water depth is to be solved by Smolarkiewicz!
 !     See O2005 or O2006.                                              !
@@ -874,6 +875,8 @@ C     Initialise time:
 C
       time0=0.e0
       time=0.e0
+!
+      ncptime = 0
 C
 C     Initial conditions:
 C
@@ -1018,87 +1021,94 @@ C
 C
 C-----------------------------------------------------------------------
 C
-C     Print geometry and other initial fields (select statements as
-C     desired):
+      call ic2ncdf                  ! rwnd:
 C
-      call prxy('grid increment in x, dx                 ',
-     $          time,dx ,im,iskp,jm,jskp,0.e0)
+      ncptime = ncptime+1           ! rwnd:
+      call ncflush(ncptime)
 C
-      call prxy('grid increment in y, dy                 ',
-     $          time,dy ,im,iskp,jm,jskp,0.e0)
+C-----------------------------------------------------------------------
 C
-      call prxy('Easting of elevation points, east_e     ',
-     $          time,east_e ,im,iskp,jm,jskp,0.e0)
-C
-      call prxy('Northing of elevation points, north_e   ',
-     $          time,north_e,im,iskp,jm,jskp,0.e0)
-C
-      call prxy('Easting of cell corners, east_c         ',
-     $          time,east_c ,im,iskp,jm,jskp,0.e0)
-C
-      call prxy('Northing of cell corners, north_c       ',
-     $          time,north_c,im,iskp,jm,jskp,0.e0)
-C
-      call prxy('Rotation angle of x-axis wrt. east, rot ',
-     $          time,rot,im,iskp,jm,jskp,0.e0)
-C
-      call prxy('Undisturbed water depth, h              ',
-     $          time,h  ,im,iskp,jm,jskp,1.e1)
-C
-      call prxy('Land mask, fsm                          ',     !lyo:!wad:
-     $          time,fsm,im,iskp,jm,jskp,1.e0)
-C
-      call prxy('Wet & dry mask, wetmask                 ',     !lyo:!wad:
-     $          time,wetmask,im,iskp,jm,jskp,1.e0)
-C
-      call prxy('u-velocity mask, dum                    ',
-     $          time,dum,im,iskp,jm,jskp,1.e0)
-C
-      call prxy('v-velocity mask, dvm                    ',
-     $          time,dvm,im,iskp,jm,jskp,1.e0)
-C
-      write(6,'('' Min CFL Time-step, cflmin = '',f10.4)') cflmin !lyo:_20080415:
-
-      call prxy('External (2-D) CFL time step, tps       ',
-     $          time,tps,im,iskp,jm,jskp,1.e0)
-C
-      call prxy('Bottom friction coefficient, cbc        ',     !lyo:!wad:
-     $          time,cbc,im,iskp,jm,jskp,0.e0)
-C
-C     Set sections for output:
-C
-      ko(1)=1
-      ko(2)=kb/2
-      ko(3)=kb-1
-C
-      call prxyz('Horizontally-averaged rho, rmean        ',
-     $           time,rmean,im,iskp,jm,jskp,kb,ko,3,1.e-5)
-C
-C     Set sections for output:
-C
-      jo(1)=1
-      jo(2)=jm/2
-      jo(3)=jm-1
-C
-      call prxz('Horizontally-averaged rho, rmean        ',
-     $          time,rmean,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
-C
-C     Set sections for output:
-C
-      io(1)=1
-      io(2)=im/2
-      io(3)=im-1
-C
-      call pryz('Horizontally-averaged rho, rmean        ',
-     $          time,rmean,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
-C
+!C     Print geometry and other initial fields (select statements as
+!C     desired):
+!C
+!      call prxy('grid increment in x, dx                 ',
+!     $          time,dx ,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('grid increment in y, dy                 ',
+!     $          time,dy ,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Easting of elevation points, east_e     ',
+!     $          time,east_e ,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Northing of elevation points, north_e   ',
+!     $          time,north_e,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Easting of cell corners, east_c         ',
+!     $          time,east_c ,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Northing of cell corners, north_c       ',
+!     $          time,north_c,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Rotation angle of x-axis wrt. east, rot ',
+!     $          time,rot,im,iskp,jm,jskp,0.e0)
+!C
+!      call prxy('Undisturbed water depth, h              ',
+!     $          time,h  ,im,iskp,jm,jskp,1.e1)
+!C
+!      call prxy('Land mask, fsm                          ',     !lyo:!wad:
+!     $          time,fsm,im,iskp,jm,jskp,1.e0)
+!C
+!      call prxy('Wet & dry mask, wetmask                 ',     !lyo:!wad:
+!     $          time,wetmask,im,iskp,jm,jskp,1.e0)
+!C
+!      call prxy('u-velocity mask, dum                    ',
+!     $          time,dum,im,iskp,jm,jskp,1.e0)
+!C
+!      call prxy('v-velocity mask, dvm                    ',
+!     $          time,dvm,im,iskp,jm,jskp,1.e0)
+!C
+!      write(6,'('' Min CFL Time-step, cflmin = '',f10.4)') cflmin !lyo:_20080415:
+!
+!      call prxy('External (2-D) CFL time step, tps       ',
+!     $          time,tps,im,iskp,jm,jskp,1.e0)
+!C
+!      call prxy('Bottom friction coefficient, cbc        ',     !lyo:!wad:
+!     $          time,cbc,im,iskp,jm,jskp,0.e0)
+!C
+!C     Set sections for output:
+!C
+!      ko(1)=1
+!      ko(2)=kb/2
+!      ko(3)=kb-1
+!C
+!      call prxyz('Horizontally-averaged rho, rmean        ',
+!     $           time,rmean,im,iskp,jm,jskp,kb,ko,3,1.e-5)
+!C
+!C     Set sections for output:
+!C
+!      jo(1)=1
+!      jo(2)=jm/2
+!      jo(3)=jm-1
+!C
+!      call prxz('Horizontally-averaged rho, rmean        ',
+!     $          time,rmean,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
+!C
+!C     Set sections for output:
+!C
+!      io(1)=1
+!      io(2)=im/2
+!      io(3)=im-1
+!C
+!      call pryz('Horizontally-averaged rho, rmean        ',
+!     $          time,rmean,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
+!C
 C-----------------------------------------------------------------------
 C
 C     Initial conditions:
 C
 C     Select print statements in printall as desired:
 C
-      call printall
+!      call printall
 C
 C-----------------------------------------------------------------------
 C
@@ -1142,6 +1152,7 @@ C
         do j=2,jmm1
           do i=2,imm1
 c
+      if (iproblem/=11) then
       if(iproblem.ne.3) then     ! constant wind read in file2ic
 c
 c           wusurf(i,j)=ramp*(1.e-4*cos(pi*(j-1)/jmm1))
@@ -1152,6 +1163,7 @@ C --- no wind ----
             wusurf(i,j)=0.e0  !lyo:_20080415:
             wvsurf(i,j)=0.e0
        endif
+      end if
             e_atmos(i,j)=0.e0
             vfluxf(i,j)=0.e0
 C
@@ -1839,9 +1851,11 @@ C
 C
 C     Select print statements in printall as desired:
 C
-          call printall
+!          call printall
 C
-          call wadout  !lyo:!wad:
+!          call wadout  !lyo:!wad:
+          ncptime = ncptime+1           ! rwnd:
+          call ncflush(ncptime)         !     :
 !
           vtot=0.e0
           atot=0.e0
@@ -1888,7 +1902,9 @@ C
 C
             write(6,4) time,iint,iext,iprint
 C
-            call printall
+!            call printall
+            ncptime = ncptime+1         ! rwnd:
+            call ncflush(ncptime)       !     :
 C
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
@@ -8019,6 +8035,414 @@ C
       end subroutine check
       end
 !
+      subroutine ic2ncdf
+C **********************************************************************
+C *                                                                    *
+C *                         POM2K SOURCE CODE                          *
+C *                                                                    *
+C * ROUTINE NAME:  ic2ncdf                                             *
+C *                                                                    *
+C * FUNCTION    :  Creates a netCDF file for further output            *
+C *                                                                    *
+C **********************************************************************
+C
+        use netcdf
+        implicit none
+C
+        include 'pom2k.c'
+C
+        integer i, j, k, ncid, varid
+        integer dim_srho, dim_sw, dim_strim, dim_auxuv
+        integer dim_lat, dim_lon, dim_time
+        real bot_depth(im,jm,kb)
+        character(len=256) filename
+C
+        filename = trim(pth_wrk)//trim(pth_out)//
+     $             trim(title)//"_data.nc"
+        call check( nf90_create(filename, NF90_CLASSIC_MODEL, ncid) )
+        call check( nf90_def_dim(ncid, "time", NF90_UNLIMITED
+     $          , dim_time) )
+        call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
+        call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
+        call check( nf90_def_dim(ncid, "s_trim", 3, dim_strim) )
+        call check( nf90_def_dim(ncid, "aux_uv", 2, dim_auxuv) )
+        call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
+        call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
+        call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Level", NF90_DOUBLE,
+     $          (/ dim_sw /), varid) )
+        if (mode.ge.3) then
+          call check( nf90_def_var(ncid, "Depth", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_sw /), varid) )
+        end if
+!        call check( nf90_def_var(ncid, "FSM", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat /), varid) )
+!        call check( nf90_def_var(ncid, "CFL", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat /), varid) )
+        call check( nf90_def_var(ncid, "Tavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "Vtot", NF90_DOUBLE,
+!     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Eavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Qavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
+!     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
+        call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat /), varid) )
+        call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat /), varid) )
+        if (mode.ge.3) then
+!          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "V", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+
+!          call check( nf90_def_var(ncid, "W", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+! TODO: Is it normal to leave it with dim_srho and not change to dim_sw?
+!          call check( nf90_def_var(ncid, "T", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "S", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "RHO", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "AAM",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "KM",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "Q2",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+        end if
+!
+        if (mode.ge.3) then
+        call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+        end if
+        call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELS",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELW",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "PSI_nw",
+     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "PSI_ew",
+     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_enddef(ncid) )
+        if (mode.ge.3) then
+        ! Calculate Depth array
+          do k=1,kb
+            do j=1,jm
+              do i=1,im
+                bot_depth(i,j,k) = z(k)*h(i,j)
+              end do
+            end do
+          end do
+          call check( nf90_inq_varid(ncid, "Depth", varid) )
+          call check( nf90_put_var(ncid, varid, bot_depth) )
+        end if
+        call check( nf90_inq_varid(ncid, "Latitude", varid) )
+        call check( nf90_put_var(ncid, varid, north_e) )
+        call check( nf90_inq_varid(ncid, "Longitude", varid) )
+        call check( nf90_put_var(ncid, varid, east_e) )
+        call check( nf90_inq_varid(ncid, "Level", varid) )
+        call check( nf90_put_var(ncid, varid, z) )
+!        call check( nf90_inq_varid(ncid, "FSM", varid) )
+!        call check( nf90_put_var(ncid, varid, fsm) )
+!        call check( nf90_inq_varid(ncid, "CFL", varid) )
+!        call check( nf90_put_var(ncid, varid, tps) )
+        write(*, *) "NetCDF output has been initialized (",ncid,")."
+        call check( nf90_close(ncid) )
+C
+        return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+            if(status /= nf90_noerr) then
+              write(*,*) "Error status: ", status
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
+!
+      subroutine findpsi2nc(tind)
+C **********************************************************************
+C *                                                                    *
+C * ROUTINE NAME:  findpsi2nc                                          *
+C *                                                                    *
+C * FUNCTION    :  Calculates the stream function, first assuming      *
+C *                zero on the southern boundary and then, using the   *
+C *                values on the western boundary, the stream function *
+C *                is calculated again. If the elevation field is near *
+C *                steady state, the two calculations should agree;    *
+C *                otherwise not.                                      *
+C *                                                                    *
+C **********************************************************************
+C
+      use netcdf
+      implicit none
+C
+      include 'pom2k.c'
+C
+      integer i,j, tind, ncid, varid
+      character(len=256) filename
+C
+      filename = trim(pth_wrk)//trim(pth_out)//trim(title)//"_data.nc"
+
+      call check( nf90_open(filename, NF90_WRITE, ncid) )
+
+      do j=1,jm
+        do i=1,im
+          psi(i,j)=0.e0
+        end do
+      end do
+C
+C     Sweep northward:
+C
+      do j=2,jmm1
+        do i=2,im
+          psi(i,j+1)=psi(i,j)
+     $                +.25e0*uab(i,j)*(d(i,j)+d(i-1,j))
+     $                  *(dy(i,j)+dy(i-1,j))
+        end do
+      end do
+C
+      call check( nf90_inq_varid(ncid, "PSI_nw", varid) )
+      call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
+C
+C    Sweep eastward:
+C
+      do j=2,jm
+        do i=2,imm1
+          psi(i+1,j)=psi(i,j)
+     $                -.25e0*vab(i,j)*(d(i,j)+d(i,j-1))
+     $                  *(dx(i,j)+dx(i,j-1))
+        end do
+      end do
+C
+      call check( nf90_inq_varid(ncid, "PSI_ew", varid) )
+      call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
+      call check( nf90_close(ncid) )
+C
+      return
+C
+      contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
+C
+      subroutine ncflush(ptime)
+C **********************************************************************
+C *                                                                    *
+C *                         POM2K SOURCE CODE                          *
+C *                                                                    *
+C * ROUTINE NAME:  ncflush                                             *
+C *                                                                    *
+C * FUNCTION    :  Writes a set of outputs to netCDF file              *
+C *                                                                    *
+C **********************************************************************
+C
+        use netcdf
+        implicit none
+C
+        include 'pom2k.c'
+C
+        integer :: ptime
+        logical :: NOK
+        integer :: count
+        integer :: i, j, k, ncid, varid, status
+        real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
+        real :: darea, dvol
+        integer nlyrs
+        parameter (nlyrs = 3)
+        integer :: lyrs(nlyrs)
+        data lyrs /1,2,15/
+        character(len=256) filename
+C
+        count = 0
+        NOK = .true.
+        filename = trim(pth_wrk)//trim(pth_out)//
+     $             trim(title)//'_data.nc'
+        call check( nf90_open(filename, NF90_WRITE, ncid) )
+        call check( nf90_inq_varid(ncid, "Time", varid) )
+        do while (NOK)
+          count = count+1
+          status = nf90_put_var(ncid, varid, time, (/ptime/))
+          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
+        end do
+C
+          vtot=0.e0
+          atot=0.e0
+          qtot=0
+          mtot=0
+          tavg=0.e0
+          qavg=0
+C
+          do j=1,jm
+            do i=1,im
+              darea=dx(i,j)*dy(i,j)*fsm(i,j)
+              do k=1,kbm1
+                dvol=darea*dt(i,j)*dz(k)
+                mtot=mtot+(rho(i,j,k)*rhoref+1000)*dvol
+                vtot=vtot+dvol
+                tavg=tavg+tb(i,j,k)*dvol
+                qavg=qavg+q2(i,j,k)*dvol
+              end do
+              atot=atot+darea
+              eavg=eavg+et(i,j)*darea
+            end do
+          end do
+C
+          eavg=eavg/atot
+          tavg=tavg/vtot
+          qtot=qavg
+          qavg=qtot/vtot
+C
+        call check( nf90_inq_varid(ncid, "Tavg", varid) )
+        call check( nf90_put_var(ncid, varid, tavg, (/ptime/)) )
+!        call check( nf90_inq_varid(ncid, "Vtot", varid) )
+!        call check( nf90_put_var(ncid, varid, vtot, (/ptime/)) )
+        call check( nf90_inq_varid(ncid, "Eavg", varid) )
+        call check( nf90_put_var(ncid, varid, eavg, (/ptime/)) )
+!        call check( nf90_inq_varid(ncid, "Etot", varid) )
+!        call check( nf90_put_var(ncid, varid, eavg+qavg, (/ptime/)) )
+        call check( nf90_inq_varid(ncid, "Qavg", varid) )
+        call check( nf90_put_var(ncid, varid, qavg, (/ptime/)) )
+        call check( nf90_inq_varid(ncid, "Mtot", varid) )
+        call check( nf90_put_var(ncid, varid, mtot, (/ptime/)) )
+!        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
+!        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
+!        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
+        if (mode.ge.3) then
+!          call check( nf90_inq_varid(ncid, "U", varid) )
+!          call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "V", varid) )
+!          call check( nf90_put_var(ncid, varid, v, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "W", varid) )
+!          call check( nf90_put_var(ncid, varid, w, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "T", varid) )
+!          call check( nf90_put_var(ncid, varid, t, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "S", varid) )
+!          call check( nf90_put_var(ncid, varid, s, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "RHO", varid) )
+!          call check( nf90_put_var(ncid, varid, rho, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "AAM", varid) )
+!          call check( nf90_put_var(ncid, varid, aam, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "KM", varid) )
+!          call check( nf90_put_var(ncid, varid, km, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+!          call check( nf90_inq_varid(ncid, "Q2", varid) )
+!          call check( nf90_put_var(ncid, varid, q2, (/1,1,1,ptime/)
+!     $     ,(/im,jm,kb,1/)) )
+        end if
+!
+        if (mode.ge.3) then
+        call check( nf90_inq_varid(ncid, "SSU", varid) )
+        call check( nf90_put_var(ncid, varid,   u(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "SSV", varid) )
+        call check( nf90_put_var(ncid, varid,   v(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "SST", varid) )
+        call check( nf90_put_var(ncid, varid,   t(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "SSS", varid) )
+        call check( nf90_put_var(ncid, varid,   s(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "SSR", varid) )
+        call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        end if
+        call check( nf90_inq_varid(ncid, "EL", varid) )
+        call check( nf90_put_var(ncid, varid, elb, (/1,1,ptime/)
+     $   ,(/im,jm,1/)) )
+        call check( nf90_inq_varid(ncid, "UA", varid) )
+        call check( nf90_put_var(ncid, varid, uab, (/1,1,ptime/)
+     $   ,(/im,jm,1/)) )
+        call check( nf90_inq_varid(ncid, "VA", varid) )
+        call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
+     $   ,(/im,jm,1/)) )
+!        call check( nf90_inq_varid(ncid, "T_S", varid) )
+!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "S_S", varid) )
+!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
+!     $   ,(/im,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "T_W", varid) )
+!        call check( nf90_put_var(ncid, varid, tbw, (/1,1,ptime/)
+!     $   ,(/jm,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "S_W", varid) )
+!        call check( nf90_put_var(ncid, varid, sbw, (/1,1,ptime/)
+!     $   ,(/jm,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "ELS", varid) )
+!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
+!     $   ,(/im,1/)) )
+!        call check( nf90_inq_varid(ncid, "ELW", varid) )
+!        call check( nf90_put_var(ncid, varid, elw, (/1,ptime/)
+!     $   ,(/jm,1/)) )
+!        call check( nf90_inq_varid(ncid, "aux1", varid) )
+!        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
+!     $   ,(/im,jm,kb,1/)) )
+!        call check( nf90_inq_varid(ncid, "aux2", varid) )
+!        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
+!     $   ,(/im,jm,1/)) )
+        call check( nf90_close(ncid) )
+Cc
+        call findpsi2nc(ptime)
+C
+        return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
+C
 !
       subroutine upd_mnth
 
