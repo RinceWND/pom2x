@@ -92,7 +92,13 @@ C
      $  uab            ,uaf            ,utb            ,utf            ,
      $  va             ,vab            ,vaf            ,
      $  vtb            ,vtf            ,wssurf         ,wtsurf         ,
-     $  wubot          ,wusurf         ,wvbot          ,wvsurf
+     $  wubot          ,wusurf         ,wvbot          ,wvsurf         ,
+! Arrays for interpolation
+     $  swradb         ,tsurfb         ,ssurfb         ,wssurfb        ,
+     $  wtsurfb        ,wusurfb        ,wvsurfb        ,
+     $  swradf         ,tsurff         ,ssurff         ,wssurff        ,
+     $  wtsurff        ,wusurff        ,wvsurff        ,
+     $  qqb            ,dqb            ,qqf            ,dqf
 C
       common/blk2d/
      $  aam2d(im,jm)   ,advua(im,jm)   ,advva(im,jm)   ,adx2d(im,jm)   ,
@@ -110,7 +116,13 @@ C
      $  uab(im,jm)     ,uaf(im,jm)     ,utb(im,jm)     ,utf(im,jm)     ,
      $  va(im,jm)      ,vab(im,jm)     ,vaf(im,jm)     ,
      $  vtb(im,jm)     ,vtf(im,jm)     ,wssurf(im,jm)  ,wtsurf(im,jm)  ,
-     $  wubot(im,jm)   ,wusurf(im,jm)  ,wvbot(im,jm)   ,wvsurf(im,jm)
+     $  wubot(im,jm)   ,wusurf(im,jm)  ,wvbot(im,jm)   ,wvsurf(im,jm)  ,
+! Arrays for interpolation
+     $  swradb(im,jm)  ,tsurfb(im,jm)  ,ssurfb(im,jm)  ,wssurfb(im,jm) ,
+     $  wtsurfb(im,jm) ,wusurfb(im,jm) ,wvsurfb(im,jm) ,
+     $  swradf(im,jm)  ,tsurff(im,jm)  ,ssurff(im,jm)  ,wssurff(im,jm) ,
+     $  wtsurff(im,jm) ,wusurff(im,jm) ,wvsurff(im,jm) ,
+     $  qqb(im,jm)     ,dqb(im,jm)     ,qqf(im,jm)     ,dqf(im,jm)
 C
 C-----------------------------------------------------------------------
 C
@@ -147,14 +159,53 @@ C
      $  sbe            ,sbn            ,sbs            ,sbw            ,
      $  tbe            ,tbn            ,tbs            ,tbw            ,
      $  uabe           ,uabw           ,ube            ,ubw            ,
-     $  vabn           ,vabs           ,vbn            ,vbs
+     $  vabn           ,vabs           ,vbn            ,vbs            ,
+! Additional boundary velocity arrays
+     $  ubs            ,ubn            ,vbw            ,vbe            ,
+     $  uabs           ,uabn           ,vabw           ,vabe           ,
+! Arrays for interpolation
+!  prev. month
+     $  eleb           ,elnb           ,elsb           ,elwb           ,
+     $  sbeb           ,sbnb           ,sbsb           ,sbwb           ,
+     $  tbeb           ,tbnb           ,tbsb           ,tbwb           ,
+     $  uabeb          ,uabwb          ,ubeb           ,ubwb           ,
+     $  vabnb          ,vabsb          ,vbnb           ,vbsb           ,
+     $  uabsb          ,uabnb          ,vabwb          ,vabeb          ,
+     $  ubsb           ,ubnb           ,vbwb           ,vbeb           ,
+!  next. month
+     $  elef           ,elnf           ,elsf           ,elwf           ,
+     $  sbef           ,sbnf           ,sbsf           ,sbwf           ,
+     $  tbef           ,tbnf           ,tbsf           ,tbwf           ,
+     $  uabef          ,uabwf          ,ubef           ,ubwf           ,
+     $  vabnf          ,vabsf          ,vbnf           ,vbsf           ,
+     $  uabsf          ,uabnf          ,vabwf          ,vabef          ,
+     $  ubsf           ,ubnf           ,vbwf           ,vbef
 C
       common/bdry/
      $  ele(jm)        ,eln(im)        ,els(im)        ,elw(jm)        ,
      $  sbe(jm,kb)     ,sbn(im,kb)     ,sbs(im,kb)     ,sbw(jm,kb)     ,
      $  tbe(jm,kb)     ,tbn(im,kb)     ,tbs(im,kb)     ,tbw(jm,kb)     ,
      $  uabe(jm)       ,uabw(jm)       ,ube(jm,kb)     ,ubw(jm,kb)     ,
-     $  vabn(im)       ,vabs(im)       ,vbn(im,kb)     ,vbs(im,kb)
+     $  vabn(im)       ,vabs(im)       ,vbn(im,kb)     ,vbs(im,kb)     ,
+!
+     $  ubs(im,kb)     ,ubn(im,kb)     ,vbw(jm,kb)     ,vbe(jm,kb)     ,
+     $  uabs(im)       ,uabn(im)       ,vabw(jm)       ,vabe(jm)       ,
+!
+     $  eleb(jm)       ,elnb(jm)       ,elsb(im)       ,elwb(jm)       ,
+     $  sbeb(jm,kb)    ,sbnb(im,kb)    ,sbsb(im,kb)    ,sbwb(jm,kb)    ,
+     $  tbeb(jm,kb)    ,tbnb(im,kb)    ,tbsb(im,kb)    ,tbwb(jm,kb)    ,
+     $  uabeb(jm)      ,uabwb(jm)      ,ubeb(jm,kb)    ,ubwb(jm,kb)    ,
+     $  vabnb(im)      ,vabsb(im)      ,vbnb(im,kb)    ,vbsb(im,kb)    ,
+     $  uabsb(im)      ,uabnb(im)      ,vabwb(jm)      ,vabeb(jm)      ,
+     $  ubsb(im,kb)    ,ubnb(im,kb)    ,vbwb(jm,kb)    ,vbeb(jm,kb)    ,
+!
+     $  elef(jm)       ,elnf(jm)       ,elsf(im)       ,elwf(jm)       ,
+     $  sbef(jm,kb)    ,sbnf(im,kb)    ,sbsf(im,kb)    ,sbwf(jm,kb)    ,
+     $  tbef(jm,kb)    ,tbnf(im,kb)    ,tbsf(im,kb)    ,tbwf(jm,kb)    ,
+     $  uabef(jm)      ,uabwf(jm)      ,ubef(jm,kb)    ,ubwf(jm,kb)    ,
+     $  vabnf(im)      ,vabsf(im)      ,vbnf(im,kb)    ,vbsf(im,kb)    ,
+     $  uabsf(im)      ,uabnf(im)      ,vabwf(jm)      ,vabef(jm)      ,
+     $  ubsf(im,kb)    ,ubnf(im,kb)    ,vbwf(jm,kb)    ,vbef(jm,kb)
 C
 C-----------------------------------------------------------------------
 C
@@ -222,6 +273,10 @@ C
       real    fac  ! fac - interpolation factor
       integer mi   ! m   - month for interpolation
       common/misc/ fac, mi
+
+      integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf, rf_el
+      common/upd_cond/ rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur
+     $ , rf_wsurf, rf_el
 C-----------------------------------------------------------------------
 C
 C     End of common blocks

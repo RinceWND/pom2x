@@ -7941,6 +7941,7 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
+      call bry(45)
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -8443,6 +8444,583 @@ C
 C
       end
 C
+      subroutine flux(idx)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Reads (if necessary) forcing dataset                *
+C *                and interpolates in time.                           *
+C *                                                                    *
+C **********************************************************************
+C
+      use netcdf
+      implicit none
+C
+      include 'pom2k.c'
+!
+      integer, intent (in) :: idx
+      integer :: i,j, ncid, varid
+      real :: qq, dq, sst
+      character(len=256) filename
+
+      real :: hf_fac = -4.1876e6 ! Heat flux covertion factor
+C
+      select case (idx)
+
+        case (4) ! Long wave radiation and other fluxes
+
+          if (mi.ne.rf_wtsur) then
+C
+            rf_wtsur = mi
+C
+            filename = trim(pth_wrk)//trim(pth_flx)//
+     $                 trim(pfx_dmn)//"roms_frc.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "shflux", varid) )
+            if (mi.ne.1) then
+              call check(nf90_get_var(ncid, varid, qqb,(/1,1,mi-1/)))
+              call check( nf90_get_var(ncid, varid, qqf, (/1,1,mi/)))
+            else
+              call check( nf90_get_var(ncid, varid, qqb,(/1,1,12/)))
+              call check( nf90_get_var(ncid, varid, qqf, (/1,1,1/)))
+            end if
+            call check( nf90_inq_varid(ncid, "dQdSST", varid) )
+            if (mi.ne.1) then
+              call check(nf90_get_var(ncid, varid, dqb,(/1,1,mi-1/)))
+              call check( nf90_get_var(ncid, varid, dqf, (/1,1,mi/)))
+            else
+              call check(nf90_get_var(ncid, varid, dqb, (/1,1,12/)))
+              call check( nf90_get_var(ncid, varid, dqf, (/1,1,1/)))
+            end if
+            ! We need to read tsurf again, since we cannot be sure whether it has been read or not.
+            call check( nf90_inq_varid(ncid, "SST", varid) )
+            if (mi.ne.1) then
+              call check(nf90_get_var(ncid, varid, tsurfb,(/1,1,mi-1/)))
+              call check( nf90_get_var(ncid, varid, tsurff, (/1,1,mi/)))
+            else
+              call check( nf90_get_var(ncid, varid, tsurfb, (/1,1,12/)))
+              call check( nf90_get_var(ncid, varid, tsurff, (/1,1,1/)))
+            end if
+
+            call check( nf90_close(ncid) )
+C
+            write(*,*) "Read wtsurf:  ", mi
+C
+          end if
+
+          do i=1,im
+            do j=1,jm
+              ! Interpolate
+              qq  = qqb(i,j)   +fac*(qqf(i,j)   -qqb(i,j)   )
+              dq  = dqb(i,j)   +fac*(dqf(i,j)   -dqb(i,j)   )
+              sst = tsurfb(i,j)+fac*(tsurff(i,j)-tsurfb(i,j))
+              ! Convert wtsurf from W/m^2 to K m/s. TODO: convert the qq,dq,sst while reading, maybe?
+              wtsurf(i,j) = (qq+dq*(t(i,j,1)-sst))/hf_fac-swrad(i,j)  ! Be sure to read swrad with flux(3) before calling flux(4).
+!              write(*,*) wtsurf(i,j)
+            end do
+          end do
+!
+          return
+C
+        case (3) ! Short wave radiation flux
+C
+          if (mi.ne.rf_swrad) then
+C
+            rf_swrad = mi
+C
+            filename = trim(pth_wrk)//trim(pth_flx)//
+     $                 trim(pfx_dmn)//"roms_frc.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "swrad", varid) )
+            if (mi.ne.1) then
+              call check(nf90_get_var(ncid, varid, swradb,(/1,1,mi-1/)))
+              call check( nf90_get_var(ncid, varid, swradf,(/1,1,mi/)) )
+            else
+              call check( nf90_get_var(ncid, varid, swradb, (/1,1,12/)))
+              call check( nf90_get_var(ncid, varid, swradf, (/1,1,1/)) )
+            end if
+            call check( nf90_close(ncid) )
+
+            ! Convert swrad from W/m^2 to K m/s.
+            swradb = swradb/hf_fac
+C
+            write(*,*) "Read swrad:   ", mi
+
+          end if
+!       Interpolate
+          swrad = swradb+fac*(swradf-swradb)
+
+          return
+C
+        case (52) ! momentum flux
+C
+          if (mi.ne.rf_wsurf) then
+C
+            rf_wsurf = mi
+C
+            filename = trim(pth_wrk)//trim(pth_flx)//
+     $                 trim(pfx_dmn)//"roms_frc.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "sustr", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
+     $                   , (/1,1,mi-1/), (/imm1,jm,1/)) )
+              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
+     $                   , (/1,1,mi/),   (/imm1,jm,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
+     $                   , (/1,1,12/), (/imm1,jm,1/)) )
+              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
+     $                   , (/1,1,1/),  (/imm1,jm,1/)) )
+            end if
+            call check( nf90_inq_varid(ncid, "svstr", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
+     $                   , (/1,1,mi-1/), (/im,jmm1,1/)) )
+              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
+     $                   , (/1,1,mi/),   (/im,jmm1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
+     $                   , (/1,1,12/), (/im,jmm1,1/)) )
+              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
+     $                   , (/1,1,1/),  (/im,jmm1,1/)) )
+            end if
+            call check( nf90_close(ncid) )
+
+            ! Fill in boundary values (and taper them, maybe?)
+            wusurfb(:,1) = wusurfb(:,2)!*.5
+            wusurff(:,1) = wusurff(:,2)!*.5
+            wvsurfb(1,:) = wvsurfb(2,:)!*.5
+            wvsurff(1,:) = wvsurff(2,:)!*.5
+
+            ! Convert s?str (in N/m^2) to w?surf (in m^2/s^2).
+            wusurfb = -wusurfb/rhoref
+            wvsurfb = -wvsurfb/rhoref
+            wusurff = -wusurff/rhoref
+            wvsurff = -wvsurff/rhoref
+
+            write(*,*) "Read w*surf:  ", mi
+
+          end if
+
+          wusurf = wusurfb+fac*(wusurff-wusurfb)
+          wvsurf = wvsurfb+fac*(wvsurff-wvsurfb)
+
+          return
+
+      end select
+C
+      return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
+!
+      subroutine bry(idx)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
+C *                and interpolates in time.                           *
+C *                                                                    *
+C **********************************************************************
+C
+      use netcdf
+      implicit none
+C
+      integer, intent ( in) :: idx
+      integer :: i,j,k, ncid,varid
+
+      character(len=256) filename
+
+      include 'pom2k.c'
+
+C
+      select case (idx)
+C
+        case (2) ! elevation
+!
+          if (mi.ne.rf_el) then
+!     If we move to the next month...
+            rf_el = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_bry.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "zeta_south", varid) )
+!     ...read neccessary fields
+!     South:
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid, elsb,
+     $                          (/1,mi-1/), (/im,1/)) )
+              call check( nf90_get_var(ncid, varid, elsf,
+     $                          (/1,mi/), (/im,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid, elsb,
+     $                          (/1,12/),(/im,1/)) )
+              call check( nf90_get_var(ncid, varid, elsf,
+     $                          (/1,1/), (/im,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+
+            write(*,*) "Read el BCs:  ", mi
+
+          end if
+!     Perform interpolation
+!     South:
+          ! FSM is already defined! Feel free to apply it! (But DON'T!!! Really! Don't! It just boundary conditions.)
+          els(:) = (elsb(:)+fac*(elsf(:)-elsb(:)))*fsm(:,1)
+
+          return
+C
+        case (3) ! u and v
+C
+          if (mi.ne.rf_uv) then
+!        If we move to the next month...
+            rf_uv = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_bry.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!        ...read neccessary fields
+!     South:
+            call check( nf90_inq_varid(ncid, "u_south", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         ubsb(2:im,kbm1:1:-1),(/1,1,mi-1/),(/imm1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         ubsf(2:im,kbm1:1:-1),(/1,1,mi/),  (/imm1,kbm1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         ubsb(2:im,kbm1:1:-1),(/1,1,12/),(/imm1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         ubsf(2:im,kbm1:1:-1),(/1,1,1/), (/imm1,kbm1,1/)) )
+            end if
+            call check( nf90_inq_varid(ncid, "v_south", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         vbsb(:,kbm1:1:-1),(/1,1,mi-1/), (/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         vbsf(:,kbm1:1:-1),(/1,1,mi/),   (/im,kbm1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         vbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         vbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+
+            write(*,*) "Read vel BCs: ", mi
+
+          end if
+!     Perform interpolation
+!     South:
+!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
+            ubs(:,1:kbm1) = ubsb(:,1:kbm1)
+     $                     +fac*(ubsf(:,1:kbm1)-ubsb(:,1:kbm1))
+            vbs(:,1:kbm1) = vbsb(:,1:kbm1)
+     $                     +fac*(vbsf(:,1:kbm1)-vbsb(:,1:kbm1))
+!          do k=1,kbm1              ! This doesn't work, since it completely wipes out u
+!            ubs(:,k) = ubs(:,k)*dum(:,1)
+!            vbs(:,k) = vbs(:,k)*dvm(:,2) ! index 1, maybe?
+!          end do
+!          end do
+
+!     Calculate vertical mean BCs for 2D mode
+!
+          do i=1,im
+            uabs(i) = 0.
+            vabs(i) = 0.
+            do k=1,kb
+              uabs(i) = uabs(i)+ubs(i,k)*dz(k)
+              vabs(i) = vabs(i)+vbs(i,k)*dz(k)
+            end do
+          end do
+
+          return
+C
+        case (4) ! temperature and salinity
+C
+          if (mi.ne.rf_ts) then
+!        If we move to the next month...
+            rf_ts = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+            call check( nf90_inq_varid(ncid, "temp", varid) )
+!    Read climatological BCs
+            if (mi.ne.1) then
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         tbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         tbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         tbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
+            else
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         tbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         tbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+            end if
+!
+            call check( nf90_inq_varid(ncid, "salt", varid) )
+!    Read climatological salinity BCs
+            if (mi.ne.1) then
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         sbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         sbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         sbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
+            else
+!            south
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+!            north
+              call check( nf90_get_var(ncid, varid,
+     $         sbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+!            west
+              call check( nf90_get_var(ncid, varid,
+     $         sbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+!            east
+              call check( nf90_get_var(ncid, varid,
+     $         sbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+            end if
+!
+            call check( nf90_close(ncid) )
+!
+            if (.false.) then   ! Disable it for now
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_bry.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!        ...read neccessary fields
+!     South:
+            call check( nf90_inq_varid(ncid, "temp_south", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,mi-1/), (/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,mi/),   (/im,kbm1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         tbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
+            end if
+            call check( nf90_inq_varid(ncid, "salt_south", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,mi-1/), (/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,mi/),   (/im,kbm1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         sbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         sbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+            end if
+
+            write(*,*) "Read TS BCs:  ", mi
+
+          end if
+!     Perform interpolation
+!     South:
+            tbs(:,1:kbm1) = tbsb(:,1:kbm1)
+     $                     +fac*(tbsf(:,1:kbm1)-tbsb(:,1:kbm1))
+            sbs(:,1:kbm1) = sbsb(:,1:kbm1)
+     $                     +fac*(sbsf(:,1:kbm1)-sbsb(:,1:kbm1))
+!     North:
+            tbn(:,1:kbm1) = tbnb(:,1:kbm1)
+     $                     +fac*(tbnf(:,1:kbm1)-tbnb(:,1:kbm1))
+            sbn(:,1:kbm1) = sbnb(:,1:kbm1)
+     $                     +fac*(sbnf(:,1:kbm1)-sbnb(:,1:kbm1))
+!     East:
+            tbe(:,1:kbm1) = tbeb(:,1:kbm1)
+     $                     +fac*(tbef(:,1:kbm1)-tbeb(:,1:kbm1))
+            sbe(:,1:kbm1) = sbeb(:,1:kbm1)
+     $                     +fac*(sbef(:,1:kbm1)-sbeb(:,1:kbm1))
+!     West:
+            tbw(:,1:kbm1) = tbwb(:,1:kbm1)
+     $                     +fac*(tbwf(:,1:kbm1)-tbwb(:,1:kbm1))
+            sbw(:,1:kbm1) = sbwb(:,1:kbm1)
+     $                     +fac*(sbwf(:,1:kbm1)-sbwb(:,1:kbm1))
+          return
+C
+        case (43)
+
+          if (mi.ne.rf_sts) then
+!        If we move to the next month...
+            rf_sts = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_frc.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!        ...read neccessary fields
+!     South:
+            call check( nf90_inq_varid(ncid, "SST", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         tsurfb,(/1,1,mi-1/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tsurff,(/1,1,mi  /), (/im,jm,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         tsurfb,(/1,1,12/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tsurff,(/1,1, 1/), (/im,jm,1/)) )
+            end if
+            call check( nf90_inq_varid(ncid, "SSS", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid,
+     $         ssurfb,(/1,1,mi-1/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         ssurff,(/1,1,mi  /), (/im,jm,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         ssurfb,(/1,1,12/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         ssurff,(/1,1, 1/), (/im,jm,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+
+            write(*,*) "Read ST/S BCs:", mi
+
+          end if
+!     Perform interpolation
+!     South:
+!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
+            tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
+            ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
+!          end do
+          return
+!
+        case (45)
+
+          if (mi.ne.rf_sts) then
+!        If we move to the next month...
+            rf_sts = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_clm.nc"
+            call check(nf90_open(filename, NF90_NOWRITE, ncid))
+!        ...read neccessary fields
+!     South:
+            call check( nf90_inq_varid(ncid, "temp", varid) )
+            if (mi.ne.1) then
+              call check( nf90_get_var(ncid, varid, tsurfb,
+     $         (/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
+              call check( nf90_get_var(ncid, varid, tsurff,
+     $         (/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         tsurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         tsurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+            end if
+            call check( nf90_inq_varid(ncid, "salt", varid) )
+            if (mi.ne.1) then
+            call check( nf90_get_var(ncid, varid,
+     $         ssurfb,(/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
+            call check( nf90_get_var(ncid, varid,
+     $         ssurff,(/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+            else
+              call check( nf90_get_var(ncid, varid,
+     $         ssurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $         ssurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+
+            write(*,*) "Read 1l TS BCs:", mi
+
+          end if
+!     Perform interpolation
+!     South:
+!          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
+          tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
+          ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
+!          end do
+          return
+C
+      end select
+C
+      return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
 !
       subroutine upd_mnth
 
