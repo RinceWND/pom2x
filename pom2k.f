@@ -1936,7 +1936,7 @@ C-----------------------------------------------------------------------
 C
       write(6,4) time,iint,iext,iprint
 !
-            call printall !lyo:_20080415:final printing
+!            call printall !lyo:_20080415:final printing
 !
 C
 C     Set levels for output:
@@ -7660,6 +7660,7 @@ C--- 2D ---
       write(*, *) "[O] free surface mask retrieved"
       call check( nf90_inq_varid(ncid, "h", varid) )
       call check( nf90_get_var(ncid, varid, h) )
+      h = -h
       do i=1,im
         do j=1,jm
             if (fsm(i,j)==0) h(i,j) = 1.
@@ -7811,6 +7812,15 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       call check( nf90_close(ncid) )
       tclim = t
       sclim = s
+
+      !----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+      enddo; enddo; enddo
+
+      write(*,*) "=====",hhi
+
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
@@ -7858,6 +7868,7 @@ C
 C
 C     Calculate areas and masks:
 C
+      call wadh
       call areas_masks
 !
 !      Comment the code below to avoid forced closed boundary.
@@ -7942,6 +7953,7 @@ C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       call bry(45)
+      write(*,*) "Tsurf(5,75) = ",tsurf(5,75)
 C
 C
 C --- the following grids are needed only for netcdf plotting
