@@ -237,6 +237,8 @@ C
 
       real    bkp_gap
       integer ncptime   !rwnd: Ncdf print step number.
+      character*256 filename
+      character*26  timestamp
 C
 C***********************************************************************
 C
@@ -1025,6 +1027,12 @@ C
 C
       ncptime = ncptime+1           ! rwnd:
       call ncflush(ncptime)
+!
+      filename = trim(pth_wrk)//trim(pth_out)//
+     $             trim(title)//"_tgt.csv"
+      open(49, file=filename)
+      call time2date(time, time_start, timestamp)
+      write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
 C
 C-----------------------------------------------------------------------
 C
@@ -1840,6 +1848,13 @@ C     Beginning of print section:
 C
         if(iint.ge.iswtch) iprint=nint(prtd2*24.e0*3600.e0/dti)
 C
+!     Target point output
+!        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
+!          call ncTgtFlush(49)
+          call time2date(time, time_start, timestamp)
+          write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
+!        end if
+!
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
           write(6,4) time,iint,iext,iprint
@@ -1934,6 +1949,12 @@ C
 C
 C-----------------------------------------------------------------------
 C
+!   Finish target point output
+!      call ncTgtFlush(49)
+      call time2date(time, time_start, timestamp)
+      write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
+      close(49)
+!
       write(6,4) time,iint,iext,iprint
 !
 !            call printall !lyo:_20080415:final printing
@@ -7819,8 +7840,6 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
          pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
       enddo; enddo; enddo
 
-      write(*,*) "=====",hhi
-
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
@@ -9120,6 +9139,113 @@ C
 !
         fac = (tind-b)/(e-b)
 
+        return
+
+      end
+
+!
+
+      subroutine time2date(time_in, time_off, date)
+
+        character(len=*), intent(in) :: time_off
+        real                         :: time_in,  time
+        character*26,     intent(out):: date
+        integer  :: YYYY, MM, DD, hh, mi, ss, th, tm
+        character :: sign
+
+        read(time_off,
+     $       '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a1,i2,1x,i2)')
+     $       YYYY, MM, DD, hh, mi, ss, sign, th, tm
+
+        time = time_in - float(floor(time_in))
+        ss   = ss + mod(floor(time*60.*60.*24.), 60)
+        mi   = mi + floor(ss/60.)
+        ss   = mod(ss, 60)
+        mi   = mi + mod(floor(time*60.*24.), 60)
+        hh   = hh + floor(mi/60.)
+        mi   = mod(mi, 60)
+        hh   = hh + mod(floor(time*24.), 24)
+        DD   = DD + floor(hh/24.)
+        hh   = mod(hh, 24)
+
+        time = floor(time_in)
+        YYYY = YYYY + floor((DD-1+time)/365.)
+        DD   = mod((DD+time),365.)
+
+        if (DD==0) then
+          MM = 12
+          DD = 31
+        else
+          if (DD.le.31) then
+            MM = 1
+          else
+            if (DD.le.59) then
+              MM = 2
+              DD = DD-31
+            else
+              if (DD.le.90) then
+                MM = 3
+                DD = DD-59
+              else
+                if (DD.le.120) then
+                  MM = 4
+                  DD = DD-90
+                else
+                  if (DD.le.151) then
+                    MM = 5
+                    DD = DD-120
+                  else
+                    if (DD.le.181) then
+                      MM = 6
+                      DD = DD-151
+                    else
+                      if (DD.le.212) then
+                        MM = 7
+                        DD = DD-181
+                      else
+                        if (DD.le.243) then
+                          MM = 8
+                          DD = DD-212
+                        else
+                          if (DD.le.273) then
+                            MM = 9
+                            DD = DD-243
+                          else
+                            if (DD.le.304) then
+                              MM = 10
+                              DD = DD-273
+                            else
+                              if (DD.le.334) then
+                                MM = 11
+                                DD = DD-304
+                              else
+                                if (DD.le.365) then
+                                  MM = 12
+                                  DD = DD-334
+                                else
+                                  ! How did you get here?
+                                  MM = 1
+                                  DD = DD-365
+                                end if
+                              end if
+                            end if
+                          end if
+                        end if
+                      end if
+                    end if
+                  end if
+                end if
+              end if
+            end if
+          end if
+        end if
+        !DD = DD+1
+
+        write(date,
+     $        '(i4,"-",i2.2,"-",i2.2," ",i2.2,":"
+     $         ,i2.2,":",i2.2," ",a1,i2.2,":",i2.2)')
+     $        YYYY, MM, DD, hh, mi, ss, sign, th, tm
+        !write(*, *) date
         return
 
       end
