@@ -239,6 +239,8 @@ C
       integer ncptime   !rwnd: Ncdf print step number.
       character*256 filename
       character*26  timestamp
+!     target point coordinates
+      integer tgt_lon, tgt_lat, tgt_sig
 C
 C***********************************************************************
 C
@@ -642,6 +644,10 @@ C
       if (iproblem .eq. 41) tidamp=9.e0
 !----------------------------------------------------------------------!
 !                                                                      !
+!     initialize tgt coordinates
+      tgt_lon = 1
+      tgt_lat = 1
+      tgt_sig = 1
 C
 C     End of input of constants
 C***********************************************************************
@@ -1032,7 +1038,7 @@ C
      $             trim(title)//"_tgt.csv"
       open(49, file=filename)
       call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
+      write(49,*) timestamp, ";", t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
 C
 C-----------------------------------------------------------------------
 C
