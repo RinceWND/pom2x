@@ -1038,7 +1038,8 @@ C
      $             trim(title)//"_tgt.csv"
       open(49, file=filename)
       call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";", t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
+      write(49,*) timestamp, ";",
+     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
 C
 C-----------------------------------------------------------------------
 C
@@ -1858,7 +1859,8 @@ C
 !        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
 !          call ncTgtFlush(49)
           call time2date(time, time_start, timestamp)
-          write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
+          write(49,*) timestamp, ";",
+     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
 !        end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
@@ -1958,7 +1960,8 @@ C
 !   Finish target point output
 !      call ncTgtFlush(49)
       call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";", t(70,155,2), ";", s(70,155,2)
+      write(49,*) timestamp, ";",
+     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
       close(49)
 !
       write(6,4) time,iint,iext,iprint
