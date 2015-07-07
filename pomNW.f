@@ -34,7 +34,7 @@
 !                                                                      !
 !     Three (3) files are needed to run the model test cases:          !
 !                                                                      !
-!     pom2k.f (code), pom2k.c (common blocks etc) & pom2k.n (netcdf)   !
+!     pom2k.f (code), pomNW.c (common blocks etc) & pom2k.n (netcdf)   !
 !                                                                      !
 !     see the runscript runpom08* provided with these files.           !
 !                                                                      !
@@ -52,7 +52,7 @@
 !     runpom08*                                                        !
 !                                                                      !
 !     NOTE: for nsmolar=1, the PARAMETER (IM=???,JM=???) in subroutines!
-!     wadadvt2d & wadsmoladif must match that specified in pom2k.c     !
+!     wadadvt2d & wadsmoladif must match that specified in pomNW.c     !
 !     This is done using "include 'grid'"                              !
 !                                                                      !
 !     Send bugs and/or improvements to: lyo@princeton.edu              !
@@ -77,7 +77,7 @@ c                       ... lyo (Jun/14/2006)                          !
 c                                                                      !
 C **********************************************************************
 C *                                                                    *
-C *   The last code change as rcorded in pom2k.change was on           *
+C *   The last code change as rcorded in pomNW.change was on           *
 C *                                                                    *
 C *                     2006-05-03                                     *
 C *                                  (adding IC from file)             *
@@ -206,8 +206,8 @@ C **********************************************************************
 C
       implicit none
 C
-!lyo:!wad:Add WAD variables in pom2k.c
-      include 'pom2k.c'
+!lyo:!wad:Add WAD variables in pomNW.c
+      include 'pomNW.c'
 C
 C     New declarations plus ispi,isp2i:
 C
@@ -244,7 +244,7 @@ C
 C
 C***********************************************************************
 C
-C     source should agree with source_c in pom2k.c and source_n in
+C     source should agree with source_c in pomNW.c and source_n in
 C     pom2k.n.
 C
       source='pom08  2008-04-18'
@@ -267,7 +267,7 @@ C
 C     Input of filenames and constants:
 C
 C     NOTE that the array sizes im, jm and kb should be set in
-C     pom2k.c or the 'grid' file created by runpom08
+C     pomNW.c or the 'grid' file created by runpom08
 C
 C-----------------------------------------------------------------------
 C
@@ -2021,7 +2021,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real curv2d(im,jm)
       integer i,j
@@ -2205,7 +2205,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real xflux(im,jm,kb),yflux(im,jm,kb)
       real curv(im,jm,kb)
@@ -2409,7 +2409,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real qb(im,jm,kb),q(im,jm,kb),qf(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2483,7 +2483,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2625,7 +2625,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       real xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2823,7 +2823,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j,k
 C
@@ -2897,7 +2897,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j,k
 C
@@ -2969,7 +2969,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j
 C
@@ -3052,7 +3052,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j,k
 C
@@ -3247,7 +3247,7 @@ C ******************************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer idx
       real ga,u1,wm,etide  !lyo:!wad:add etide
@@ -3625,7 +3625,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer idx
       real cl,denom
@@ -3866,7 +3866,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real depth,delx,tatm,satm
       integer i,j,k
@@ -4231,7 +4231,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real si(im,jm,kb),ti(im,jm,kb),rhoo(im,jm,kb)
       real cr,p,rhor,sr,tr,tr2,tr3,tr4  !,hij !lyo:!wad:define hij
@@ -4297,7 +4297,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real delz
       integer kdz(12)
@@ -4371,7 +4371,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j
 C
@@ -4429,7 +4429,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real rad,re,dlat,dlon,cff
       integer i,j,k,m
@@ -4700,7 +4700,7 @@ C
 C
       integer io(100),jo(100),ko(100)
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
 C     2-D horizontal fields:
 C
@@ -4887,7 +4887,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real sm(im,jm,kb),sh(im,jm,kb),cc(im,jm,kb)
       real gh(im,jm,kb),boygr(im,jm,kb),dh(im,jm),stf(im,jm,kb)
@@ -5255,7 +5255,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real f(im,jm,kb),wfsurf(im,jm)
       real fsurf(im,jm),dh(im,jm)
@@ -5427,7 +5427,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
       real dh(im,jm)
       integer i,j,k,ki
 C
@@ -5537,7 +5537,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
       real dh(im,jm)
       integer i,j,k,ki
 C
@@ -6027,7 +6027,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real delh,delx,elejmid,elwjmid,ra,vel
       integer i,j,k
@@ -6390,7 +6390,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real mean,del
       integer i,j,loop
@@ -6482,7 +6482,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real ff(im,jm,kb)
       real xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
@@ -6581,7 +6581,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
@@ -6846,7 +6846,7 @@ C *                                                                    *
 C
       integer i,j,k
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
 C     2-D horizontal fields:
 C
@@ -6913,7 +6913,7 @@ c
 !----------------------------------------------------------------------!
       implicit none
 !                                                                      !
-      include 'pom2k.c'
+      include 'pomNW.c'
 !                                                                      !
       integer npos,nneg
       real hwatmin
@@ -7086,7 +7086,7 @@ C **********************************************************************
 C
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real delh,delx,elejmid,elwjmid,ra,vel,hland  !lyo:!wad:define hland
       integer nvar                                 !lyo:!wad:define nvar
@@ -7622,7 +7622,7 @@ C
       use netcdf
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       real datr(im, jm, kbm1, 2)
       real datu(imm1, jm, kbm1, 2)
@@ -8090,7 +8090,7 @@ C
         use netcdf
         implicit none
 C
-        include 'pom2k.c'
+        include 'pomNW.c'
 C
         integer i, j, k, ncid, varid
         integer dim_srho, dim_sw, dim_strim, dim_auxuv
@@ -8250,7 +8250,7 @@ C
       use netcdf
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 C
       integer i,j, tind, ncid, varid
       character(len=256) filename
@@ -8319,7 +8319,7 @@ C
         use netcdf
         implicit none
 C
-        include 'pom2k.c'
+        include 'pomNW.c'
 C
         integer :: ptime
         logical :: NOK
@@ -8495,7 +8495,7 @@ C
       use netcdf
       implicit none
 C
-      include 'pom2k.c'
+      include 'pomNW.c'
 !
       integer, intent (in) :: idx
       integer :: i,j, ncid, varid
@@ -8678,7 +8678,7 @@ C
 
       character(len=256) filename
 
-      include 'pom2k.c'
+      include 'pomNW.c'
 
 C
       select case (idx)
@@ -9064,7 +9064,7 @@ C
 !
       subroutine upd_mnth
 
-        include 'pom2k.c'
+        include 'pomNW.c'
 
         real :: tind, b, e
 
