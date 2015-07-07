@@ -1856,12 +1856,12 @@ C
         if(iint.ge.iswtch) iprint=nint(prtd2*24.e0*3600.e0/dti)
 C
 !     Target point output
-!        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
+        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
 !          call ncTgtFlush(49)
           call time2date(time, time_start, timestamp)
           write(49,*) timestamp, ";",
      $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
-!        end if
+        end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
@@ -7981,7 +7981,6 @@ C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       call bry(45)
-      write(*,*) "Tsurf(5,75) = ",tsurf(5,75)
 C
 C
 C --- the following grids are needed only for netcdf plotting
