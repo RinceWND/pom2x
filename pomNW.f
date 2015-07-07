@@ -841,7 +841,7 @@ C-----------------------------------------------------------------------
 C
 C     Set up sigma layers:
 C
-      if(iproblem.ne.3) call depth
+      if(iproblem.lt.3) call depth
 C
 C-----------------------------------------------------------------------
 C
@@ -7690,7 +7690,7 @@ C--- 2D ---
       write(*, *) "[O] free surface mask retrieved"
       call check( nf90_inq_varid(ncid, "h", varid) )
       call check( nf90_get_var(ncid, varid, h) )
-      h = -h
+!      h = -h       ! If using nwad=0 this line as well as `call wadh` isn't needed.
       do i=1,im
         do j=1,jm
             if (fsm(i,j)==0) h(i,j) = 1.
@@ -7896,7 +7896,7 @@ C
 C
 C     Calculate areas and masks:
 C
-      call wadh
+      !call wadh
       call areas_masks
 !
 !      Comment the code below to avoid forced closed boundary.
