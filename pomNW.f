@@ -1140,7 +1140,7 @@ C
 C
 C-----------------------------------------------------------------------
 !     Set timer
-      call cpu_time(slice_s)
+      call cpu_time(slice_b)
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
