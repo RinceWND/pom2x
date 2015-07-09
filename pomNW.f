@@ -241,6 +241,7 @@ C
       character*26  timestamp
 !     target point coordinates
       integer tgt_lon, tgt_lat, tgt_sig
+      real    slice_b, slice_e
 C
 C***********************************************************************
 C
@@ -648,6 +649,9 @@ C
       tgt_lon = 1
       tgt_lat = 1
       tgt_sig = 1
+!     Clock init
+      slice_b = 0.
+      slice_e = 0.
 C
 C     End of input of constants
 C***********************************************************************
@@ -1135,6 +1139,8 @@ C
 !        endif
 C
 C-----------------------------------------------------------------------
+!     Set timer
+      call cpu_time(slice_s)
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
@@ -1865,12 +1871,15 @@ C
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 C
-          write(6,4) time,iint,iext,iprint
+!     Stop timer
+          call cpu_time(slice_e)
+          write(6,4) time,iint,iext,iprint,(slice_e-slice_b)/60.
     4     format(/
      $    '**************************************************',
      $    '**************************************************',
      $    '*************************'//
-     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//)
+     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//
+     $    ' Time elapsed since prev. output: ',f9.4,' min')
 C
 C     Select print statements in printall as desired:
 C
@@ -1946,7 +1955,9 @@ C
             stop
 C
           endif
-C
+!     Reset timer
+          call cpu_time(slice_b)
+!
         endif
 C
 C     End of print section
@@ -2001,8 +2012,12 @@ C
 !        endif
 C
 !lyo:!wad:print final successful completion:
-      write(6,10) time
-   10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days')
+!     Execution time total:
+      call cpu_time(slice_e)
+      write(6,10) time, int(slice_e/3600.),
+     $            ((slice_e-int(slice_e/3600.)*3600.)/60.)
+   10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days'//
+     $           'job is done in ',i4,' h ',f9.4,' min')
 !
       stop
 C
