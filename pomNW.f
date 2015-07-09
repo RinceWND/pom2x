@@ -1170,10 +1170,10 @@ C     near the boundary (Jamart and Ozer, J.G.R., 91, 10621-10631).
 C     To make a healthy surface Ekman layer, it would be well to set
 C     kl1=9.
 C
+      if (iproblem/=11) then
         do j=2,jmm1
           do i=2,imm1
 c
-      if (iproblem/=11) then
       if(iproblem.ne.3) then     ! constant wind read in file2ic
 c
 c           wusurf(i,j)=ramp*(1.e-4*cos(pi*(j-1)/jmm1))
@@ -1184,7 +1184,6 @@ C --- no wind ----
             wusurf(i,j)=0.e0  !lyo:_20080415:
             wvsurf(i,j)=0.e0
        endif
-      end if
             e_atmos(i,j)=0.e0
             vfluxf(i,j)=0.e0
 C
@@ -1221,6 +1220,7 @@ C
 C
           end do
         end do
+      end if
 C
 clyo:
 !     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
