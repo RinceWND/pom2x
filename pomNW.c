@@ -264,19 +264,42 @@ C
 !                                                                      !
 !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%!
+!
 !rwnd: Path paramters
+!
       character*224 pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
      $ , ptf_rst, pth_dbg
       character*32 pfx_dmn, pfx_dbg
       common/pth/ pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
      $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
+!
       real    fac  ! fac - interpolation factor
       integer mi   ! m   - month for interpolation
       common/misc/ fac, mi
-
+!
       integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf, rf_el
       common/upd_cond/ rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur
      $ , rf_wsurf, rf_el
+!
+!    : Boundary conditions parameters
+!
+      type Tbnd                  !
+        logical nth     ! flag for northern variable boundary
+        logical est     ! flag for eastern variable boundary
+        logical sth     ! flag for southern variable boundary
+        logical wst     ! flag for western variable boundary
+      end type
+      type Tbc
+        logical     ipl ! flag for interpolation
+        logical     wnd ! flag for wind
+        logical     lrd ! flag for long wave radiation
+        logical     srd ! flag for short wave radiation
+        logical     ssf ! flag for sea surface T and S
+        logical     vap ! flag for surface evapouration
+        logical     clm ! variable climatological background (tclim,sclim,rmean)
+        type (Tbnd) bnd ! variable vertical boundaries
+      end type                  ! rwnd:
+      type (Tbc) BC
 C-----------------------------------------------------------------------
 C
 C     End of common blocks

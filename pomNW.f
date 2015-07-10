@@ -652,6 +652,20 @@ C
 !     Clock init
       slice_b = 0.
       slice_e = 0.
+!
+!     Initialise BC flags
+!
+      BC%ipl = .true.
+      BC%wnd = .true.
+      BC%lrd = .true.
+      BC%srd = .true.
+      BC%ssf = .false.
+      BC%vap = .false.
+      BC%clm = .false.
+      BC%bnd%nth = .false.
+      BC%bnd%est = .false.
+      BC%bnd%sth = .false.
+      BC%bnd%wst = .false.
 C
 C     End of input of constants
 C***********************************************************************
@@ -7650,7 +7664,7 @@ C
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
-C
+!
       write(6,'(/,'' Read grid and initial conditions '',/)')
 C
 C--- 1D ---
@@ -7740,40 +7754,59 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !    Get month for time0
-      call upd_mnth
-
+      call upd_mnth(BC%ipl)
+!
+!    Get temperature IC
+!
       call check( nf90_inq_varid(ncid, "temp", varid) )
 
-      if (mi.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,:),
-     $                          (/1,1,1,mi-1/), (/im,jm,kbm1,2/)) )
-      else
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
-
+      if (BC%ipl) then
+!    Read and interpolate between two months.
+        if (mi.ne.1) then
+          call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,:),
+     $                            (/1,1,1,mi-1/), (/im,jm,kbm1,2/)) )
+        else
+          call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
+     $                            (/1,1,1,12/),(/im,jm,kbm1,1/)) )
+          call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,2),
+     $                            (/1,1,1,1/), (/im,jm,kbm1,1/)) )
+        end if
 !    FSM is not defined yet! Be careful not to apply it!
-      t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
-     $               -datr(:,:,1:kbm1,1))
+        t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
+     $                 -datr(:,:,1:kbm1,1))
 
+      else
+!    Read a single month.
+        call check( nf90_get_var(ncid, varid, t(:,:,kbm1:1:-1),
+     $                          (/1,1,1,mi/), (/im,jm,kbm1,1/)) )
+      end if
+!
+!    Get salinity IC
+!
       call check( nf90_inq_varid(ncid, "salt", varid) )
 
-      if (mi.ne.1) then
-        call check( nf90_get_var(ncid, varid, datr,
-     $                          (/1,1,1,mi-1/), (/im,jm,kbm1,2/)) )
-      else
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,1),
-     $                          (/1,1,1,12/),(/im,jm,kbm1,1/)) )
-        call check( nf90_get_var(ncid, varid, datr(:,:,:,2),
-     $                          (/1,1,1,1/), (/im,jm,kbm1,1/)) )
-      end if
+      if (BC%ipl) then
+!    Read and interpolate between two months.
+        if (mi.ne.1) then
+          call check( nf90_get_var(ncid, varid, datr,
+     $                            (/1,1,1,mi-1/), (/im,jm,kbm1,2/)) )
+        else
+          call check( nf90_get_var(ncid, varid, datr(:,:,:,1),
+     $                            (/1,1,1,12/),(/im,jm,kbm1,1/)) )
+          call check( nf90_get_var(ncid, varid, datr(:,:,:,2),
+     $                            (/1,1,1,1/), (/im,jm,kbm1,1/)) )
+        end if
 
-      do k=1,kbm1
-        s(:,:,k) = datr(:,:,kb-k,1)+fac*(datr(:,:,kb-k,2)
-     $            -datr(:,:,kb-k,1))
-      end do
+        do k=1,kbm1
+          s(:,:,k) = datr(:,:,kb-k,1)+fac*(datr(:,:,kb-k,2)
+     $              -datr(:,:,kb-k,1))
+        end do
+
+      else
+!    Read a single month.
+        call check( nf90_get_var(ncid, varid, s(:,:,kbm1:1:-1),
+     $                          (/1,1,1,mi/), (/im,jm,kbm1,1/)) )
+      end if
 !
 !   Read elevation
 !
@@ -7783,16 +7816,16 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !
 !      if (m.ne.1) then
 !        call check( nf90_get_var(ncid, varid, datr,
-!     $                          (/1,1,1,m-1/), (/im,jm,1,2/)) )
+!     $                            (/1,1,1,m-1/), (/im,jm,1,2/)) )
 !      else
 !        call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
-!     $                          (/1,1,1,12/),(/im,jm,1,1/)) )
+!     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
 !        call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
-!     $                          (/1,1,1,1/), (/im,jm,1,1/)) )
+!     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
 !      end if
 !
 !      elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
-!     $            -datr(:,:,1,1))
+!     $          -datr(:,:,1,1))
 !      el = elb      ! rwnd: Is this correct?
 !
 !    Calculate annual means
@@ -7855,15 +7888,16 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !      cff = cff/im/jm/kb
 !      write(*,*) "Mean difference in densities: ", cff
       call check( nf90_close(ncid) )
+!     Override tclim and sclim with IC.
       tclim = t
       sclim = s
 
-      !----------------------------------------------------------------------!
+!----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
       do k=1,kbm1; do j=1,jm; do i=1,im
          pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
       enddo; enddo; enddo
-
+!     Make
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
@@ -7887,7 +7921,7 @@ C
             aam2d(i,j)=aam(i,j,1)   ! RWND: aam is initialized with aam_init already
             !elb(i,j)=0.            ! RWND (Read few lines above or initialized to zero)
             etb(i,j)=elb(i,j)       ! RWND //PV: 0.
-            dt(i,j)=h(i,j)+etb(i,j) ! RWND //PV: h(i,j)
+            dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
         end do
 C
@@ -7995,6 +8029,7 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
+!     Get tsurf and ssurf
       call bry(45)
 C
 C
@@ -8709,16 +8744,25 @@ C
             call check( nf90_inq_varid(ncid, "zeta_south", varid) )
 !     ...read neccessary fields
 !     South:
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid, elsb,
-     $                          (/1,mi-1/), (/im,1/)) )
-              call check( nf90_get_var(ncid, varid, elsf,
-     $                          (/1,mi/), (/im,1/)) )
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, elsb,
+     $                            (/1,mi-1/), (/im,1/)) )
+                call check( nf90_get_var(ncid, varid, elsf,
+     $                            (/1,mi/), (/im,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, elsb,
+     $                            (/1,12/),(/im,1/)) )
+                call check( nf90_get_var(ncid, varid, elsf,
+     $                            (/1,1/), (/im,1/)) )
+              end if
+
             else
-              call check( nf90_get_var(ncid, varid, elsb,
-     $                          (/1,12/),(/im,1/)) )
-              call check( nf90_get_var(ncid, varid, elsf,
-     $                          (/1,1/), (/im,1/)) )
+
+              call check( nf90_get_var(ncid, varid, els,
+     $                            (/1,mi/), (/im,1/)) )
+
             end if
 
             call check( nf90_close(ncid) )
@@ -8729,7 +8773,7 @@ C
 !     Perform interpolation
 !     South:
           ! FSM is already defined! Feel free to apply it! (But DON'T!!! Really! Don't! It just boundary conditions.)
-          els(:) = (elsb(:)+fac*(elsf(:)-elsb(:)))*fsm(:,1)
+          if (BC%ipl) els(:) = (elsb(:)+fac*(elsf(:)-elsb(:)))*fsm(:,1)
 
           return
 C
@@ -8745,28 +8789,58 @@ C
 !        ...read neccessary fields
 !     South:
             call check( nf90_inq_varid(ncid, "u_south", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         ubsb(2:im,kbm1:1:-1),(/1,1,mi-1/),(/imm1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ubsf(2:im,kbm1:1:-1),(/1,1,mi/),  (/imm1,kbm1,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid,
+     $           ubsb(2:im,kbm1:1:-1),(/1,1,mi-1/),(/imm1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ubsf(2:im,kbm1:1:-1),(/1,1,mi/),  (/imm1,kbm1,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           ubsb(2:im,kbm1:1:-1),(/1,1,12/),(/imm1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ubsf(2:im,kbm1:1:-1),(/1,1,1/), (/imm1,kbm1,1/)) )
+              end if
+
             else
+
               call check( nf90_get_var(ncid, varid,
-     $         ubsb(2:im,kbm1:1:-1),(/1,1,12/),(/imm1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ubsf(2:im,kbm1:1:-1),(/1,1,1/), (/imm1,kbm1,1/)) )
+     $           ubs(2:im,kbm1:1:-1),(/1,1,mi-1/),(/imm1,kbm1,1/)) )
+
             end if
+
             call check( nf90_inq_varid(ncid, "v_south", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         vbsb(:,kbm1:1:-1),(/1,1,mi-1/), (/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         vbsf(:,kbm1:1:-1),(/1,1,mi/),   (/im,kbm1,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid,
+     $           vbsb(:,kbm1:1:-1),(/1,1,mi-1/), (/im,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           vbsf(:,kbm1:1:-1),(/1,1,mi/),   (/im,kbm1,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           vbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           vbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
+              end if
+
             else
+
               call check( nf90_get_var(ncid, varid,
-     $         vbsb(:,kbm1:1:-1),(/1,1,12/),(/im,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         vbsf(:,kbm1:1:-1),(/1,1,1/), (/im,kbm1,1/)) )
+     $           vbs(:,kbm1:1:-1),(/1,1,mi/),(/im,kbm1,1/)) )
+!     Calculate vertical means for 2D mode
+              do i=1,im
+                uabs(i) = 0.
+                vabs(i) = 0.
+                do k=1,kb
+                  uabs(i) = uabs(i)+ubs(i,k)*dz(k)
+                  vabs(i) = vabs(i)+vbs(i,k)*dz(k)
+                end do
+              end do
+
             end if
 
             call check( nf90_close(ncid) )
@@ -8777,6 +8851,8 @@ C
 !     Perform interpolation
 !     South:
 !          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
+          if (BC%ipl) then
+
             ubs(:,1:kbm1) = ubsb(:,1:kbm1)
      $                     +fac*(ubsf(:,1:kbm1)-ubsb(:,1:kbm1))
             vbs(:,1:kbm1) = vbsb(:,1:kbm1)
@@ -8787,16 +8863,18 @@ C
 !          end do
 !          end do
 
-!     Calculate vertical mean BCs for 2D mode
+!     Calculate vertical mean BCs for 2D mode (for interpolated conditions; for stepped this code is performed once right after reading)
 !
-          do i=1,im
-            uabs(i) = 0.
-            vabs(i) = 0.
-            do k=1,kb
-              uabs(i) = uabs(i)+ubs(i,k)*dz(k)
-              vabs(i) = vabs(i)+vbs(i,k)*dz(k)
+            do i=1,im
+              uabs(i) = 0.
+              vabs(i) = 0.
+              do k=1,kb
+                uabs(i) = uabs(i)+ubs(i,k)*dz(k)
+                vabs(i) = vabs(i)+vbs(i,k)*dz(k)
+              end do
             end do
-          end do
+
+          end if
 
           return
 C
@@ -8811,94 +8889,124 @@ C
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
             call check( nf90_inq_varid(ncid, "temp", varid) )
 !    Read climatological BCs
-            if (mi.ne.1) then
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
 !            south
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
 !            north
-              call check( nf90_get_var(ncid, varid,
-     $         tbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
 !            west
-              call check( nf90_get_var(ncid, varid,
-     $         tbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
 !            east
-              call check( nf90_get_var(ncid, varid,
-     $         tbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
-            else
+                call check( nf90_get_var(ncid, varid,
+     $           tbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
+              else
 !            south
-              call check( nf90_get_var(ncid, varid,
-     $         tbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
 !            north
-              call check( nf90_get_var(ncid, varid,
-     $         tbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
 !            west
-              call check( nf90_get_var(ncid, varid,
-     $         tbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
 !            east
+                call check( nf90_get_var(ncid, varid,
+     $           tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+              end if
+
+            else    ! No interpolation
+
               call check( nf90_get_var(ncid, varid,
-     $         tbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+     $           tbs(:,kbm1:1:-1),(/ 1, 1,1,mi/),   (/im,1,kbm1,1/)) )
               call check( nf90_get_var(ncid, varid,
-     $         tbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+     $           tbn(:,kbm1:1:-1),(/ 1,jm,1,mi/),   (/im,1,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $           tbw(:,kbm1:1:-1),(/ 1, 1,1,mi/),   (/1,jm,kbm1,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $           tbe(:,kbm1:1:-1),(/im, 1,1,mi/),   (/1,jm,kbm1,1/)) )
+
             end if
 !
             call check( nf90_inq_varid(ncid, "salt", varid) )
 !    Read climatological salinity BCs
-            if (mi.ne.1) then
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
 !            south
-              call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbsb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbsf(:,kbm1:1:-1),(/1,1,1,mi/),   (/im,1,kbm1,1/)) )
 !            north
-              call check( nf90_get_var(ncid, varid,
-     $         sbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbnb(:,kbm1:1:-1),(/1,jm,1,mi-1/), (/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbnf(:,kbm1:1:-1),(/1,jm,1,mi/),   (/im,1,kbm1,1/)) )
 !            west
-              call check( nf90_get_var(ncid, varid,
-     $         sbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbwb(:,kbm1:1:-1),(/1,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbwf(:,kbm1:1:-1),(/1,1,1,mi/),   (/1,jm,kbm1,1/)) )
 !            east
-              call check( nf90_get_var(ncid, varid,
-     $         sbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbeb(:,kbm1:1:-1),(/im,1,1,mi-1/), (/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbef(:,kbm1:1:-1),(/im,1,1,mi/),   (/1,jm,kbm1,1/)) )
+              else
+!            south
+                call check( nf90_get_var(ncid, varid,
+     $           sbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
+!            north
+                call check( nf90_get_var(ncid, varid,
+     $           sbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
+!            west
+                call check( nf90_get_var(ncid, varid,
+     $           sbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
+!            east
+                call check( nf90_get_var(ncid, varid,
+     $           sbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           sbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+              end if
+
             else
-!            south
+
               call check( nf90_get_var(ncid, varid,
-     $         sbsb(:,kbm1:1:-1),(/1,1,1,12/),(/im,1,kbm1,1/)) )
+     $           sbs(:,kbm1:1:-1),(/ 1, 1,1,mi/),   (/im,1,kbm1,1/)) )
               call check( nf90_get_var(ncid, varid,
-     $         sbsf(:,kbm1:1:-1),(/1,1,1,1/), (/im,1,kbm1,1/)) )
-!            north
+     $           sbn(:,kbm1:1:-1),(/ 1,jm,1,mi/),   (/im,1,kbm1,1/)) )
               call check( nf90_get_var(ncid, varid,
-     $         sbnb(:,kbm1:1:-1),(/1,jm,1,12/),(/im,1,kbm1,1/)) )
+     $           sbw(:,kbm1:1:-1),(/ 1, 1,1,mi/),   (/1,jm,kbm1,1/)) )
               call check( nf90_get_var(ncid, varid,
-     $         sbnf(:,kbm1:1:-1),(/1,jm,1,1/), (/im,1,kbm1,1/)) )
-!            west
-              call check( nf90_get_var(ncid, varid,
-     $         sbwb(:,kbm1:1:-1),(/1,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbwf(:,kbm1:1:-1),(/1,1,1,1/), (/1,jm,kbm1,1/)) )
-!            east
-              call check( nf90_get_var(ncid, varid,
-     $         sbeb(:,kbm1:1:-1),(/im,1,1,12/),(/1,jm,kbm1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         sbef(:,kbm1:1:-1),(/im,1,1,1/), (/1,jm,kbm1,1/)) )
+     $           sbe(:,kbm1:1:-1),(/im, 1,1,mi/),   (/1,jm,kbm1,1/)) )
+
             end if
 !
             call check( nf90_close(ncid) )
@@ -8940,6 +9048,8 @@ C
             write(*,*) "Read TS BCs:  ", mi
 
           end if
+
+          if (BC%ipl) then
 !     Perform interpolation
 !     South:
             tbs(:,1:kbm1) = tbsb(:,1:kbm1)
@@ -8961,9 +9071,11 @@ C
      $                     +fac*(tbwf(:,1:kbm1)-tbwb(:,1:kbm1))
             sbw(:,1:kbm1) = sbwb(:,1:kbm1)
      $                     +fac*(sbwf(:,1:kbm1)-sbwb(:,1:kbm1))
+          end if
+
           return
 C
-        case (43)
+          case (43)   ! Surface temperature and salinity from ICOADS
 
           if (mi.ne.rf_sts) then
 !        If we move to the next month...
@@ -8975,28 +9087,49 @@ C
 !        ...read neccessary fields
 !     South:
             call check( nf90_inq_varid(ncid, "SST", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,mi-1/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1,mi  /), (/im,jm,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid,
+     $           tsurfb,(/1,1,mi-1/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tsurff,(/1,1,mi  /), (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           tsurfb,(/1,1,12/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tsurff,(/1,1, 1/), (/im,jm,1/)) )
+              end if
+
             else
+
               call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,12/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1, 1/), (/im,jm,1/)) )
+     $            tsurf,(/1,1,mi/), (/im,jm,1/)) )
+
             end if
+!
             call check( nf90_inq_varid(ncid, "SSS", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,mi-1/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,mi  /), (/im,jm,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid,
+     $           ssurfb,(/1,1,mi-1/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ssurff,(/1,1,mi  /), (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           ssurfb,(/1,1,12/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ssurff,(/1,1, 1/), (/im,jm,1/)) )
+              end if
+
             else
+
               call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,12/), (/im,jm,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1, 1/), (/im,jm,1/)) )
+     $            ssurf,(/1,1,mi/), (/im,jm,1/)) )
+
             end if
 
             call check( nf90_close(ncid) )
@@ -9004,15 +9137,19 @@ C
             write(*,*) "Read ST/S BCs:", mi
 
           end if
+!
+          if (BC%ipl) then
 !     Perform interpolation
 !     South:
 !          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
             tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
             ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
 !          end do
+          end if
+
           return
 !
-        case (45)
+          case (45)   ! Temperature and salinity of surface level from WOA
 
           if (mi.ne.rf_sts) then
 !        If we move to the next month...
@@ -9024,28 +9161,49 @@ C
 !        ...read neccessary fields
 !     South:
             call check( nf90_inq_varid(ncid, "temp", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid, tsurfb,
-     $         (/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid, tsurff,
-     $         (/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, tsurfb,
+     $           (/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
+                call check( nf90_get_var(ncid, varid, tsurff,
+     $           (/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           tsurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           tsurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+              end if
+
             else
-              call check( nf90_get_var(ncid, varid,
-     $         tsurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         tsurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+
+              call check( nf90_get_var(ncid, varid, tsurf,
+     $           (/1,1,kbm1,mi/), (/im,jm,1,1/)) )
+
             end if
+!
             call check( nf90_inq_varid(ncid, "salt", varid) )
-            if (mi.ne.1) then
-            call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
-            call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid,
+     $           ssurfb,(/1,1,kbm1,mi-1/), (/im,jm,1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ssurff,(/1,1,kbm1,mi  /), (/im,jm,1,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $           ssurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
+                call check( nf90_get_var(ncid, varid,
+     $           ssurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+              end if
+
             else
-              call check( nf90_get_var(ncid, varid,
-     $         ssurfb,(/1,1,kbm1,12/), (/im,jm,1,1/)) )
-              call check( nf90_get_var(ncid, varid,
-     $         ssurff,(/1,1,kbm1, 1/), (/im,jm,1,1/)) )
+
+              call check( nf90_get_var(ncid, varid, ssurf,
+     $           (/1,1,kbm1,mi/), (/im,jm,1,1/)) )
+
             end if
 
             call check( nf90_close(ncid) )
@@ -9053,17 +9211,21 @@ C
             write(*,*) "Read 1l TS BCs:", mi
 
           end if
+
+          if (BC%ipl) then
 !     Perform interpolation
 !     South:
 !          do k=1,kbm1   ! FSM is already defined! Feel free to apply it!
-          tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
-          ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
+            tsurf = (tsurfb+fac*(tsurff-tsurfb))*fsm
+            ssurf = (ssurfb+fac*(ssurff-ssurfb))*fsm
 !          end do
+          end if
+!
           return
 C
-      end select
+        end select
 C
-      return
+        return
 C
         contains
           subroutine check(status)
@@ -9076,77 +9238,83 @@ C
 C
       end
 !
-      subroutine upd_mnth
+      subroutine upd_mnth(ipl)
 
         include 'pomNW.c'
 
-        real :: tind, b, e
+        logical,intent(in) :: ipl
+        real               :: tind, b, e
 
         tind = mod(time,365.)
-C
-        if (tind.lt.15) then
-          mi = 1
-          b = -15.5
-          e = 15.
-        else
-          if (tind.lt.44) then
-            mi = 2
-            b = 15.
-            e = 44.
+!
+!       If interpolation is enabled we slice months up at their middles.
+!
+        if (ipl) then
+
+          if (tind.lt.15) then
+            mi = 1
+            b = -15.5
+            e = 15.
           else
-            if (tind.lt.73.5) then
-              mi = 3
-              b = 44.
-              e = 73.5
+            if (tind.lt.44) then
+              mi = 2
+              b = 15.
+              e = 44.
             else
-              if (tind.lt.104) then
-                mi = 4
-                b = 73.5
-                e = 104.
+              if (tind.lt.73.5) then
+                mi = 3
+                b = 44.
+                e = 73.5
               else
-                if (tind.lt.134.5) then
-                  mi = 5
-                  b = 104.
-                  e = 134.5
+                if (tind.lt.104) then
+                  mi = 4
+                  b = 73.5
+                  e = 104.
                 else
-                  if (tind.lt.165) then
-                    mi = 6
-                    b = 134.5
-                    e = 165.
+                  if (tind.lt.134.5) then
+                    mi = 5
+                    b = 104.
+                    e = 134.5
                   else
-                    if (tind.lt.195.5) then
-                      mi = 7
-                      b = 165.
-                      e = 195.5
+                    if (tind.lt.165) then
+                      mi = 6
+                      b = 134.5
+                      e = 165.
                     else
-                      if (tind.lt.226.5) then
-                        mi = 8
-                        b = 195.5
-                        e = 226.5
+                      if (tind.lt.195.5) then
+                        mi = 7
+                        b = 165.
+                        e = 195.5
                       else
-                        if (tind.lt.258) then
-                          mi = 9
-                          b = 226.5
-                          e = 258.
+                        if (tind.lt.226.5) then
+                          mi = 8
+                          b = 195.5
+                          e = 226.5
                         else
-                          if (tind.lt.288.5) then
-                            mi = 10
-                            b = 258.
-                            e = 288.5
+                          if (tind.lt.258) then
+                            mi = 9
+                            b = 226.5
+                            e = 258.
                           else
-                            if (tind.lt.319) then
-                              mi = 11
-                              b = 288.5
-                              e = 319.
+                            if (tind.lt.288.5) then
+                              mi = 10
+                              b = 258.
+                              e = 288.5
                             else
-                              if (tind.lt.349.5) then
-                                mi = 12
-                                b = 319.
-                                e = 349.5
+                              if (tind.lt.319) then
+                                mi = 11
+                                b = 288.5
+                                e = 319.
                               else
-                                mi = 1
-                                b = 349.5
-                                e = 380.5
+                                if (tind.lt.349.5) then
+                                  mi = 12
+                                  b = 319.
+                                  e = 349.5
+                                else
+                                  mi = 1
+                                  b = 349.5
+                                  e = 380.5
+                                end if
                               end if
                             end if
                           end if
@@ -9158,10 +9326,66 @@ C
               end if
             end if
           end if
+!
+          fac = (tind-b)/(e-b)
+
+        else
+!
+!     If interpolation is disabled we just detect which month the day is in.
+!
+          if (tind.lt.31) then
+            mi = 1
+          else
+            if (tind.lt.59) then
+              mi = 2
+            else
+              if (tind.lt.90) then
+                mi = 3
+              else
+                if (tind.lt.120) then
+                  mi = 4
+                else
+                  if (tind.lt.151) then
+                    mi = 5
+                  else
+                    if (tind.lt.181) then
+                      mi = 6
+                    else
+                      if (tind.lt.212) then
+                        mi = 7
+                      else
+                        if (tind.lt.243) then
+                          mi = 8
+                        else
+                          if (tind.lt.273) then
+                            mi = 9
+                          else
+                            if (tind.lt.304) then
+                              mi = 10
+                            else
+                              if (tind.lt.334) then
+                                mi = 11
+                              else
+                                if (tind.lt.365) then
+                                  mi = 12
+                                else
+                                  ! How did you get here?
+                                  mi = 1
+                                end if
+                              end if
+                            end if
+                          end if
+                        end if
+                      end if
+                    end if
+                  end if
+                end if
+              end if
+            end if
+          end if
+
         end if
 !
-        fac = (tind-b)/(e-b)
-
         return
 
       end
