@@ -2031,7 +2031,7 @@ C
       write(6,10) time, int(slice_e/3600.),
      $            ((slice_e-int(slice_e/3600.)*3600.)/60.), slice_e
    10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days'//
-     $       'job is done in ',i4,' h ',f9.4,' min','(raw: ',f.10.3,')')
+     $       'job is done in ',i4,' h ',f9.4,' min','(raw: ',f10.3,')')
 !
       stop
 C
