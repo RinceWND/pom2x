@@ -2029,9 +2029,9 @@ C
 !     Execution time total:
       call cpu_time(slice_e)
       write(6,10) time, int(slice_e/3600.),
-     $            ((slice_e-int(slice_e/3600.)*3600.)/60.)
+     $            ((slice_e-int(slice_e/3600.)*3600.)/60.), slice_e
    10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days'//
-     $           'job is done in ',i4,' h ',f9.4,' min')
+     $       'job is done in ',i4,' h ',f9.4,' min','(raw: ',f.10.3,')')
 !
       stop
 C
@@ -7897,7 +7897,7 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       do k=1,kbm1; do j=1,jm; do i=1,im
          pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
       enddo; enddo; enddo
-!     Make
+!
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
