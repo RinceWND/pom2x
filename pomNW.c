@@ -277,9 +277,10 @@ C
       integer mi   ! m   - month for interpolation
       common/misc/ fac, mi
 !
-      integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf, rf_el
+      integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf
+     $ , rf_el, rf_clm
       common/upd_cond/ rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur
-     $ , rf_wsurf, rf_el
+     $ , rf_wsurf, rf_el, rf_clm
 !
 !    : Boundary conditions parameters
 !

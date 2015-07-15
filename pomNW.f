@@ -653,6 +653,17 @@ C
       slice_b = 0.
       slice_e = 0.
 !
+!     Initialise bry read flags
+!
+      rf_clm   = 0  ! note that this one is climate and not bry.
+      rf_el    = 0
+      rf_uv    = 0
+      rf_ts    = 0
+      rf_sts   = 0
+      rf_swrad = 0
+      rf_wtsur = 0
+      rf_wssur = 0
+!
 !     Initialise BC flags
 !
       BC%ipl = .true.
@@ -2031,7 +2042,7 @@ C
       write(6,10) time, int(slice_e/3600.),
      $            ((slice_e-int(slice_e/3600.)*3600.)/60.), slice_e
    10 format(/2x,'JOB SUCCESSFULLY COMPLT.; time = ',1P1e13.5,' days'//
-     $       'job is done in ',i4,' h ',f9.4,' min','(raw: ',f10.3,')')
+     $       'job is done in ',i4,' h ',f9.4,' min (raw: ',f10.3,')')
 !
       stop
 C
@@ -8732,6 +8743,81 @@ C
 C
       select case (idx)
 C
+        case (1) ! Not a boundary condition but climate
+
+          if (mi.ne.rf_clm) then
+
+            rf_clm = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"roms_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
+            call check( nf90_inq_varid(ncid, "temp", varid) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then     ! TODO: interpolate using uf, vf somehow...?
+                call check( nf90_get_var(ncid, varid, tclim,
+     $                            (/1,1,mi-1/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid, tclim,
+     $                            (/1,1,mi/),   (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, tclim,
+     $                            (/1,1,12/),(/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid, tclim,
+     $                            (/1,1,1/), (/im,jm,1/)) )
+              end if
+
+            else
+
+              call check( nf90_get_var(ncid, varid, tclim,
+     $                            (/1,1,mi/), (/im,jm,1/)) )
+
+            end if
+!
+            call check( nf90_inq_varid(ncid, "salt", varid) )
+
+            if (BC%ipl) then
+
+              if (mi.ne.1) then     ! TODO: interpolate using uf, vf somehow...?
+                call check( nf90_get_var(ncid, varid, sclim,
+     $                            (/1,1,mi-1/), (/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid, sclim,
+     $                            (/1,1,mi/),   (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, sclim,
+     $                            (/1,1,12/),(/im,jm,1/)) )
+                call check( nf90_get_var(ncid, varid, sclim,
+     $                            (/1,1,1/), (/im,jm,1/)) )
+              end if
+
+            else
+
+              call check( nf90_get_var(ncid, varid, sclim,
+     $                            (/1,1,mi/), (/im,jm,1/)) )
+
+            end if
+
+            call check( nf90_close(ncid) )
+!
+!         Refresh rmean
+!
+            call dens(sclim, tclim, rmean)
+
+            write(*,*) "Read climate: ", mi
+
+          end if
+!     Perform interpolation
+!     South:
+          ! FSM is already defined! Feel free to apply it! (Does not yet applied!!!)
+          if (BC%ipl) then
+            !tclim = (tclim+fac*(tclim-tclim))
+            !sclim = (sclim+fac*(sclim-sclim))
+          end if
+
+          return
+
         case (2) ! elevation
 !
           if (mi.ne.rf_el) then
