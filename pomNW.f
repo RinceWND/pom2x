@@ -662,7 +662,7 @@ C
       rf_sts   = 0
       rf_swrad = 0
       rf_wtsur = 0
-      rf_wssur = 0
+      rf_wsurf = 0
 !
 !     Initialise BC flags
 !
@@ -1189,8 +1189,8 @@ C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
       if (iproblem==11) then
 !
-        bry(1)
-        bry(45)
+        call bry(1)
+        call bry(45)
 !
       else
 C     Introduce simple wind stress. Value is negative for westerly or
