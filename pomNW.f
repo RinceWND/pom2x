@@ -8044,9 +8044,9 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
-      call bry(1)
+      if (BC%clm) call bry(1)
 !     Get tsurf and ssurf
-      call bry(45)
+      call bry(45)  ! Get fsurf anyway since it must be initialised.
 C
 C
 C --- the following grids are needed only for netcdf plotting
