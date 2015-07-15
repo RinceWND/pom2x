@@ -1187,7 +1187,12 @@ C     Set time dependent, surface and lateral boundary conditions.
 C     The latter will be used in subroutine bcond. Users may
 C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
-C
+      if (iproblem==11) then
+!
+        bry(1)
+        bry(45)
+!
+      else
 C     Introduce simple wind stress. Value is negative for westerly or
 C     southerly winds. The following wind stress has been tapered
 C     along the boundary to suppress numerically induced oscilations
@@ -1195,7 +1200,6 @@ C     near the boundary (Jamart and Ozer, J.G.R., 91, 10621-10631).
 C     To make a healthy surface Ekman layer, it would be well to set
 C     kl1=9.
 C
-      if (iproblem/=11) then
         do j=2,jmm1
           do i=2,imm1
 c
@@ -8040,6 +8044,7 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
+      call bry(1)
 !     Get tsurf and ssurf
       call bry(45)
 C
