@@ -1189,8 +1189,8 @@ C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
       if (iproblem==11) then
 !
-        call bry(1)
-        call bry(45)
+        if (BC%clm) call bry(1)
+        if (BC%ssf) call bry(45)    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
 !
       else
 C     Introduce simple wind stress. Value is negative for westerly or
