@@ -1193,6 +1193,10 @@ C     Set time dependent, surface and lateral boundary conditions.
 C     The latter will be used in subroutine bcond. Users may
 C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
+!
+!     Update month
+      call upd_mnth(time, BC%ipl)
+
       if (iproblem==11) then
 !
         if (BC%clm) call bry(1)
