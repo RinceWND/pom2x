@@ -652,6 +652,9 @@ C
 !     Clock init
       slice_b = 0.
       slice_e = 0.
+!     Climatological cycle
+      m0        = 0
+      clm_cycle = 12
 !
 !     Initialise bry read flags
 !
@@ -1055,6 +1058,9 @@ C
 !----------------------------------------------------------------------!
 !
       time=time0
+!   Store month offset for further warping. (call just in case it hasn't been called yet)
+      call upd_mnth(time0, BC%ipl)
+      m0 = mi
 C
 C-----------------------------------------------------------------------
 C
@@ -7769,7 +7775,7 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !    Get month for time0
-      call upd_mnth(BC%ipl)
+      call upd_mnth(time, BC%ipl)
 !
 !    Get temperature IC
 !
@@ -9329,17 +9335,18 @@ C
 C
       end
 !
-      subroutine upd_mnth(ipl)
+      subroutine upd_mnth(tind, ipl)
 
         include 'pomNW.c'
 
-        logical,intent(in) :: ipl
-        real               :: tind, b, e
-
-        tind = mod(time,365.)
+        logical,intent( in) :: ipl
+        real                :: tind, b, e
+!
+        tind = mod(tind,365.)
 !
 !       If interpolation is enabled we slice months up at their middles.
 !
+!       Climatological cycle doesn't work for ipl yet.
         if (ipl) then
 
           if (tind.lt.15) then
@@ -9474,7 +9481,13 @@ C
               end if
             end if
           end if
-
+!
+!       If climatological cycle is less than 12 we need to warp.    !TODO: make cycling in days. It shoulkd be easier an more flexible.
+!
+          if (clm_cycle<12) then
+            mi = mod(mi-m0, clm_cycle)+m0
+          end if
+!
         end if
 !
         return

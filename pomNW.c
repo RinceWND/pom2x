@@ -274,8 +274,9 @@ C
      $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
 !
       real    fac  ! fac - interpolation factor
-      integer mi   ! m   - month for interpolation
-      common/misc/ fac, mi
+      integer mi,m0! mi  - month for interpolation, m0 - month offset for clim cycle
+      integer clm_cycle !- climatological cycle
+      common/misc/ fac, mi, m0, clm_cycle
 !
       integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf
      $ , rf_el, rf_clm
