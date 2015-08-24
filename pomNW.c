@@ -285,13 +285,15 @@ C
 !
 !    : Boundary conditions parameters
 !
-      type Tbnd                  !
+      type Tbnd
+      sequence
         logical nth     ! flag for northern variable boundary
         logical est     ! flag for eastern variable boundary
         logical sth     ! flag for southern variable boundary
         logical wst     ! flag for western variable boundary
       end type
       type Tbc
+      sequence
         logical     ipl ! flag for interpolation
         logical     wnd ! flag for wind
         logical     lrd ! flag for long wave radiation
@@ -302,6 +304,8 @@ C
         type (Tbnd) bnd ! variable vertical boundaries
       end type                  ! rwnd:
       type (Tbc) BC
+
+      common/flags/ BC
 C-----------------------------------------------------------------------
 C
 C     End of common blocks
