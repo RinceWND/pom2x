@@ -645,7 +645,9 @@ C
       if (iproblem .eq. 41) tidamp=9.e0
 !----------------------------------------------------------------------!
 !                                                                      !
-!     initialize tgt coordinates
+!     initialise time0 (May be overriden with params)
+      time0 = 0.
+!     initialise tgt coordinates
       tgt_lon = 1
       tgt_lat = 1
       tgt_sig = 1
@@ -688,6 +690,9 @@ C --- Above are the default parameters, alternatively one can
 C --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
 C
       include 'params'
+!
+!     Override time with time0
+      time = time0
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -913,8 +918,8 @@ C
 C
 C     Initialise time:
 C
-      time0=0.e0
-      time=0.e0
+!      time0=0.e0
+!      time=0.e0
 !
       ncptime = 0
 C
