@@ -693,6 +693,11 @@ C
 !
 !     Override time with time0
       time = time0
+!----------------------------------------------------------------------!
+!
+!   Store month offset for further warping.
+      call upd_mnth(time0, BC%ipl)
+      m0 = mi
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -1060,12 +1065,6 @@ C
       end do
       endif
 !                                                                      !
-!----------------------------------------------------------------------!
-!
-      time=time0
-!   Store month offset for further warping. (call just in case it hasn't been called yet)
-      call upd_mnth(time0, BC%ipl)
-      m0 = mi
 C
 C-----------------------------------------------------------------------
 C
@@ -1201,11 +1200,13 @@ C     wssurf, swrad and vflux.
 !
 !     Update month
       call upd_mnth(time, BC%ipl)
+      call clm_warp
 
       if (iproblem==11) then
 !
         if (BC%clm) call bry(1)
         if (BC%ssf) call bry(45)    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
+        if (BC%wnd) call flux(5)
 !
       else
 C     Introduce simple wind stress. Value is negative for westerly or
@@ -7804,7 +7805,8 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !    Get month for time0
-      call upd_mnth(time, BC%ipl)
+!      call upd_mnth(time, BC%ipl)
+!      call clm_warp
 !
 !    Get temperature IC
 !
@@ -8080,6 +8082,7 @@ C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       if (BC%clm) call bry(1)
+      if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
       call bry(45)  ! Get fsurf anyway since it must be initialised.
 C
@@ -8691,7 +8694,7 @@ C
 
           return
 C
-        case (52) ! momentum flux
+        case (5) ! momentum flux
 C
           if (mi.ne.rf_wsurf) then
 C
@@ -8700,30 +8703,39 @@ C
             filename = trim(pth_wrk)//trim(pth_flx)//
      $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
             call check( nf90_inq_varid(ncid, "sustr", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
-     $                   , (/1,1,mi-1/), (/imm1,jm,1/)) )
-              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
+
+            call check( nf90_get_var(ncid, varid, wusurf(2:im,:)
      $                   , (/1,1,mi/),   (/imm1,jm,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
+
+            if (BC%ipl) then
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
+     $                   , (/1,1,mi-1/), (/imm1,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, wusurfb(2:im,:)
      $                   , (/1,1,12/), (/imm1,jm,1/)) )
-              call check( nf90_get_var(ncid, varid, wusurff(2:im,:)
-     $                   , (/1,1,1/),  (/imm1,jm,1/)) )
+              end if
+              wusurff = wusurf
             end if
+
             call check( nf90_inq_varid(ncid, "svstr", varid) )
-            if (mi.ne.1) then
-              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
-     $                   , (/1,1,mi-1/), (/im,jmm1,1/)) )
-              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
+
+            call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)
      $                   , (/1,1,mi/),   (/im,jmm1,1/)) )
-            else
-              call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
+
+            if (BC%ipl) then
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
+     $                   , (/1,1,mi-1/), (/im,jmm1,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, wvsurfb(:,2:jm)
      $                   , (/1,1,12/), (/im,jmm1,1/)) )
-              call check( nf90_get_var(ncid, varid, wvsurff(:,2:jm)
-     $                   , (/1,1,1/),  (/im,jmm1,1/)) )
+              end if
+              wvsurff = wvsurf
             end if
+!
             call check( nf90_close(ncid) )
 
             ! Fill in boundary values (and taper them, maybe?)
@@ -8733,17 +8745,24 @@ C
             wvsurff(1,:) = wvsurff(2,:)!*.5
 
             ! Convert s?str (in N/m^2) to w?surf (in m^2/s^2).
-            wusurfb = -wusurfb/rhoref
-            wvsurfb = -wvsurfb/rhoref
-            wusurff = -wusurff/rhoref
-            wvsurff = -wvsurff/rhoref
+            if (BC%ipl) then
+              wusurfb = -wusurfb/rhoref
+              wvsurfb = -wvsurfb/rhoref
+              wusurff = -wusurff/rhoref
+              wvsurff = -wvsurff/rhoref
+            else
+              wusurf  = -wusurf/rhoref
+              wvsurf  = -wvsurf/rhoref
+            end if
 
             write(*,*) "Read w*surf:  ", mi
 
           end if
 
-          wusurf = wusurfb+fac*(wusurff-wusurfb)
-          wvsurf = wvsurfb+fac*(wvsurff-wvsurfb)
+          if (BC%ipl) then
+            wusurf = wusurfb+fac*(wusurff-wusurfb)
+            wvsurf = wvsurfb+fac*(wvsurff-wvsurfb)
+          end if
 
           return
 
@@ -9459,18 +9478,23 @@ C
             end if
           end if
 !
-!       If climatological cycle is less than 12 we need to warp.    !TODO: make cycling in days. It shoulkd be easier an more flexible.
-!
-          if (clm_cycle<12) then
-            mi = mod(mi-m0, clm_cycle)+m0
-          end if
-!
         end if
 !
         return
 
       end
-
+!
+      subroutine clm_warp()
+!
+        include 'pomNW.c'
+!
+!       If climatological cycle is less than 12 we need to warp.    !TODO: make cycling in days. It should be easier and more flexible.
+!
+        if (clm_cycle<12) then
+          mi = mod(mi-m0, clm_cycle)+m0
+        end if
+!
+      end subroutine
 !
 
       subroutine time2date(time_in, time_off, date)
