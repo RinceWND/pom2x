@@ -9331,14 +9331,14 @@ C
 C
       end
 !
-      subroutine upd_mnth(tind, ipl)
+      subroutine upd_mnth(tmp, ipl)
 
         include 'pomNW.c'
 
         logical,intent( in) :: ipl
-        real                :: tind, b, e
+        real                :: tind, tmp, b, e
 !
-        tind = mod(tind,365.)
+        tind = mod(tmp,365.)
 !
 !       If interpolation is enabled we slice months up at their middles.
 !
@@ -9500,7 +9500,7 @@ C
       subroutine time2date(time_in, time_off, date)
 
         character(len=*), intent(in) :: time_off
-        real                         :: time_in,  time
+        real                         :: time_in,  tmp
         character*26,     intent(out):: date
         integer  :: YYYY, MM, DD, hh, mi, ss, th, tm
         character :: sign
@@ -9509,20 +9509,20 @@ C
      $       '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a1,i2,1x,i2)')
      $       YYYY, MM, DD, hh, mi, ss, sign, th, tm
 
-        time = time_in - float(floor(time_in))
-        ss   = ss + mod(floor(time*60.*60.*24.), 60)
+        tmp  = time_in - float(floor(time_in))
+        ss   = ss + mod(floor(tmp*60.*60.*24.), 60)
         mi   = mi + floor(ss/60.)
         ss   = mod(ss, 60)
-        mi   = mi + mod(floor(time*60.*24.), 60)
+        mi   = mi + mod(floor(tmp*60.*24.), 60)
         hh   = hh + floor(mi/60.)
         mi   = mod(mi, 60)
-        hh   = hh + mod(floor(time*24.), 24)
+        hh   = hh + mod(floor(tmp*24.), 24)
         DD   = DD + floor(hh/24.)
         hh   = mod(hh, 24)
 
-        time = floor(time_in)
-        YYYY = YYYY + floor((DD-1+time)/365.)
-        DD   = mod((DD+time),365.)
+        tmp  = floor(time_in)
+        YYYY = YYYY + floor((DD-1+tmp)/365.)
+        DD   = mod((DD+tmp),365.)
 
         if (DD==0) then
           MM = 12
