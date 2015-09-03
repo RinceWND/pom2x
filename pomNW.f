@@ -1034,13 +1034,17 @@ C     The following data are needed for a seamless restart. if nread=1,
 C     data had been created by a previous run (see write(71) at end of
 C     this program). nread=0 denotes a first time run.
 C
-      if(nread.eq.1)
-     $  read(70) time0,
+      if(nread.eq.1) then
+        open(70, file=trim(pth_wrk)//trim(ptf_rst), action='read'
+     $          ,form='unformatted')
+        read(70) time0,
      $           wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
      $           utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,
      $           adx2d,ady2d,advua,advva,
      $           km,kh,kq,l,q2,q2b,aam,q2l,q2lb
      $          ,wetmask,wmarsh   !lyo:!wad:
+        close(70)
+      end if
 C
       do j=1,jm
         do i=1,im
@@ -2004,6 +2008,21 @@ C
           call cpu_time(slice_b)
 !
         endif
+!
+        if (mod(time,bkp_gap).eq.0) then
+          if (iint.ne.iend) then
+            write(*,*) "[*] Backing up..."
+            open(71,file=trim(pth_wrk)//trim(pth_bkp)
+     $                 //trim(title)//'.restart.bkp',
+     $              form='unformatted',position='rewind')
+            write(71) time,
+     $        wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
+     $        utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,adx2d,ady2d,advua,advva,
+     $        km,kh,kq,l,q2,q2b,aam,q2l,q2lb,
+     $        wetmask,wmarsh    ! WAD
+            close(71)
+          end if
+        end if
 C
 C     End of print section
 C
@@ -2044,11 +2063,16 @@ C
 clyo:
 !     call powsave
 c
+      write(*,*) "[ ] Writing restart file..."
+      open(71,file=trim(pth_wrk)//trim(pth_bkp)
+     $           //trim(title)//'.restart.bkp',
+     $        form='unformatted',position='rewind')
       write(71) time,
      $  wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
      $  utb,vtb,u,ub,w,v,vb,t,tb,s,sb,rho,adx2d,ady2d,advua,advva,
      $  km,kh,kq,l,q2,q2b,aam,q2l,q2lb
      $ ,wetmask,wmarsh   !lyo:!wad:
+      close(71)
 C
 C     Close netCDF file:
 C
