@@ -7964,7 +7964,7 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !      cff = cff/im/jm/kb
 !      write(*,*) "Mean difference in densities: ", cff
       call check( nf90_close(ncid) )
-!     Override tclim and sclim with IC.
+!     Override tclim and sclim with IC. Or better comment out annual mean calculations.
       tclim = t
       sclim = s
 
@@ -9515,7 +9515,7 @@ C
 !       If climatological cycle is less than 12 we need to warp.    !TODO: make cycling in days. It should be easier and more flexible.
 !
         if (clm_cycle<12) then
-          mi = mod(mi-m0, clm_cycle)+m0
+          mi = modulo(mi-m0, clm_cycle)+m0
         end if
 !
       end subroutine
