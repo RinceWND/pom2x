@@ -8307,6 +8307,7 @@ C
 
           call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
 
         end if
 
