@@ -8288,23 +8288,40 @@ C
         end if
 !
         if (mode.ge.3) then
-        call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
+
+          call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+
         end if
+
         call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
         call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
 !        call check( nf90_def_var(ncid, "T_S",
 !     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
 !        call check( nf90_def_var(ncid, "S_S",
@@ -8317,11 +8334,13 @@ C
 !     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
 !        call check( nf90_def_var(ncid, "ELW",
 !     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
+
         call check( nf90_def_var(ncid, "PSI_nw",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_def_var(ncid, "PSI_ew",
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
         call check( nf90_enddef(ncid) )
+!
         if (mode.ge.3) then
         ! Calculate Depth array
           do k=1,kb
