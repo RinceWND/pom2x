@@ -738,7 +738,7 @@ C
 !                                                                      !
 !     Check iproblem & nwad compatibility:                             !
 !                                                                      !
-      if ( iproblem<=11 .and. iproblem>=19 ) then
+      if ( iproblem<=11 .or. iproblem>=19 ) then
         if( (iproblem.ne.41).and.(nwad.eq.1) )then !lyo:_20080415:
         write(6,'('' iproblem   = '',i10)') iproblem
         write(6,'('' nwad       = '',i10)') nwad
