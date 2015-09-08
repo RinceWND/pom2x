@@ -2048,14 +2048,14 @@ C
 C
 C     Set levels for output:
 C
-      ko(1)=1
-      ko(2)=2
-      ko(3)=kb/2
-      ko(4)=kb-1
-      ko(5)=kb
-C
-      call prxyz('Vertical velocity, w                    ',
-     $           time,w       ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
+!      ko(1)=1
+!      ko(2)=2
+!      ko(3)=kb/2
+!      ko(4)=kb-1
+!      ko(5)=kb
+!C
+!      call prxyz('Vertical velocity, w                    ',
+!     $           time,w       ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
 C
 C     call prxyz('Turbulent kinetic energy x 2, q2        ',
 C    $           time,q2      ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
@@ -8726,10 +8726,10 @@ C
      $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
 
 !    Debug vars
-        call check( nf90_def_var(ncid, "wusurf",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "wvsurf",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "wusurf",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "wvsurf",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
 
         call check( nf90_enddef(ncid) )
 !
@@ -8981,12 +8981,12 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ptime/)
      $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "wusurf", varid) )
-        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
-     $   ,(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "wvsurf", varid) )
-        call check( nf90_put_var(ncid, varid, wvsurf, (/1,1,ptime/)
-     $   ,(/im,jm,1/)) )
+!        call check( nf90_inq_varid(ncid, "wusurf", varid) )
+!        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
+!     $   ,(/im,jm,1/)) )
+!        call check( nf90_inq_varid(ncid, "wvsurf", varid) )
+!        call check( nf90_put_var(ncid, varid, wvsurf, (/1,1,ptime/)
+!     $   ,(/im,jm,1/)) )
 !        call check( nf90_inq_varid(ncid, "T_S", varid) )
 !        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
 !     $   ,(/im,kb,1/)) )
