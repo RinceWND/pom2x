@@ -1211,7 +1211,13 @@ C     wssurf, swrad and vflux.
       if (iproblem>=11 .and. iproblem<=19) then
 !
         if (BC%clm) call bry(1)
-        if (BC%ssf) call bry(45)    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
+        if (BC%ssf) then    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
+          if (nbct==3 .and. nbcs==3) then
+            call bry(45)
+          else
+            call bry(43)
+          end if          ! Ugly and probably incorrect but will do for now.
+        end if
         if (BC%wnd) call flux(5)
 !
       else
@@ -7891,55 +7897,55 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       elb = 0.
       el  = 0.
 
-      call check( nf90_inq_varid(ncid, "zeta", varid) )
-
-      if (BC%ipl) then
-
-        if (mi.ne.1) then
-          call check( nf90_get_var(ncid, varid, datr,
-     $                            (/1,1,1,mi-1/), (/im,jm,1,2/)) )
-        else
-          call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
-     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
-          call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
-     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
-        end if
-
-        elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
-     $          -datr(:,:,1,1))
-      else
-        call check(nf90_get_var(ncid,varid,elb,(/1,1,mi/),(/im,jm,1/)))
-      end if
-      el = elb      ! rwnd: Is this correct?
+!      call check( nf90_inq_varid(ncid, "zeta", varid) )
 !
-!    Calculate annual means
+!      if (BC%ipl) then
 !
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-      do mm=1,12
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
-        do i=1,im
-          do j=1,jm
-            do k=1,kb
-              tclim(i,j,k) = tclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-            end do
-          end do
-        end do
-      end do
-      tclim = tclim/365.25
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-      do mm=1,12
-        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
-        do i=1,im
-          do j=1,jm
-            do k=1,kb
-              sclim(i,j,k) = sclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-            end do
-          end do
-        end do
-      end do
-      sclim = sclim/365.25
+!        if (mi.ne.1) then
+!          call check( nf90_get_var(ncid, varid, datr,
+!     $                            (/1,1,1,mi-1/), (/im,jm,1,2/)) )
+!        else
+!          call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
+!     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
+!          call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
+!     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
+!        end if
+!
+!        elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
+!     $          -datr(:,:,1,1))
+!      else
+!        call check(nf90_get_var(ncid,varid,elb,(/1,1,mi/),(/im,jm,1/)))
+!      end if
+!      el = elb      ! rwnd: Is this correct?
+!!
+!!    Calculate annual means
+!!
+!      call check( nf90_inq_varid(ncid, "temp", varid) )
+!      do mm=1,12
+!        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
+!     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
+!        do i=1,im
+!          do j=1,jm
+!            do k=1,kb
+!              tclim(i,j,k) = tclim(i,j,k)+datr(i,j,k,1)*lom(mm)
+!            end do
+!          end do
+!        end do
+!      end do
+!      tclim = tclim/365.25
+!      call check( nf90_inq_varid(ncid, "salt", varid) )
+!      do mm=1,12
+!        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
+!     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
+!        do i=1,im
+!          do j=1,jm
+!            do k=1,kb
+!              sclim(i,j,k) = sclim(i,j,k)+datr(i,j,k,1)*lom(mm)
+!            end do
+!          end do
+!        end do
+!      end do
+!      sclim = sclim/365.25
 !      call check( nf90_close(ncid) )
 !
 !    Read annual means
@@ -8116,7 +8122,13 @@ C
       if (BC%clm) call bry(1)
       if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
-      call bry(45)  ! Get fsurf anyway since it must be initialised.
+!      if (nbct==3 .and. nbcs==3) then   ! <-- nbc* are undefined here. Defined only in main program scope.
+!        call bry(45)  ! Get fsurf anyway since it must be initialised.
+!      else
+!        write(*,*) '[!] WARNING! Cases except from nbc* = 3',
+!     $               ' read ICOADS sst and sss.'
+!        call bry(43)
+!      end if
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -8492,7 +8504,13 @@ C
       if (BC%clm) call bry(1)
       if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
-      call bry(45)  ! Get fsurf anyway since it must be initialised.
+!      if (nbct==3 .and. nbcs==3) then
+!        call bry(45)  ! Get fsurf anyway since it must be initialised.
+!      else
+!        write(*,*) '[!] WARNING! Cases except from nbc* = 3',
+!     $               ' read ICOADS sst and sss.'
+!        call bry(43)
+!      end if
 C
 C
 C --- the following grids are needed only for netcdf plotting
