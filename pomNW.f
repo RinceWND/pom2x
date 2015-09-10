@@ -9289,8 +9289,8 @@ C
 
             else
 
-              call check( nf90_get_var(ncid, varid, tclim,
-     $                            (/1,1,mi/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $             tclim(:,:,kbm1:1:-1),(/1,1,1,mi/),(/im,jm,kbm1,1/)) )
 
             end if
 !
@@ -9312,8 +9312,8 @@ C
 
             else
 
-              call check( nf90_get_var(ncid, varid, sclim,
-     $                            (/1,1,mi/), (/im,jm,1/)) )
+              call check( nf90_get_var(ncid, varid,
+     $             sclim(:,:,kbm1:1:-1),(/1,1,1,mi/),(/im,jm,kbm1,1/)) )
 
             end if
 
