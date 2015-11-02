@@ -9319,6 +9319,9 @@ C
 
             call check( nf90_close(ncid) )
 !
+            tclim(:,:,k) = tclim(:,:,kbm1)
+            sclim(:,:,k) = sclim(:,:,kbm1)
+!
 !         Refresh rmean
 !
             call dens(sclim, tclim, rmean)
