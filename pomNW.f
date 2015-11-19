@@ -673,7 +673,7 @@ C
 !
       BC%ipl = .true.
       BC%wnd = .true.
-      BC%lrd = .true.
+      BC%lrd = .true.   ! TODO: implement lrad
       BC%srd = .true.
       BC%ssf = .false.
       BC%vap = .false.
@@ -899,6 +899,10 @@ C
         call ncdf2ic
       else if(iproblem.eq.12) then  !rwnd:unstratified case
         call ncdf2ic_unstrat
+      else if(iproblem.eq.13) then  !rwnd:inversed wind stress
+        call ncdf2ic
+      else if(iproblem.eq.14) then  !rwnd:pom grid generated ics
+        call ncdf2ic_pom
       else if(iproblem.eq.41) then  !lyo:!wad:
         call wadseamount
       else
@@ -1084,7 +1088,7 @@ C
       open(49, file=filename)
       call time2date(time, time_start, timestamp)
       write(49,*) timestamp, ";",
-     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
+     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
 C
 C-----------------------------------------------------------------------
 C
@@ -1210,7 +1214,11 @@ C     wssurf, swrad and vflux.
 
       if (iproblem>=11 .and. iproblem<=19) then
 !
-        if (BC%clm) call bry(1)
+        if (BC%clm) then
+            if (iproblem/=12) then
+                call bry(1)
+            end if
+        end if
         if (BC%ssf) then    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
           if (nbct==3 .and. nbcs==3) then
             call bry(45)
@@ -1218,7 +1226,13 @@ C     wssurf, swrad and vflux.
             call bry(43)
           end if          ! Ugly and probably incorrect but will do for now.
         end if
-        if (BC%wnd) call flux(5)
+        if (BC%wnd) then
+          call flux(5)
+          if (iproblem==13) then
+            wusurf = -wusurf
+            wvsurf = -wvsurf
+          end if
+        end if
 !
       else
 C     Introduce simple wind stress. Value is negative for westerly or
@@ -7897,26 +7911,26 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       elb = 0.
       el  = 0.
 
-!      call check( nf90_inq_varid(ncid, "zeta", varid) )
-!
-!      if (BC%ipl) then
-!
-!        if (mi.ne.1) then
-!          call check( nf90_get_var(ncid, varid, datr,
-!     $                            (/1,1,1,mi-1/), (/im,jm,1,2/)) )
-!        else
-!          call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
-!     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
-!          call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
-!     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
-!        end if
-!
-!        elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
-!     $          -datr(:,:,1,1))
-!      else
-!        call check(nf90_get_var(ncid,varid,elb,(/1,1,mi/),(/im,jm,1/)))
-!      end if
-!      el = elb      ! rwnd: Is this correct?
+      call check( nf90_inq_varid(ncid, "zeta", varid) )
+
+      if (BC%ipl) then
+
+        if (mi.ne.1) then
+          call check( nf90_get_var(ncid, varid, datr,
+     $                            (/1,1,1,mi-1/), (/im,jm,1,2/)) )
+        else
+          call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
+     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
+          call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
+     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
+        end if
+
+        elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
+     $          -datr(:,:,1,1))
+      else
+        call check(nf90_get_var(ncid,varid,elb,(/1,1,mi/),(/im,jm,1/)))
+      end if
+      el = elb      ! rwnd: Is this correct?
 !!
 !!    Calculate annual means
 !!
@@ -7988,8 +8002,8 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
          pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
       enddo; enddo; enddo
 !
-      call dens(sclim,tclim,rmean)
-!
+! rmean must be read in bry
+! Otherwise you MUST read or calculate rmean yourself. But for that you MUST use t(z) and s(z) that are functions of z-coordiante, not sigma.
       write(*, *) "[+] Finished reading IC."
 C
 C --- print vertical grid distribution
@@ -8009,7 +8023,6 @@ C
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
             aam2d(i,j)=aam(i,j,1)   ! RWND: aam is initialized with aam_init already
-            !elb(i,j)=0.            ! RWND (Read few lines above or initialized to zero)
             etb(i,j)=elb(i,j)       ! RWND //PV: 0.
             dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
@@ -8048,7 +8061,7 @@ C
 !        fsm( i,jm) = 0.0
 !      end do
 !!      Recalculate masks for u and v
-!!      TODO: this can be done simplier by touching only near-boundary cells
+!!      TODO: this can be done simpler by touching only near-boundary cells
 !      do j=2,jm
 !        do i=2,im
 !          dum(i,j)=fsm(i,j)*fsm(i-1,j)
@@ -8221,7 +8234,7 @@ C
           stop "Stopped"
         end if
       end subroutine check
-      end
+      end subroutine ncdf2ic
 !
 !
 !rwnd: UNSTRATIFIED TEST CASE
@@ -8282,14 +8295,14 @@ C--- 1D ---
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
-      call check( nf90_inq_varid(ncid, "temp", varid) )
-      call check( nf90_get_var(ncid, varid, t(:,:,kbm1:1:-1)) )
-      t(:,:,kb) = t(:,:,kbm1)
-      write(*, *) "[O] potential temperature retrieved"
-      call check( nf90_inq_varid(ncid, "salt", varid) )
-      call check( nf90_get_var(ncid, varid, s(:,:,kbm1:1:-1)) )
-      s(:,:,kb) = s(:,:,kbm1)
-      write(*, *) "[O] salinity retrieved"
+!    Set temperature IC
+!
+      t = 15.
+!
+!    Set salinity IC
+!
+      s = 35.
+!
       call check( nf90_close(ncid) )
 
       filename = trim(pth_wrk)//trim(pth_grd)//
@@ -8308,6 +8321,10 @@ C--- 2D ---
       write(*, *) "[O] free surface mask retrieved"
       call check( nf90_inq_varid(ncid, "h", varid) )
       call check( nf90_get_var(ncid, varid, h) )
+!    Make flat bottom (debug reason)
+!      h = hmax
+      fsm(:,1) = 0
+      fsm(1,:) = 0
 !      h = -h       ! If using nwad=0 this line as well as `call wadh` isn't needed.
       do i=1,im
         do j=1,jm
@@ -8346,14 +8363,6 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !      call upd_mnth(time, BC%ipl)
 !      call clm_warp
 !
-!    Set temperature IC
-!
-      t = 15.
-!
-!    Set salinity IC
-!
-      s = 35.
-!
 !   Read elevation
 !
       elb = 0.
@@ -8363,6 +8372,9 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !     Override tclim and sclim with IC. Or better comment out annual mean calculations.
       tclim = t
       sclim = s
+
+      tsurf(:,:) = tclim(:,:,1)
+      ssurf(:,:) = sclim(:,:,1)
 
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
@@ -8487,8 +8499,8 @@ C
 C     Set initial conditions:
 C       and apply free-surface mask ! rwnd:
       do k=1,kb
-        t(:,:,k) = t(:,:,k)*fsm(:,:)
-        s(:,:,k) = s(:,:,k)*fsm(:,:)
+        !t(:,:,k) = t(:,:,k)*fsm(:,:)    ! whut? why?
+        !s(:,:,k) = s(:,:,k)*fsm(:,:)    !
         do j=1,jm
           do i=1,im
             tb(i,j,k)=t(i,j,k)
@@ -8501,7 +8513,6 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
-      if (BC%clm) call bry(1)
       if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
 !      if (nbct==3 .and. nbcs==3) then
@@ -8604,6 +8615,358 @@ C
         end if
       end subroutine check
       end
+!
+      subroutine ncdf2ic_pom
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Sets up my own problem.                             *
+C *                                                                    *
+C * This example reads IC from NetCDF files, generated by <deleted>    *
+C * Only minimal number of fields are read,                            *
+C * while others are calculated here.  TODO: Read as much as we can    *
+C *                                                                    *
+C **********************************************************************
+C
+      use netcdf
+      implicit none
+C
+      include 'pomNW.c'
+C
+      real datr(im, jm, kbm1, 2)
+      real datu(imm1, jm, kbm1, 2)
+      real datv(im, jmm1, kbm1, 2)
+      character (len = 256) :: filename
+!
+      real rad,re,dlat,dlon,cff
+      integer i,j,k,mm,ncid,varid
+      real lom(12)   ! length of month
+      data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
+      rad=0.01745329
+      re=6371.E3
+!
+      write(6,'(/,'' Read grid and initial conditions '',/)')
+C
+C--- 1D ---
+      filename = "/home/pkharlamov/POM/pom_in/pom_grd.nc"
+      write(*,*) "\\",trim(filename)
+      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+      call check( nf90_inq_varid(ncid, "z", varid) )
+      call check( nf90_get_var(ncid, varid, z) )
+      write(*, *) "[O] z retrieved"
+      call check( nf90_inq_varid(ncid, "dz", varid) )
+      call check( nf90_get_var(ncid, varid, dz) )
+      write(*, *) "[O] dz retrieved"
+      call check( nf90_inq_varid(ncid, "zz", varid) )
+      call check( nf90_get_var(ncid, varid, zz) )
+      write(*, *) "[O] zz retrieved"
+      call check( nf90_inq_varid(ncid, "dzz", varid) )
+      call check( nf90_get_var(ncid, varid, dzz) )
+      write(*, *) "[O] dzz retrieved"
+      call check( nf90_inq_varid(ncid, "h", varid) )
+      call check( nf90_get_var(ncid, varid, h) )
+      write(*, *) "[O] depth retrieved"
+      call check( nf90_inq_varid(ncid, "fsm", varid) )
+      call check( nf90_get_var(ncid, varid, fsm) )
+      write(*, *) "[O] free surface mask retrieved"
+      call check( nf90_inq_varid(ncid, "longitude", varid) )
+      call check( nf90_get_var(ncid, varid, east_e) )
+      write(*, *) "[O] longitude retrieved"
+      call check( nf90_inq_varid(ncid, "latitude", varid) )
+      call check( nf90_get_var(ncid, varid, north_e) )
+      write(*, *) "[O] latitude retrieved"
+      call check( nf90_close(ncid) )
+
+      filename = "/home/pkharlamov/POM/pom_in/pom_clm.nc"
+      write(*,*) "\\",trim(filename)
+      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+C--- 3D ---
+      call check( nf90_inq_varid(ncid, "T", varid) )
+      call check( nf90_get_var(ncid, varid, t, (/1,1,1,1/),
+     &                                         (/im,jm,kb,1/)) )
+      write(*, *) "[O] potential temperature retrieved"
+      call check( nf90_inq_varid(ncid, "S", varid) )
+      call check( nf90_get_var(ncid, varid, s, (/1,1,1,1/),
+     &                                         (/im,jm,kb,1/)) )
+      write(*, *) "[O] salinity retrieved"
+      call check( nf90_inq_varid(ncid, "meanR", varid) )
+      call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,1/),
+     &                                         (/im,jm,kb,1/)) )
+      write(*, *) "[O] rmean retrieved"
+      call check( nf90_inq_varid(ncid, "wU", varid) )
+      call check( nf90_get_var(ncid, varid, wusurf, (/1,1,1/),
+     &                                            (/im,jm,1/)) )
+      write(*, *) "[O] wusurf retrieved"
+      call check( nf90_inq_varid(ncid, "wV", varid) )
+      call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,1/),
+     &                                            (/im,jm,1/)) )
+      write(*, *) "[O] wvsurf retrieved"
+      call check( nf90_close(ncid) )
+
+!      filename = trim(pth_wrk)//trim(pth_flx)//
+!     $           trim(pfx_dmn)//"roms_frc.nc"
+!      write(*,*) "\\",trim(filename)
+!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+C--- (Constant) Wind stress
+!      call check( nf90_inq_varid(ncid, "sustr", varid) )
+!      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
+!      wusurf(1,:) = wusurf(2,:)*.5
+!      wusurf(:,:) = wusurf(:,:)/rhoref
+!      write(*, *) "[O] Zonal component of momentum flux retrieved"
+!      call check( nf90_inq_varid(ncid, "svstr", varid) )
+!      call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)) )
+!      wvsurf(:,1) = wvsurf(:,2)*.5
+!      wvsurf(:,:) = wvsurf(:,:)/rhoref
+!      write(*, *) "[O] Meridional component of momentum flux retrieved"
+
+C      Simulate from zero elevation to avoid artificial waves during spin-up
+
+!
+!   Read elevation
+!
+      elb = 0.
+      el  = 0.
+
+      tclim = t
+      sclim = s
+
+!----------------------------------------------------------------------!
+!lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
+      do k=1,kbm1; do j=1,jm; do i=1,im
+         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+      enddo; enddo; enddo
+!
+      write(*, *) "[+] Finished reading IC."
+C
+C --- print vertical grid distribution
+C
+      write(6,2)
+    2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
+      write(6,'(''  '',/)')
+      do k=1,kb
+        write(6,3) k,z(k),zz(k),dz(k),dzz(k)
+    3   format((' ',i5,4f10.3))
+      end do
+      write(6,'(''  '',//)')
+C
+C --- calc. Curiolis Parameter
+C
+        do j=1,jm
+          do i=1,im
+            cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
+            aam2d(i,j)=aam(i,j,1)   ! RWND: aam is initialized with aam_init already
+            !elb(i,j)=0.            ! RWND (Read few lines above or initialized to zero)
+            etb(i,j)=elb(i,j)       ! RWND //PV: 0.
+            dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
+          end do
+        end do
+C
+        do j=1,jm
+          do i=2,im-1
+            dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
+     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
+          end do
+            dx(1,j)=dx(2,j)
+            dx(im,j)=dx(im-1,j)
+        end do
+C
+        do i=1,im
+          do j=2,jm-1
+            dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
+     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
+          end do
+            dy(i,1)=dy(i,2)
+            dy(i,jm)=dy(i,jm-1)
+        end do
+C
+C     Calculate areas and masks:
+C
+      !call wadh
+      call areas_masks
+!
+!      Comment the code below to avoid forced closed boundary.
+!      do j=1,jm
+!        fsm( 1, j) = 0.0
+!        fsm(im, j) = 0.0
+!      end do
+!      do i=1,im
+!        fsm( i, 1) = 0.0
+!        fsm( i,jm) = 0.0
+!      end do
+!!      Recalculate masks for u and v
+!!      TODO: this can be done simpler by touching only near-boundary cells
+!      do j=2,jm
+!        do i=2,im
+!          dum(i,j)=fsm(i,j)*fsm(i-1,j)
+!          dvm(i,j)=fsm(i,j)*fsm(i,j-1)
+!        end do
+!      end do
+!!!!!        call slpmax
+C
+C --- calc. surface & lateral BC from climatology
+C
+!        do j=1,jm
+!          do i=1,im
+!             tsurf(i,j)=t(i,j,1)
+!             ssurf(i,j)=s(i,j,1)
+!            do k=1,kb
+!              tclim(i,j,k)=t(i,j,k)
+!              sclim(i,j,k)=s(i,j,k)
+!            end do
+!          end do
+!        end do
+C
+C                    --- EAST & WEST BCs ---
+        do j=1,jm
+            ele(j)=0.
+            elw(j)=0.
+C --- other vel. BCs (fixed in time) can be specified here
+            do k=1,kb
+              ubw(j,k)=0.                ! RWND
+              ube(j,k)=0.                !
+              uabe(j) =0.                ! RWND
+              uabw(j) =0.                !  Calculate vertical averages
+              tbw(j,k)=tclim(1,j,k)
+              sbw(j,k)=sclim(1,j,k)
+              tbe(j,k)=tclim(im,j,k)
+              sbe(j,k)=sclim(im,j,k)
+            end do
+        end do
+C                    --- NORTH & SOUTH BCs ---
+        do i=1,im
+              els(i)=0. !elb(i,1)   ! RWND
+              eln(i)=0. !elb(i,jm)  !
+            do k=1,kb
+              vbs(i,k)=0.                ! RWND
+              vbn(i,k)=0.                !
+              vabs(j) =0.                ! RWND
+              vabn(j) =0.                !  Calculate vertical means
+              tbs(i,k)=tclim(i,1,k)
+              sbs(i,k)=sclim(i,1,k)
+              tbn(i,k)=tclim(i,jm,k)
+              sbn(i,k)=sclim(i,jm,k)
+            end do
+        end do
+C
+C     Set initial conditions:
+C       and apply free-surface mask ! rwnd:
+      do k=1,kb
+        t(:,:,k) = t(:,:,k)*fsm(:,:)
+        s(:,:,k) = s(:,:,k)*fsm(:,:)
+        do j=1,jm
+          do i=1,im
+            tb(i,j,k)=t(i,j,k)
+            sb(i,j,k)=s(i,j,k)
+            ub(i,j,k)=u(i,j,k)
+            vb(i,j,k)=v(i,j,k)
+          end do
+        end do
+      end do
+C
+      call dens(sb,tb,rho)
+!      rmean = rho   ! remove the line to avoid rmean overriding
+      if (BC%clm) call bry(1)
+      if (BC%wnd) call flux(5)
+!     Get tsurf and ssurf
+!      if (nbct==3 .and. nbcs==3) then   ! <-- nbc* are undefined here. Defined only in main program scope.
+!        call bry(45)  ! Get fsurf anyway since it must be initialised.
+!      else
+!        write(*,*) '[!] WARNING! Cases except from nbc* = 3',
+!     $               ' read ICOADS sst and sss.'
+!        call bry(43)
+!      end if
+C
+C
+C --- the following grids are needed only for netcdf plotting
+C
+C     Corner of cell points:
+C
+      do j=2,jm
+        do i=2,im
+          east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
+     $                  +east_e(i,j-1)+east_e(i-1,j-1))/4.e0
+          north_c(i,j)=(north_e(i,j)+north_e(i-1,j)
+     $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
+        end do
+      end do
+C
+C
+C     Extrapolate ends (approx.):
+C
+      do i=2,im
+        east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
+        north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
+      end do
+        east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
+C
+      do j=2,jm
+        east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
+        north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
+      end do
+        north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
+C
+C     u-points:
+C
+      do j=1,jm-1
+        do i=1,im
+          east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
+          north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
+        end do
+      end do
+C
+C     Extrapolate ends:
+C
+      do i=1,im
+        east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
+        north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
+      end do
+C
+C     v-points:
+C
+      do j=1,jm
+        do i=1,im-1
+          east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
+          north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
+        end do
+      end do
+C
+C     Extrapolate ends:
+C
+      do j=1,jm
+        east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
+        north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
+      end do
+C
+C     rot is the angle (radians, anticlockwise) of the i-axis relative
+C     to east, averaged to a cell centre: (only needed for CDF plotting)
+C
+      do j=1,jm
+        do i=1,im-1
+          rot(i,j)=0.
+          dlat=north_e(i+1,j)-north_e(i,j)
+          dlon= east_e(i+1,j)- east_e(i,j)
+           if(dlon.ne.0.) rot(i,j)=atan(dlat/dlon)
+        end do
+       rot(im,j)=rot(im-1,j)
+      end do
+C
+C     Set lateral boundary conditions, for use in subroutine bcond
+C     set all=0 for closed BCs.
+C     Values=0 for vel BC only, =1 is combination of vel+elev.
+      rfe=0.e0
+      rfw=0.e0
+      rfn=0.e0
+      rfs=0.e0  ! Meaningless with RaS boundary conditions.
+C
+      return
+
+      contains
+      subroutine check(status)
+        integer, intent ( in) :: status
+        if(status /= nf90_noerr) then
+          stop "Stopped"
+        end if
+      end subroutine check
+      end subroutine ncdf2ic_pom
 !
       subroutine ic2ncdf
 C **********************************************************************
@@ -8708,6 +9071,14 @@ C
           call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
 
           call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "tclim", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "sclim", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
 
@@ -8989,6 +9360,14 @@ C
         call check( nf90_inq_varid(ncid, "SSR", varid) )
         call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
      $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+
+        call check( nf90_inq_varid(ncid, "tclim", varid) )
+        call check( nf90_put_var(ncid, varid, tclim(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "sclim", varid) )
+        call check( nf90_put_var(ncid, varid, sclim(:,:,lyrs)
+     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+
         end if
         call check( nf90_inq_varid(ncid, "EL", varid) )
         call check( nf90_put_var(ncid, varid, elb, (/1,1,ptime/)
@@ -9318,9 +9697,27 @@ C
             end if
 
             call check( nf90_close(ncid) )
+! Read rmean from pom grid provided file.
+            filename = trim(pth_wrk)//trim(pth_grd)
+     $                 //trim(pfx_dmn)//"pom_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+            call check( nf90_inq_varid(ncid, "meanR", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $           rmean,(/1,1,1,mi/),(/im,jm,kbm1,1/)) )
+
+            call check( nf90_close(ncid) )
 !
-            tclim(:,:,k) = tclim(:,:,kbm1)
-            sclim(:,:,k) = sclim(:,:,kbm1)
+
+            do k=1,kbm1
+                tclim(:,:,k) = tclim(:,:,k)*fsm(:,:)
+                sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
+                rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
+            end do
+
+            tclim(:,:,kb) = tclim(:,:,kbm1)
+            sclim(:,:,kb) = sclim(:,:,kbm1)
+            rmean(:,:,kb) = rmean(:,:,kbm1)
 !
 !         Refresh rmean
 !
@@ -9791,7 +10188,7 @@ C
             end if
           end subroutine check
 C
-      end
+      end subroutine bry
 !
       subroutine upd_mnth(tmp, ipl)
 
