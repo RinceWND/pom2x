@@ -661,6 +661,7 @@ C
 !     Initialise bry read flags
 !
       rf_clm   = 0  ! note that this one is climate and not bry.
+      rf_rmn   = 0  ! this one is rmean
       rf_el    = 0
       rf_uv    = 0
       rf_ts    = 0
@@ -682,6 +683,9 @@ C
       BC%bnd%est = .false.
       BC%bnd%sth = .false.
       BC%bnd%wst = .false.
+
+      IC%el = .false.
+      IC%u  = .false.
 C
 C     End of input of constants
 C***********************************************************************
@@ -7869,7 +7873,6 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
           call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,2),
      $                            (/1,1,1,1/), (/im,jm,kbm1,1/)) )
         end if
-!    FSM is not defined yet! Be careful not to apply it!
         t(:,:,1:kbm1) = datr(:,:,1:kbm1,1)+fac*(datr(:,:,1:kbm1,2)
      $                 -datr(:,:,1:kbm1,1))
 
@@ -7911,91 +7914,32 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       elb = 0.
       el  = 0.
 
-      call check( nf90_inq_varid(ncid, "zeta", varid) )
+      if (IC%el) then
 
-      if (BC%ipl) then
+        call check( nf90_inq_varid(ncid, "zeta", varid) )
 
-        if (mi.ne.1) then
-          call check( nf90_get_var(ncid, varid, datr,
-     $                            (/1,1,1,mi-1/), (/im,jm,1,2/)) )
+        if (BC%ipl) then
+
+          if (mi.ne.1) then
+            call check( nf90_get_var(ncid, varid, datr,
+     $                              (/1,1,1,mi-1/), (/im,jm,1,2/)) )
+          else
+            call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
+     $                              (/1,1,1,12/),(/im,jm,1,1/)) )
+            call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
+     $                              (/1,1,1,1/), (/im,jm,1,1/)) )
+          end if
+
+          elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)-datr(:,:,1,1))
         else
-          call check( nf90_get_var(ncid, varid, datr(:,:,1,1),
-     $                            (/1,1,1,12/),(/im,jm,1,1/)) )
-          call check( nf90_get_var(ncid, varid, datr(:,:,1,2),
-     $                            (/1,1,1,1/), (/im,jm,1,1/)) )
+          call check( nf90_get_var(ncid, varid, elb,
+     $                            (/1,1,mi/),(/im,jm,1/)) )
         end if
+        el = elb      ! rwnd: Is this correct?
 
-        elb(:,:) = datr(:,:,1,1)+fac*(datr(:,:,1,2)
-     $          -datr(:,:,1,1))
-      else
-        call check(nf90_get_var(ncid,varid,elb,(/1,1,mi/),(/im,jm,1/)))
       end if
-      el = elb      ! rwnd: Is this correct?
-!!
-!!    Calculate annual means
-!!
-!      call check( nf90_inq_varid(ncid, "temp", varid) )
-!      do mm=1,12
-!        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-!     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=1,kb
-!              tclim(i,j,k) = tclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-!            end do
-!          end do
-!        end do
-!      end do
-!      tclim = tclim/365.25
-!      call check( nf90_inq_varid(ncid, "salt", varid) )
-!      do mm=1,12
-!        call check( nf90_get_var(ncid, varid, datr(:,:,kbm1:1:-1,1),
-!     $                          (/1,1,1,mi/),(/im,jm,kbm1,1/)) )
-!        do i=1,im
-!          do j=1,jm
-!            do k=1,kb
-!              sclim(i,j,k) = sclim(i,j,k)+datr(i,j,k,1)*lom(mm)
-!            end do
-!          end do
-!        end do
-!      end do
-!      sclim = sclim/365.25
-!      call check( nf90_close(ncid) )
-!
-!    Read annual means
-!
-!      filename = trim(pth_wrk)//trim(pth_grd)//
-!     $           trim(pfx_dmn)//"pom_ann.nc"
-!      write(*,*) "\\",trim(filename)
-!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 
-!      call check( nf90_inq_varid(ncid, "t_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, tclim) )
-!      call check( nf90_inq_varid(ncid, "s_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, sclim) )
-!      call check( nf90_inq_varid(ncid, "r_ann", varid) )
-!      call check( nf90_get_var(ncid, varid, rmean) )
-!    Test rmean calculations
-!      call dens(sclim,tclim,rho)
-!      rho = rmean-rho
-!      cff = 0.
-!      dlon = 0.
-!      do i=1,im
-!        do j=1,jm
-!          do k=1,kb
-!            cff = cff+rho(i,j,k)
-!            if (dlon<abs(rho(i,j,k))) dlon=rho(i,j,k)
-!          end do
-!        end do
-!      end do
-!      write(*,*) "Max difference in densities:  ", dlon
-!      cff = cff/im/jm/kb
-!      write(*,*) "Mean difference in densities: ", cff
       call check( nf90_close(ncid) )
-!     Override tclim and sclim with IC. Or better comment out annual mean calculations.
-      tclim = t
-      sclim = s
-
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
       do k=1,kbm1; do j=1,jm; do i=1,im
@@ -8051,6 +7995,11 @@ C
       !call wadh
       call areas_masks
 !
+! Call these before copy TS to boundaries.
+!
+      call bry(0)
+      if (BC%clm) call bry(1)
+      if (BC%wnd) call flux(5)
 !      Comment the code below to avoid forced closed boundary.
 !      do j=1,jm
 !        fsm( 1, j) = 0.0
@@ -8132,8 +8081,6 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
-      if (BC%clm) call bry(1)
-      if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
 !      if (nbct==3 .and. nbcs==3) then   ! <-- nbc* are undefined here. Defined only in main program scope.
 !        call bry(45)  ! Get fsurf anyway since it must be initialised.
@@ -8864,6 +8811,7 @@ C       and apply free-surface mask ! rwnd:
 C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
+      call bry(0)   ! always read rmean
       if (BC%clm) call bry(1)
       if (BC%wnd) call flux(5)
 !     Get tsurf and ssurf
@@ -9074,13 +9022,15 @@ C
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
 
-          call check( nf90_def_var(ncid, "tclim", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
 
-          call check( nf90_def_var(ncid, "sclim", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+
+          call check( nf90_def_var(ncid, "wvsurf", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
 
         end if
 
@@ -9361,12 +9311,15 @@ C
         call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
      $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
 
-        call check( nf90_inq_varid(ncid, "tclim", varid) )
-        call check( nf90_put_var(ncid, varid, tclim(:,:,lyrs)
+        call check( nf90_inq_varid(ncid, "rmean", varid) )
+        call check( nf90_put_var(ncid, varid, rmean(:,:,lyrs)
      $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "sclim", varid) )
-        call check( nf90_put_var(ncid, varid, sclim(:,:,lyrs)
-     $   ,(/1,1,1,ptime/),(/im,jm,nlyrs,1/)) )
+        call check( nf90_inq_varid(ncid, "wusurf", varid) )
+        call check( nf90_put_var(ncid, varid, wusurf(:,:)
+     $   ,(/1,1,ptime/),(/im,jm,1/)) )
+        call check( nf90_inq_varid(ncid, "wvsurf", varid) )
+        call check( nf90_put_var(ncid, varid, wvsurf(:,:)
+     $   ,(/1,1,ptime/),(/im,jm,1/)) )
 
         end if
         call check( nf90_inq_varid(ncid, "EL", varid) )
@@ -9639,7 +9592,32 @@ C
 
 C
       select case (idx)
-C
+!
+          case (0)            ! Read rmean from pom grid provided file.
+
+          if (mi.ne.rf_rmn) then
+
+            rf_rmn = mi
+
+            filename = trim(pth_wrk)//trim(pth_grd)
+     $                 //trim(pfx_dmn)//"pom_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+            call check( nf90_inq_varid(ncid, "meanR", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $           rmean,(/1,1,1,mi/),(/im,jm,kbm1,1/)) )
+
+            call check( nf90_close(ncid) )
+
+            do k=1,kbm1
+                rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
+            end do
+            rmean(:,:,kb) = rmean(:,:,kbm1)
+
+          end if
+
+          return
+!
         case (1) ! Not a boundary condition but climate
 
           if (mi.ne.rf_clm) then
@@ -9697,31 +9675,15 @@ C
             end if
 
             call check( nf90_close(ncid) )
-! Read rmean from pom grid provided file.
-            filename = trim(pth_wrk)//trim(pth_grd)
-     $                 //trim(pfx_dmn)//"pom_clm.nc"
-            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-
-            call check( nf90_inq_varid(ncid, "meanR", varid) )
-            call check( nf90_get_var(ncid, varid,
-     $           rmean,(/1,1,1,mi/),(/im,jm,kbm1,1/)) )
-
-            call check( nf90_close(ncid) )
 !
 
             do k=1,kbm1
                 tclim(:,:,k) = tclim(:,:,k)*fsm(:,:)
                 sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
-                rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
             end do
 
             tclim(:,:,kb) = tclim(:,:,kbm1)
             sclim(:,:,kb) = sclim(:,:,kbm1)
-            rmean(:,:,kb) = rmean(:,:,kbm1)
-!
-!         Refresh rmean
-!
-            call dens(sclim, tclim, rmean)
 
             write(*,*) "Read climate: ", mi
 

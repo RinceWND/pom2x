@@ -279,9 +279,9 @@ C
       common/misc/ fac, mi, m0, clm_cycle
 !
       integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf
-     $ , rf_el, rf_clm
+     $ , rf_el, rf_clm, rf_rmn
       common/upd_cond/ rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur
-     $ , rf_wsurf, rf_el, rf_clm
+     $ , rf_wsurf, rf_el, rf_clm, rf_rmn
 !
 !    : Boundary conditions parameters
 !
@@ -305,7 +305,14 @@ C
       end type                  ! rwnd:
       type (Tbc) BC
 
-      common/flags/ BC
+      type Tic
+      sequence
+        logical el ! read elevation from file
+        logical u  ! read current velocities (and calculate barotropic velocities)
+      end type
+      type (Tic) IC
+
+      common/flags/ BC, IC
 C-----------------------------------------------------------------------
 C
 C     End of common blocks
