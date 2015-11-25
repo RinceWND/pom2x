@@ -1216,6 +1216,7 @@ C     wssurf, swrad and vflux.
       call upd_mnth(time, BC%ipl)
       call clm_warp
 
+      call bry(0)
       if (iproblem>=11 .and. iproblem<=19) then
 !
         if (BC%clm) then
