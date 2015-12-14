@@ -137,7 +137,10 @@ C
      $  sb             ,sclim          ,s              ,tb             ,
      $  tclim          ,t              ,ub             ,uf             ,
      $  u              ,vb             ,vf             ,v              ,
-     $  w              ,zflux
+     $  w              ,zflux          ,
+!    Arrays for interpolation
+     $  rmeanb         ,rmeanf         ,sclimb         ,sclimf         ,
+     $  tclimb         ,tclimf
 C
       common/blk3d/
      $  aam(im,jm,kb)  ,advx(im,jm,kb) ,advy(im,jm,kb) ,a(im,jm,kb)    ,
@@ -148,7 +151,10 @@ C
      $  sb(im,jm,kb)   ,sclim(im,jm,kb),s(im,jm,kb)    ,tb(im,jm,kb)   ,
      $  tclim(im,jm,kb),t(im,jm,kb)    ,ub(im,jm,kb)   ,uf(im,jm,kb)   ,
      $  u(im,jm,kb)    ,vb(im,jm,kb)   ,vf(im,jm,kb)   ,v(im,jm,kb)    ,
-     $  w(im,jm,kb)    ,zflux(im,jm,kb)
+     $  w(im,jm,kb)    ,zflux(im,jm,kb),
+!    Arrays for interpolation
+     $  rmeanb(im,jm,kbm1), rmeanf(im,jm,kbm1), sclimb(im,jm,kbm1),
+     $  sclimf(im,jm,kbm1), tclimb(im,jm,kbm1), tclimf(im,jm,kbm1)
 C
 C-----------------------------------------------------------------------
 C
