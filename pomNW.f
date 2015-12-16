@@ -209,7 +209,7 @@ C
 !lyo:!wad:Add WAD variables in pomNW.c
       include 'pomNW.c'
 
-      integer, external :: create_output, nccreate
+      integer, external :: create_output
 C
 C     New declarations plus ispi,isp2i:
 C
@@ -768,7 +768,7 @@ c
       iend=max0(nint(days*24.e0*3600.e0/dti),2)
       iprint=nint(prtd1*24.e0*3600.e0/dti)
       iswtch=nint(swtch*24.e0*3600.e0/dti)
-      fprint=nint(fsplt*24.*24.e0*3600.e0/dti)  ! rwnd:
+      fprint=nint(fsplt*24.e0*3600.e0/dti)  ! rwnd:
 C
       ispi=1.e0/float(isplit)
       isp2i=1.e0/(2.e0*float(isplit))
@@ -1084,11 +1084,14 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      nccnt = int((iint+time0*86400/dti)/fprint)
-      ncid = create_output(nccnt)  ! rwnd:
-      call ncflush(ncid
-     $            ,int(modulo(float(iint)/float(iprint)
-     $                       ,float(fprint)/float(iprint)))+1)
+!      nccnt = int((iint+time0*86400/dti)/fprint)
+!      ncid = create_output(nccnt)  ! rwnd:
+!      call ncflush(ncid
+!     $            ,int(modulo(float(iint)/float(iprint)
+!     $                       ,float(fprint)/float(iprint)))+1)
+      nccnt = nccnt + 1
+      ncid = create_output(0)
+      call ncflush(ncid, nccnt)
 !
       filename = trim(pth_wrk)//trim(pth_out)//
      $             trim(title)//"_tgt.csv"
@@ -1966,14 +1969,16 @@ C
 !          call printall
 C
 !          call wadout  !lyo:!wad:
-          if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
-              nccnt = int((iint+time0*86400/dti)/fprint)
-              call ncclose(ncid)
-              ncid = create_output(nccnt)
-          end if
-          call ncflush(ncid
-     $                ,int(modulo(float(iint)/float(iprint)
-     $                           ,float(fprint)/float(iprint)))+1)
+!          if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
+!              nccnt = int((iint+time0*86400/dti)/fprint)
+!              call ncclose(ncid)
+!              ncid = create_output(nccnt)
+!          end if
+!          call ncflush(ncid
+!     $                ,int(modulo(float(iint)/float(iprint)
+!     $                           ,float(fprint)/float(iprint)))+1)
+          nccnt = nccnt + 1
+          call ncflush(ncid, nccnt)
 !
           vtot=0.e0
           atot=0.e0
@@ -2021,9 +2026,11 @@ C
             write(6,4) time,iint,iext,iprint
 C
 !            call printall
-            call ncflush(ncid
-     $                  ,int(modulo(float(iint)/float(iprint)
-     $                            ,float(fprint)/float(iprint)))+1)
+!            call ncflush(ncid
+!     $                  ,int(modulo(float(iint)/float(iprint)
+!     $                            ,float(fprint)/float(iprint)))+1)
+            nccnt = nccnt + 1
+            call ncflush(ncid, nccnt)
 C
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
@@ -2072,6 +2079,7 @@ C-----------------------------------------------------------------------
 C
 !   Finish target point output
 !      call ncTgtFlush(49)
+      call ncclose(ncid)
       call time2date(time, time_start, timestamp)
       write(49,*) timestamp, ";",
      $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
@@ -8943,17 +8951,150 @@ C
         implicit none
 C
         include 'pomNW.c'
-
-        integer, external :: nccreate
 C
         integer i, j, k, ncid, varid, fprint, nprint
         real bot_depth(im,jm,kb)
         character(len=256) filename
+        integer dim_srho, dim_sw, dim_strim, dim_auxuv
+        integer dim_lat, dim_lon, dim_time
+        integer ktrim
 C
         write(filename, '(3a,''.'',i4.4,''.nc'')') trim(pth_wrk),
      $             trim(pth_out),trim(title),nprint
 
-        ncid = nccreate(filename)
+        ktrim = kbm1
+
+        call check( nf90_create(filename, NF90_CLASSIC_MODEL, ncid) )
+        call check( nf90_def_dim(ncid, "time", NF90_UNLIMITED
+     $          , dim_time) )
+        call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
+        call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
+        call check( nf90_def_dim(ncid, "s_trim", ktrim, dim_strim) )
+        call check( nf90_def_dim(ncid, "aux_uv", 2, dim_auxuv) )
+        call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
+        call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
+        call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Level", NF90_DOUBLE,
+     $          (/ dim_sw /), varid) )
+        if (mode.ge.3) then
+          call check( nf90_def_var(ncid, "Depth", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_sw /), varid) )
+        end if
+!        call check( nf90_def_var(ncid, "FSM", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat /), varid) )
+!        call check( nf90_def_var(ncid, "CFL", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat /), varid) )
+        call check( nf90_def_var(ncid, "Tavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "Vtot", NF90_DOUBLE,
+!     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Eavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Qavg", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
+!     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
+        call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat /), varid) )
+        call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat /), varid) )
+        if (mode.ge.3) then
+!          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "V", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+
+!          call check( nf90_def_var(ncid, "W", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+! TODO: Is it normal to leave it with dim_srho and not change to dim_sw?
+!          call check( nf90_def_var(ncid, "T", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "S", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "RHO", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "AAM",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "KM",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "Q2",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
+        end if
+!
+        if (mode.ge.3) then
+
+          call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+
+          call check( nf90_def_var(ncid, "wvsurf", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+
+        end if
+
+        call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+        call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+        call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+
+!        call check( nf90_def_var(ncid, "T_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_S",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "T_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "S_W",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELS",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "ELW",
+!     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
+
+        call check( nf90_def_var(ncid, "PSI_nw",
+     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+        call check( nf90_def_var(ncid, "PSI_ew",
+     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+
+!    Debug vars
+!        call check( nf90_def_var(ncid, "wusurf",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+!        call check( nf90_def_var(ncid, "wvsurf",
+!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
+
+        call check( nf90_enddef(ncid) )
 !
         if (mode.ge.3) then
         ! Calculate Depth array
@@ -8992,7 +9133,7 @@ C
 C
       end
 !
-      subroutine findpsi2nc(tind)
+      subroutine findpsi2nc(ncid, tind)
 C **********************************************************************
 C *                                                                    *
 C * ROUTINE NAME:  findpsi2nc                                          *
@@ -9014,10 +9155,6 @@ C
       integer i,j, tind, ncid, varid
       character(len=256) filename
 C
-      filename = trim(pth_wrk)//trim(pth_out)//trim(title)//"_data.nc"
-
-      call check( nf90_open(filename, NF90_WRITE, ncid) )
-
       do j=1,jm
         do i=1,im
           psi(i,j)=0.e0
@@ -9049,7 +9186,6 @@ C
 C
       call check( nf90_inq_varid(ncid, "PSI_ew", varid) )
       call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
-      call check( nf90_close(ncid) )
 C
       return
 C
@@ -9079,8 +9215,6 @@ C
         implicit none
 C
         include 'pomNW.c'
-
-        integer, external :: nccreate
 C
         logical :: NOK
         integer :: count
@@ -9101,7 +9235,7 @@ C
         call check( nf90_inq_varid(ncid, "Time", varid) )
 !        do while (NOK)
 !          count = count+1
-        !call check( nf90_put_var(ncid, varid, time, (/ri/)) )
+        call check( nf90_put_var(ncid, varid, time, (/ri/)) )
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
 C
@@ -9133,17 +9267,17 @@ C
           qavg=qtot/vtot
 C
         call check( nf90_inq_varid(ncid, "Tavg", varid) )
-        !call check( nf90_put_var(ncid, varid, tavg, (/ri/)) )
+        call check( nf90_put_var(ncid, varid, tavg, (/ri/)) )
 !        call check( nf90_inq_varid(ncid, "Vtot", varid) )
 !        call check( nf90_put_var(ncid, varid, vtot, (/ptime/)) )
         call check( nf90_inq_varid(ncid, "Eavg", varid) )
-        !call check( nf90_put_var(ncid, varid, eavg, (/ri/)) )
+        call check( nf90_put_var(ncid, varid, eavg, (/ri/)) )
 !        call check( nf90_inq_varid(ncid, "Etot", varid) )
 !        call check( nf90_put_var(ncid, varid, eavg+qavg, (/ptime/)) )
         call check( nf90_inq_varid(ncid, "Qavg", varid) )
-        !call check( nf90_put_var(ncid, varid, qavg, (/ri/)) )
+        call check( nf90_put_var(ncid, varid, qavg, (/ri/)) )
         call check( nf90_inq_varid(ncid, "Mtot", varid) )
-        !call check( nf90_put_var(ncid, varid, mtot, (/ri/)) )
+        call check( nf90_put_var(ncid, varid, mtot, (/ri/)) )
 !        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
 !        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
 !        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
@@ -9181,7 +9315,6 @@ C
         call check( nf90_inq_varid(ncid, "SSU", varid) )
         call check( nf90_put_var(ncid, varid,   u(:,:,lyrs)
      $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        write(*,*) "SSU"
         call check( nf90_inq_varid(ncid, "SSV", varid) )
         call check( nf90_put_var(ncid, varid,   v(:,:,lyrs)
      $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
@@ -10470,165 +10603,6 @@ C
         return
 
       end
-
-      function nccreate(filename) result(ncid)
-
-        use netcdf
-        implicit none
-
-        include 'pomNW.c'
-
-        integer dim_srho, dim_sw, dim_strim, dim_auxuv
-        integer dim_lat, dim_lon, dim_time
-        integer ncid, varid
-        character(len=*) filename
-        integer ktrim
-
-        ktrim = kbm1
-
-        call check( nf90_create(filename, NF90_CLASSIC_MODEL, ncid) )
-        call check( nf90_def_dim(ncid, "time", NF90_UNLIMITED
-     $          , dim_time) )
-        call check( nf90_def_dim(ncid, "s_rho", kb, dim_srho) )
-        call check( nf90_def_dim(ncid, "s_w", kb, dim_sw) )
-        call check( nf90_def_dim(ncid, "s_trim", ktrim, dim_strim) )
-        call check( nf90_def_dim(ncid, "aux_uv", 2, dim_auxuv) )
-        call check( nf90_def_dim(ncid, "latitude", jm, dim_lat) )
-        call check( nf90_def_dim(ncid, "longitude", im, dim_lon) )
-        call check( nf90_def_var(ncid, "Time", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Level", NF90_DOUBLE,
-     $          (/ dim_sw /), varid) )
-        if (mode.ge.3) then
-          call check( nf90_def_var(ncid, "Depth", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_sw /), varid) )
-        end if
-!        call check( nf90_def_var(ncid, "FSM", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat /), varid) )
-!        call check( nf90_def_var(ncid, "CFL", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat /), varid) )
-        call check( nf90_def_var(ncid, "Tavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "Vtot", NF90_DOUBLE,
-!     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Eavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Qavg", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-        call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
-     $          (/ dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
-!     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
-        call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat /), varid) )
-        call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat /), varid) )
-        if (mode.ge.3) then
-!          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "V", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-
-!          call check( nf90_def_var(ncid, "W", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-! TODO: Is it normal to leave it with dim_srho and not change to dim_sw?
-!          call check( nf90_def_var(ncid, "T", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "S", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "RHO", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "AAM",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "KM",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-!          call check( nf90_def_var(ncid, "Q2",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
-        end if
-!
-        if (mode.ge.3) then
-
-          call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-
-          call check( nf90_def_var(ncid, "wvsurf", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-
-        end if
-
-        call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-        call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-        call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
-
-!        call check( nf90_def_var(ncid, "T_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "S_S",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "T_W",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "S_W",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_sw, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELS",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "ELW",
-!     $ NF90_DOUBLE, (/ dim_lat, dim_time /), varid) )
-
-        call check( nf90_def_var(ncid, "PSI_nw",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-        call check( nf90_def_var(ncid, "PSI_ew",
-     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-
-!    Debug vars
-!        call check( nf90_def_var(ncid, "wusurf",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-!        call check( nf90_def_var(ncid, "wvsurf",
-!     $ NF90_DOUBLE, (/ dim_lon, dim_lat, dim_time /), varid) )
-
-        call check( nf90_enddef(ncid) )
-
-        return
-
-        contains
-          subroutine check(status)
-            integer, intent ( in) :: status
-            if(status /= nf90_noerr) then
-              stop "Stopped"
-            end if
-          end subroutine check
-
-      end function nccreate
 
       subroutine ncclose(ncid)
         use netcdf
