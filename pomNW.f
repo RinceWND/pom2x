@@ -1084,14 +1084,11 @@ C
 C
 C-----------------------------------------------------------------------
 C
-!      nccnt = int((iint+time0*86400/dti)/fprint)
-!      ncid = create_output(nccnt)  ! rwnd:
-!      call ncflush(ncid
-!     $            ,int(modulo(float(iint)/float(iprint)
-!     $                       ,float(fprint)/float(iprint)))+1)
-      nccnt = nccnt + 1
-      ncid = create_output(0)
-      call ncflush(ncid, nccnt)
+      nccnt = int((iint+time0*86400/dti)/fprint)
+      ncid = create_output(nccnt)  ! rwnd:
+      call ncflush(ncid
+     $            ,int(modulo(float(iint)/float(iprint)
+     $                       ,float(fprint)/float(iprint)))+1)
 !
       filename = trim(pth_wrk)//trim(pth_out)//
      $             trim(title)//"_tgt.csv"
@@ -1969,16 +1966,14 @@ C
 !          call printall
 C
 !          call wadout  !lyo:!wad:
-!          if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
-!              nccnt = int((iint+time0*86400/dti)/fprint)
-!              call ncclose(ncid)
-!              ncid = create_output(nccnt)
-!          end if
-!          call ncflush(ncid
-!     $                ,int(modulo(float(iint)/float(iprint)
-!     $                           ,float(fprint)/float(iprint)))+1)
-          nccnt = nccnt + 1
-          call ncflush(ncid, nccnt)
+          if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
+              nccnt = int((iint+time0*86400/dti)/fprint)
+              call ncclose(ncid)
+              ncid = create_output(nccnt)
+          end if
+          call ncflush(ncid
+     $                ,int(modulo(float(iint)/float(iprint)
+     $                           ,float(fprint)/float(iprint)))+1)
 !
           vtot=0.e0
           atot=0.e0
@@ -2026,11 +2021,9 @@ C
             write(6,4) time,iint,iext,iprint
 C
 !            call printall
-!            call ncflush(ncid
-!     $                  ,int(modulo(float(iint)/float(iprint)
-!     $                            ,float(fprint)/float(iprint)))+1)
-            nccnt = nccnt + 1
-            call ncflush(ncid, nccnt)
+            call ncflush(ncid
+     $                  ,int(modulo(float(iint)/float(iprint)
+     $                            ,float(fprint)/float(iprint)))+1)
 C
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
@@ -9028,27 +9021,27 @@ C
 
           call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
           call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
@@ -9060,15 +9053,15 @@ C
 
         call check( nf90_def_var(ncid, "EL",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
         call check( nf90_def_var(ncid, "UA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
         call check( nf90_def_var(ncid, "VA",  NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_time /), varid) )
-        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) );
+        !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
 !        call check( nf90_def_var(ncid, "T_S",
 !     $ NF90_DOUBLE, (/ dim_lon, dim_sw, dim_time /), varid) )
@@ -9380,6 +9373,7 @@ C
 !     $   ,(/im,jm,1/)) )
 Cc
         call findpsi2nc(ncid, ri)
+        call check( nf90_sync(ncid) )
 C
         return
 C
@@ -10608,10 +10602,33 @@ C
       subroutine ncclose(ncid)
         use netcdf
         integer, intent(in) :: ncid
-        integer status
-        status = nf90_close(ncid)
+        integer varid
+        
+        call check( nf90_redef(ncid) )
+        
+        call check( nf90_inq_varid(ncid, "SST", varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+        call check( nf90_inq_varid(ncid, "SSS", varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+        call check( nf90_inq_varid(ncid, "SSR", varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+        call check( nf90_inq_varid(ncid, "rmean", varid) )
+        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+        
+        call check( nf90_enddef(ncid) )
+        
+        call check( nf90_close(ncid) )
+        
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+          
       end subroutine ncclose
-!
 !
 !      include 'pom2k.n'                                       ! *netCDF*
 C
