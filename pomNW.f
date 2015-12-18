@@ -9379,7 +9379,7 @@ C
 !        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
 !     $   ,(/im,jm,1/)) )
 Cc
-        call findpsi2nc(ri)
+        call findpsi2nc(ncid, ri)
 C
         return
 C
@@ -9779,6 +9779,7 @@ C
 
             filename = trim(pth_wrk)//trim(pth_grd)
      $                 //trim(pfx_dmn)//"pom_clm.nc"
+            write(*,*) "Reading BC: ", trim(filename)
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 
             call check( nf90_inq_varid(ncid, "Rmean", varid) )
