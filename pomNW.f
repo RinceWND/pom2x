@@ -219,7 +219,7 @@ C
       real eaver
       real horcon
       real ispi,isp2i
-      real period,prtd1,prtd2
+      real period,prtd1,prtd2,fsplt
       real saver,smoth,sw,swtch
       real taver,time0
       real vamax,vtot,tsalt
@@ -227,7 +227,7 @@ C
       real tatm,satm
       real wadsmoth  !lyo:!wad:
       real cflmin    !lyo:_20080415:
-      integer fsplt,fprint
+      integer fprint
       integer io(100),jo(100),ko(100)
       integer i,iend,iext,imax,ispadv,isplit,iswtch
       integer j,jmax
@@ -1086,10 +1086,14 @@ C-----------------------------------------------------------------------
 C
       nccnt = int((iint+time0*86400/dti)/fprint)
       ncid = create_output(nccnt)  ! rwnd:
+      write(*,*) fprint, iprint
+      write(*,*) float(iint)/float(iprint), ":"
+     $                       ,float(fprint)/float(iprint)
       call ncflush(ncid
      $            ,int(modulo(float(iint)/float(iprint)
      $                       ,float(fprint)/float(iprint)))+1)
 !
+      write(*,*) "Creating target point output..."
       filename = trim(pth_wrk)//trim(pth_out)//
      $             trim(title)//"_tgt.csv"
       open(49, file=filename)
@@ -1193,8 +1197,10 @@ C
 C-----------------------------------------------------------------------
 !     Set timer
       call cpu_time(slice_b)
+      write(*,*) "Print: ",iprint
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
+          write(*,*) iint,"/",iend
 C
         time=dti*float(iint)/86400.e0+time0
 C
@@ -9215,20 +9221,24 @@ C
         real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
         real :: darea, dvol
         integer nlyrs, fi, ri ! fi - file index, ri - record index
-        parameter (nlyrs = 3)
+        parameter (nlyrs = kbm1)
         integer :: lyrs(nlyrs)
-        data lyrs /1,2,15/
+        !data lyrs /1,2,15/
         character(len=256) filename
 C
         count = 0
         NOK = .true.
-        write(filename, '(3a,''.'',i4.4,''.nc'')') trim(pth_wrk),
-     $             trim(pth_out),trim(title),fi
+        do i=1,nlyrs
+          lyrs(i) = i
+        end do
      
         call check( nf90_inq_varid(ncid, "Time", varid) )
+        write(*,*) "Got Time var id from ",ncid
 !        do while (NOK)
 !          count = count+1
+        write(*,*) "About to put data to ",ri
         call check( nf90_put_var(ncid, varid, time, (/ri/)) )
+        write(*,*) "Got Time var from ",ncid
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
 C
