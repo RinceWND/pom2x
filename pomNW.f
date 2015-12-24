@@ -9314,35 +9314,35 @@ C
 !
         if (mode.ge.3) then
 
-          call check( nf90_def_var(ncid, "SSU", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "SSV", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "V", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "SST", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "T", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "SSS", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "S", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "SSR", NF90_DOUBLE,
+          call check( nf90_def_var(ncid, "R", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "Rmean", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_time /), varid) )
 
-          call check( nf90_def_var(ncid, "wvsurf", NF90_DOUBLE,
-     $          (/ dim_lon, dim_lat, dim_time /), varid) )
+!          call check( nf90_def_var(ncid, "wvsurf", NF90_DOUBLE,
+!     $          (/ dim_lon, dim_lat, dim_time /), varid) )
 
         end if
 
@@ -9567,67 +9567,25 @@ C
         call check( nf90_put_var(ncid, varid, qavg, (/ri/)) )
         call check( nf90_inq_varid(ncid, "Mtot", varid) )
         call check( nf90_put_var(ncid, varid, mtot, (/ri/)) )
-!        call check( nf90_inq_varid(ncid, "tgt-point_1", varid) )
-!        call check( nf90_put_var(ncid, varid,u(70,155,1),(/1,ptime/)))
-!        call check( nf90_put_var(ncid, varid,v(70,155,1),(/2,ptime/)))
-        if (mode.ge.3) then
-!          call check( nf90_inq_varid(ncid, "U", varid) )
-!          call check( nf90_put_var(ncid, varid, u, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "V", varid) )
-!          call check( nf90_put_var(ncid, varid, v, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "W", varid) )
-!          call check( nf90_put_var(ncid, varid, w, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "T", varid) )
-!          call check( nf90_put_var(ncid, varid, t, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "S", varid) )
-!          call check( nf90_put_var(ncid, varid, s, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "RHO", varid) )
-!          call check( nf90_put_var(ncid, varid, rho, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "AAM", varid) )
-!          call check( nf90_put_var(ncid, varid, aam, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "KM", varid) )
-!          call check( nf90_put_var(ncid, varid, km, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-!          call check( nf90_inq_varid(ncid, "Q2", varid) )
-!          call check( nf90_put_var(ncid, varid, q2, (/1,1,1,ptime/)
-!     $     ,(/im,jm,kb,1/)) )
-        end if
 !
         if (mode.ge.3) then
-        call check( nf90_inq_varid(ncid, "SSU", varid) )
-        call check( nf90_put_var(ncid, varid,   u(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSV", varid) )
-        call check( nf90_put_var(ncid, varid,   v(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SST", varid) )
-        call check( nf90_put_var(ncid, varid,   t(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSS", varid) )
-        call check( nf90_put_var(ncid, varid,   s(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "SSR", varid) )
-        call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-
-        call check( nf90_inq_varid(ncid, "rmean", varid) )
-        call check( nf90_put_var(ncid, varid, rmean(:,:,lyrs)
-     $   ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
-        call check( nf90_inq_varid(ncid, "wusurf", varid) )
-        call check( nf90_put_var(ncid, varid, wusurf(:,:)
-     $   ,(/1,1,ri/),(/im,jm,1/)) )
-        call check( nf90_inq_varid(ncid, "wvsurf", varid) )
-        call check( nf90_put_var(ncid, varid, wvsurf(:,:)
-     $   ,(/1,1,ri/),(/im,jm,1/)) )
-
+          call check( nf90_inq_varid(ncid, "U", varid) )
+          call check( nf90_put_var(ncid, varid,   u(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
+          call check( nf90_inq_varid(ncid, "V", varid) )
+          call check( nf90_put_var(ncid, varid,   v(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
+          call check( nf90_inq_varid(ncid, "T", varid) )
+          call check( nf90_put_var(ncid, varid,   t(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
+          call check( nf90_inq_varid(ncid, "S", varid) )
+          call check( nf90_put_var(ncid, varid,   s(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
+          call check( nf90_inq_varid(ncid, "R", varid) )
+          call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
         end if
+        
         call check( nf90_inq_varid(ncid, "EL", varid) )
         call check( nf90_put_var(ncid, varid, elb, (/1,1,ri/)
      $   ,(/im,jm,1/)) )
@@ -9637,36 +9595,6 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ri/)
      $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "wusurf", varid) )
-!        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "wvsurf", varid) )
-!        call check( nf90_put_var(ncid, varid, wvsurf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "T_S", varid) )
-!        call check( nf90_put_var(ncid, varid, tbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "S_S", varid) )
-!        call check( nf90_put_var(ncid, varid, sbs, (/1,1,ptime/)
-!     $   ,(/im,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "T_W", varid) )
-!        call check( nf90_put_var(ncid, varid, tbw, (/1,1,ptime/)
-!     $   ,(/jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "S_W", varid) )
-!        call check( nf90_put_var(ncid, varid, sbw, (/1,1,ptime/)
-!     $   ,(/jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELS", varid) )
-!        call check( nf90_put_var(ncid, varid, els, (/1,ptime/)
-!     $   ,(/im,1/)) )
-!        call check( nf90_inq_varid(ncid, "ELW", varid) )
-!        call check( nf90_put_var(ncid, varid, elw, (/1,ptime/)
-!     $   ,(/jm,1/)) )
-!        call check( nf90_inq_varid(ncid, "aux1", varid) )
-!        call check( nf90_put_var(ncid, varid, sb, (/1,1,1,ptime/)
-!     $   ,(/im,jm,kb,1/)) )
-!        call check( nf90_inq_varid(ncid, "aux2", varid) )
-!        call check( nf90_put_var(ncid, varid, wusurf, (/1,1,ptime/)
-!     $   ,(/im,jm,1/)) )
 Cc
         call findpsi2nc(ncid, ri)
         call check( nf90_sync(ncid) )
@@ -9680,8 +9608,6 @@ C
           select case (status)
               case (nf90_ebadid)
                 write(*,*) "Not a netCDF id"
-!              case (nf90_enfile)
-!                write(*,*) "Too many netCDFs open"
               case (nf90_eexist)
                 write(*,*) "NetCDF file exists && NC_NOCLOBBER"
               case (nf90_einval)
