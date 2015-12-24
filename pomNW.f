@@ -1086,9 +1086,6 @@ C-----------------------------------------------------------------------
 C
       nccnt = int((iint+time0*86400/dti)/fprint)
       ncid = create_output(nccnt)  ! rwnd:
-      write(*,*) fprint, iprint
-      write(*,*) float(iint)/float(iprint), ":"
-     $                       ,float(fprint)/float(iprint)
       call ncflush(ncid
      $            ,int(modulo(float(iint)/float(iprint)
      $                       ,float(fprint)/float(iprint)))+1)
@@ -1197,10 +1194,8 @@ C
 C-----------------------------------------------------------------------
 !     Set timer
       call cpu_time(slice_b)
-      write(*,*) "Print: ",iprint
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
-          write(*,*) iint,"/",iend
 C
         time=dti*float(iint)/86400.e0+time0
 C
@@ -1226,7 +1221,7 @@ C     wssurf, swrad and vflux.
       call clm_warp
 
       call bry(0)
-      call bry(4)
+      if (BC%clm) call bry(4)
       if (iproblem>=11 .and. iproblem<=19) then
 !
         if (BC%clm) then
@@ -2029,7 +2024,7 @@ C
 !            call printall
             call ncflush(ncid
      $                  ,int(modulo(float(iint)/float(iprint)
-     $                            ,float(fprint)/float(iprint)))+1)
+     $                            ,float(fprint)/float(iprint)))+2) ! Increment by one in order to not to overwrite the last output.
 C
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
@@ -8613,7 +8608,8 @@ C
       write(6,'(/,'' Read grid and initial conditions '',/)')
 C
 C--- 1D ---
-      filename = "/home/pkharlamov/POM/pom_in/pom_grd.nc"
+      filename = trim(pth_wrk)//trim(pth_grd)//
+     $           trim(pfx_dmn)//"pom_grd.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
       call check( nf90_inq_varid(ncid, "z", varid) )
@@ -8642,19 +8638,20 @@ C--- 1D ---
       write(*, *) "[O] latitude retrieved"
       call check( nf90_close(ncid) )
 
-      filename = "/home/pkharlamov/POM/pom_in/pom_clm.nc"
+      filename = trim(pth_wrk)//trim(pth_grd)//
+     $           trim(pfx_dmn)//"pom_clm.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
-      call check( nf90_inq_varid(ncid, "T", varid) )
+      call check( nf90_inq_varid(ncid, "Tmean", varid) )
       call check( nf90_get_var(ncid, varid, t, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] potential temperature retrieved"
-      call check( nf90_inq_varid(ncid, "S", varid) )
+      call check( nf90_inq_varid(ncid, "Smean", varid) )
       call check( nf90_get_var(ncid, varid, s, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] salinity retrieved"
-      call check( nf90_inq_varid(ncid, "meanR", varid) )
+      call check( nf90_inq_varid(ncid, "Rmean", varid) )
       call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
@@ -8667,6 +8664,14 @@ C--- 3D ---
      &                                            (/im,jm,1/)) )
       write(*, *) "[O] wvsurf retrieved"
       call check( nf90_close(ncid) )
+!
+! Make sure that cells with fsm=0. have depth h=1. for areas_masks subroutines to perform correctly.
+! ...or just comment out `call areas_masks` and calculate areas and masks manually.
+      do i=1,im
+        do j=1,jm
+          if (fsm(i,j)==0.) h(i,j)=1.
+        end do
+      end do
 
 !      filename = trim(pth_wrk)//trim(pth_flx)//
 !     $           trim(pfx_dmn)//"roms_frc.nc"
@@ -9233,12 +9238,9 @@ C
         end do
      
         call check( nf90_inq_varid(ncid, "Time", varid) )
-        write(*,*) "Got Time var id from ",ncid
 !        do while (NOK)
 !          count = count+1
-        write(*,*) "About to put data to ",ri
         call check( nf90_put_var(ncid, varid, time, (/ri/)) )
-        write(*,*) "Got Time var from ",ncid
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
 C
