@@ -1969,6 +1969,7 @@ C
 !          call printall
 C
 !          call wadout  !lyo:!wad:
+          
           if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
               nccnt = int((iint+time0*86400/dti)/fprint)
               call ncclose(ncid)
@@ -8840,14 +8841,8 @@ C
       call bry(0)   ! always read rmean
       if (BC%clm) call bry(1)
       if (BC%wnd) call flux(5)
-!     Get tsurf and ssurf
-!      if (nbct==3 .and. nbcs==3) then   ! <-- nbc* are undefined here. Defined only in main program scope.
-!        call bry(45)  ! Get fsurf anyway since it must be initialised.
-!      else
-!        write(*,*) '[!] WARNING! Cases except from nbc* = 3',
-!     $               ' read ICOADS sst and sss.'
-!        call bry(43)
-!      end if
+      tsurf = t(:,:,1)
+      ssurf = s(:,:,1)
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -9289,6 +9284,8 @@ C
      $          (/ dim_lon, dim_lat /), varid) )
         call check( nf90_def_var(ncid, "Longitude", NF90_DOUBLE,
      $          (/ dim_lon, dim_lat /), varid) )
+        call check( nf90_def_var(ncid, "rot", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat /), varid) )
         if (mode.ge.3) then
 !          call check( nf90_def_var(ncid, "U", NF90_DOUBLE,
 !     $          (/ dim_lon, dim_lat, dim_srho, dim_time /), varid) )
@@ -9402,6 +9399,8 @@ C
         call check( nf90_put_var(ncid, varid, east_e) )
         call check( nf90_inq_varid(ncid, "Level", varid) )
         call check( nf90_put_var(ncid, varid, z) )
+        call check( nf90_inq_varid(ncid, "rot", varid) )
+        call check( nf90_put_var(ncid, varid, rot) )
 !        call check( nf90_inq_varid(ncid, "FSM", varid) )
 !        call check( nf90_put_var(ncid, varid, fsm) )
 !        call check( nf90_inq_varid(ncid, "CFL", varid) )
@@ -10828,13 +10827,13 @@ C
         
         call check( nf90_redef(ncid) )
         
-        call check( nf90_inq_varid(ncid, "SST", varid) )
+        call check( nf90_inq_varid(ncid, "T", varid) )
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
-        call check( nf90_inq_varid(ncid, "SSS", varid) )
+        call check( nf90_inq_varid(ncid, "S", varid) )
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
-        call check( nf90_inq_varid(ncid, "SSR", varid) )
+        call check( nf90_inq_varid(ncid, "R", varid) )
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
-        call check( nf90_inq_varid(ncid, "rmean", varid) )
+        call check( nf90_inq_varid(ncid, "Rmean", varid) )
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
         
         call check( nf90_enddef(ncid) )
