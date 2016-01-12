@@ -153,8 +153,8 @@ C
      $  u(im,jm,kb)    ,vb(im,jm,kb)   ,vf(im,jm,kb)   ,v(im,jm,kb)    ,
      $  w(im,jm,kb)    ,zflux(im,jm,kb),
 !    Arrays for interpolation
-     $  rmeanb(im,jm,kbm1), rmeanf(im,jm,kbm1), sclimb(im,jm,kbm1),
-     $  sclimf(im,jm,kbm1), tclimb(im,jm,kbm1), tclimf(im,jm,kbm1)
+     $  rmeanb(im,jm,kb), rmeanf(im,jm,kb), sclimb(im,jm,kb),
+     $  sclimf(im,jm,kb), tclimb(im,jm,kb), tclimf(im,jm,kb)
 C
 C-----------------------------------------------------------------------
 C

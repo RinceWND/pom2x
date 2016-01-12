@@ -1223,20 +1223,12 @@ C     wssurf, swrad and vflux.
       call clm_warp
 
       if (iproblem/=13) call bry(0)
-      if (BC%clm) call bry(4)
       if (iproblem>=11 .and. iproblem<=19) then
 !
         if (BC%clm) then
-            if (iproblem/=12) then
-                call bry(1)
-            end if
-        end if
-        if (BC%ssf) then    ! TODO: parametrise the type of SSf. It's climatological surface layer here (45).
-          if (nbct==3 .and. nbcs==3) then
-            call bry(45)
-          else
-            call bry(43)
-          end if          ! Ugly and probably incorrect but will do for now.
+          if (iproblem/=12) then
+            call bry(1)
+          end if
         end if
         if (BC%wnd) then
           call flux(5)
@@ -1303,6 +1295,10 @@ C
 C
           end do
         end do
+      end if
+      if (BC%clm) then
+        call bry(11)
+        call bry(12)
       end if
 C
 clyo:
@@ -8015,7 +8011,9 @@ C
 ! Call these before copy TS to boundaries.
 !
       call bry(0)
-      if (BC%clm) call bry(1)
+      call bry(1)
+      call bry(11)
+      call bry(12)
       if (BC%wnd) call flux(5)
 !      Comment the code below to avoid forced closed boundary.
 !      do j=1,jm
@@ -8646,11 +8644,11 @@ C--- 1D ---
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
-      call check( nf90_inq_varid(ncid, "Tmean", varid) )
+      call check( nf90_inq_varid(ncid, "Tclim", varid) )
       call check( nf90_get_var(ncid, varid, t, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] potential temperature retrieved"
-      call check( nf90_inq_varid(ncid, "Smean", varid) )
+      call check( nf90_inq_varid(ncid, "Sclim", varid) )
       call check( nf90_get_var(ncid, varid, s, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] salinity retrieved"
@@ -8658,6 +8656,12 @@ C--- 3D ---
       call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,1/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
+      call check( nf90_close(ncid) )
+      
+      filename = trim(pth_wrk)//trim(pth_grd)//
+     $           trim(pfx_dmn)//"pom_frc.nc"
+      write(*,*) "\\",trim(filename)
+      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
       call check( nf90_inq_varid(ncid, "wU", varid) )
       call check( nf90_get_var(ncid, varid, wusurf, (/1,1,1/),
      &                                            (/im,jm,1/)) )
@@ -8676,24 +8680,7 @@ C--- 3D ---
         end do
       end do
 
-!      filename = trim(pth_wrk)//trim(pth_flx)//
-!     $           trim(pfx_dmn)//"roms_frc.nc"
-!      write(*,*) "\\",trim(filename)
-!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- (Constant) Wind stress
-!      call check( nf90_inq_varid(ncid, "sustr", varid) )
-!      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
-!      wusurf(1,:) = wusurf(2,:)*.5
-!      wusurf(:,:) = wusurf(:,:)/rhoref
-!      write(*, *) "[O] Zonal component of momentum flux retrieved"
-!      call check( nf90_inq_varid(ncid, "svstr", varid) )
-!      call check( nf90_get_var(ncid, varid, wvsurf(:,2:jm)) )
-!      wvsurf(:,1) = wvsurf(:,2)*.5
-!      wvsurf(:,:) = wvsurf(:,:)/rhoref
-!      write(*, *) "[O] Meridional component of momentum flux retrieved"
-
-C      Simulate from zero elevation to avoid artificial waves during spin-up
-
+!   Simulate from zero elevation to avoid artificial waves during spin-up
 !
 !   Read elevation
 !
@@ -8706,10 +8693,10 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
       do k=1,kbm1; do j=1,jm; do i=1,im
-         pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
+        pdens(i,j,k)=grav*rhoref*(-zz(k)*max(h(i,j)-hhi,0.e0))*1.e-5
       enddo; enddo; enddo
 !
-      write(*, *) "[+] Finished reading IC."
+      write(*, *) "[+] Initial conditions have been read."
 C
 C --- print vertical grid distribution
 C
@@ -8737,7 +8724,7 @@ C
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
+     $ *cos(north_e(i,j)*rad))**2+(north_e(i+1,j)-north_e(i-1,j))**2)
           end do
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
@@ -8746,7 +8733,7 @@ C
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
-     1 *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
+     $ *cos(north_e(i,j)*rad))**2+(north_e(i,j+1)-north_e(i,j-1))**2)
           end do
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
@@ -8757,37 +8744,6 @@ C
       !call wadh
       call areas_masks
 !
-!      Comment the code below to avoid forced closed boundary.
-!      do j=1,jm
-!        fsm( 1, j) = 0.0
-!        fsm(im, j) = 0.0
-!      end do
-!      do i=1,im
-!        fsm( i, 1) = 0.0
-!        fsm( i,jm) = 0.0
-!      end do
-!!      Recalculate masks for u and v
-!!      TODO: this can be done simpler by touching only near-boundary cells
-!      do j=2,jm
-!        do i=2,im
-!          dum(i,j)=fsm(i,j)*fsm(i-1,j)
-!          dvm(i,j)=fsm(i,j)*fsm(i,j-1)
-!        end do
-!      end do
-!!!!!        call slpmax
-C
-C --- calc. surface & lateral BC from climatology
-C
-!        do j=1,jm
-!          do i=1,im
-!             tsurf(i,j)=t(i,j,1)
-!             ssurf(i,j)=s(i,j,1)
-!            do k=1,kb
-!              tclim(i,j,k)=t(i,j,k)
-!              sclim(i,j,k)=s(i,j,k)
-!            end do
-!          end do
-!        end do
 C
 C                    --- EAST & WEST BCs ---
         do j=1,jm
@@ -8839,10 +8795,10 @@ C
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       call bry(0)   ! always read rmean
-      if (BC%clm) call bry(1)
+      call bry(1)   ! always read TSclim
+      call bry(11)  ! always get vertical...
+      call bry(12)  ! ...and horizontal boundaries for TS
       if (BC%wnd) call flux(5)
-      tsurf = t(:,:,1)
-      ssurf = s(:,:,1)
 C
 C
 C --- the following grids are needed only for netcdf plotting
@@ -9965,7 +9921,7 @@ C
 C
       end
 !
-      subroutine bry(idx)
+      subroutine bry_roms(idx)
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
@@ -10009,7 +9965,7 @@ C
                 call check( nf90_get_var(ncid, varid,
      $                      rmeanb,(/1,1,1,mi-1/),(/im,jm,kbm1,1/)) )
               end if
-              rmeanf(:,:,:) = rmean(:,:,1:kbm1)
+              rmeanf = rmean
             end if
 
             call check( nf90_close(ncid) )
@@ -10022,7 +9978,7 @@ C
           end if
 
           if (BC%ipl) then
-            rmean(:,:,1:kbm1) = rmeanb+fac*(rmeanf-rmeanb)      ! TODO: Not sure if it is correct to intepolate rmean since interpolated field won't correspond to interpolated tclim and sclim.
+            rmean = rmeanb+fac*(rmeanf-rmeanb)      ! TODO: Not sure if it is correct to intepolate rmean since interpolated field won't correspond to interpolated tclim and sclim.
           end if
 
           return
@@ -10051,7 +10007,7 @@ C
      $               tclimb(:,:,kbm1:1:-1),(/1,1,  12/),(/im,jm,1/)) )
               end if
 
-              tclimf = tclim(:,:,1:kbm1)
+              tclimf = tclim
 
             end if
 !
@@ -10069,7 +10025,7 @@ C
      $               sclimb(:,:,kbm1:1:-1),(/1,1,  12/),(/im,jm,1/)) )
               end if
 
-              sclimf = sclim(:,:,1:kbm1)
+              sclimf = sclim
 
             end if
 
@@ -10089,8 +10045,8 @@ C
 !     Perform interpolation
           ! FSM is already defined! Feel free to apply it! (Does not yet applied!!!)
           if (BC%ipl) then
-            tclim(:,:,1:kbm1) = (tclimb+fac*(tclimf-tclimb))
-            sclim(:,:,1:kbm1) = (sclimb+fac*(sclimf-sclimb))
+            tclim = (tclimb+fac*(tclimf-tclimb))
+            sclim = (sclimb+fac*(sclimf-sclimb))
           end if
 
           return
@@ -10534,6 +10490,193 @@ C
 !
           return
 C
+        end select
+C
+        return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end subroutine bry_roms
+!
+      subroutine bry(idx)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
+C *                and interpolates in time.                           *
+C *                                                                    *
+C **********************************************************************
+C
+      use netcdf
+      implicit none
+C
+      integer, intent ( in) :: idx
+      integer :: i,j,k, ncid,varid
+
+      character(len=256) filename
+
+      include 'pomNW.c'
+
+C
+      select case (idx)
+!
+          case (0)            ! Read rmean from pom grid provided file.
+
+          if (mi /= rf_rmn) then
+
+            rf_rmn = mi
+
+            filename = trim(pth_wrk)//trim(pth_grd)
+     $                 //trim(pfx_dmn)//"pom_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+            call check( nf90_inq_varid(ncid, "Rmean", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $           rmean,(/1,1,1,mi/),(/im,jm,kb,1/)) )
+
+            if (BC%ipl) then
+              if (mi==1) then
+                call check( nf90_get_var(ncid, varid,
+     $                      rmeanb,(/1,1,1,12/),(/im,jm,kb,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $                      rmeanb,(/1,1,1,mi-1/),(/im,jm,kb,1/)) )
+              end if
+              rmeanf = rmean
+            end if
+
+            call check( nf90_close(ncid) )
+
+            do k=1,kbm1
+              rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
+            end do
+
+          end if
+
+          if (BC%ipl) then
+            rmean = rmeanb+fac*(rmeanf-rmeanb)      ! TODO: Not sure if it is correct to intepolate rmean since interpolated field won't correspond to interpolated tclim and sclim.
+          end if
+
+          return
+!
+        case (1) ! Not a boundary condition but climate
+
+          if (mi /= rf_clm) then
+
+            rf_clm = mi
+
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $                 trim(pfx_dmn)//"pom_clm.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
+            call check( nf90_inq_varid(ncid, "Tclim", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $           tclim, (/1,1,1,mi/), (/im,jm,kb,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi == 1) then
+                call check( nf90_get_var(ncid, varid,
+     $               tclimb,(/1,1,1,  12/), (/im,jm,kb,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $               tclimb,(/1,1,1,mi-1/), (/im,jm,kb,1/)) )
+              end if
+              tclimf = tclim
+
+            end if
+!
+            call check( nf90_inq_varid(ncid, "Sclim", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $           sclim, (/1,1,1,mi/), (/im,jm,kb,1/)) )
+
+            if (BC%ipl) then
+
+              if (mi == 1) then
+                call check( nf90_get_var(ncid, varid,
+     $               sclimb, (/1,1,1,  12/), (/im,jm,kb,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid,
+     $               sclimb, (/1,1,1,mi-1/), (/im,jm,kb,1/)) )
+              end if
+              sclimf = sclim
+
+            end if
+
+            call check( nf90_close(ncid) )
+!
+            do k=1,kb
+              tclim(:,:,k) = tclim(:,:,k)*fsm(:,:)
+              sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
+            end do
+
+            write(*,*) "Read climate: ", mi
+
+          end if
+!     Perform interpolation
+          if (BC%ipl) then
+            tclim = (tclimb+fac*(tclimf-tclimb))
+            sclim = (sclimb+fac*(sclimf-sclimb))
+          end if
+
+          return
+
+        case (2) ! elevation (TODO: implement elevation)
+!
+          if (mi.ne.rf_el) then
+!     If we move to the next month...
+            rf_el = mi
+            
+            write(*,*) "[@] TODO: implement elevation BCs."
+
+          end if
+
+          return
+!
+        case (3) ! u and v (TODO: implement boundary currents)
+!
+          if (mi.ne.rf_uv) then
+!        If we move to the next month...
+            rf_uv = mi
+
+            write(*,*) "[@] TODO: implement current BCs."
+
+          end if
+!     Perform interpolation
+          return
+!
+        case (11) ! vertical TS
+!
+!     Get boundary TS from Tclim and Sclim w/o reading the `clm` file for now.
+          tbn = tclim(:,jm,:)
+          sbn = sclim(:,jm,:)
+          tbe = tclim(im,:,:)
+          sbe = sclim(im,:,:)
+          tbs = tclim(:, 1,:)
+          sbs = sclim(:, 1,:)
+          tbw = tclim( 1,:,:)
+          sbw = sclim( 1,:,:)
+
+          write(*,*) "Got verTS BCs:", mi
+
+          return
+          
+        case (12) ! surface TS
+!
+!     Get boundary TS from Tclim and Sclim w/o reading the `clm` file for now.
+          tsurf = tclim(:,:,1)
+          ssurf = sclim(:,:,1)
+
+          write(*,*) "Got horTS BCs:", mi
+
+          return
+!
         end select
 C
         return
