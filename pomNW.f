@@ -1086,7 +1086,7 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      nccnt = int((iint+time0*86400/dti)/fprint)
+      nccnt = int((iint+time0*86400./dti)/fprint)
       ncid = create_output(nccnt)  ! rwnd:
       call ncflush(ncid
      $            ,int(modulo(float(iint)/float(iprint)
@@ -1966,9 +1966,11 @@ C
 C
 !          call wadout  !lyo:!wad:
           
-          if (int((iint+time0*86400/dti)/fprint)/=nccnt) then
-              nccnt = int((iint+time0*86400/dti)/fprint)
+          if (int((iint+time0*86400./dti)/fprint)/=nccnt) then
+              nccnt = int((iint+time0*86400./dti)/fprint)
+              write(*,*) "Output file change (", nccnt, ")"
               call ncclose(ncid)
+              write(*,*) "Previous file closed."
               ncid = create_output(nccnt)
           end if
           call ncflush(ncid
@@ -8599,7 +8601,7 @@ C
       real datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      real rad,re,dlat,dlon,cff
+      real rad,re,dlat,dlon,dlnt,cff
       integer i,j,k,mm,ncid,varid
       real lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
@@ -8860,18 +8862,20 @@ C
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
-      do j=1,jm
-        do i=1,im-1
-          rot(i,j)=0.
-          dlat=north_e(i+1,j)-north_e(i,j)
-          dlon= east_e(i+1,j)- east_e(i,j)
-           if(dlon.ne.0.) rot(i,j)=atan(dlat/dlon)
+!
+      do i=1,im
+        do j=1,jm
+! --- calc. tilting angle of curvilinear grid
+          if (j==jm) then
+            dlon = (east_e(i,j)-east_e(i,j-1))*cos(north_e(i,j)*rad)
+            dlat = north_e(i,j)-north_e(i,j-1)
+          else
+            dlon = (east_e(i,j+1)-east_e(i,j))*cos(north_e(i,j)*rad)
+            dlat = north_e(i,j+1)-north_e(i,j)
+          endif
+          dlnt = (dlon**2+dlat**2)**.5
+          rot(i,j) = asin(dlon/dlnt)
         end do
-       rot(im,j)=rot(im-1,j)
       end do
 C
 C     Set lateral boundary conditions, for use in subroutine bcond
@@ -9469,7 +9473,8 @@ C
         integer :: lyrs(nlyrs)
         !data lyrs /1,2,15/
         character(len=256) filename
-C
+!
+        write(*,*) "[_] Writing record #", ri
         count = 0
         NOK = .true.
         do i=1,nlyrs
@@ -9633,8 +9638,228 @@ C
           end subroutine check
 C
       end
-C
+!
       subroutine flux(idx)
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Reads (if necessary) forcing dataset                *
+! *                and interpolates in time.                           *
+! *                                                                    *
+! **********************************************************************
+!
+      use netcdf
+      implicit none
+!
+      include 'pomNW.c'
+!
+      integer, intent (in) :: idx
+      integer :: i,j, ncid, varid
+      real :: qq, dq, sst
+      character(len=256) filename
+
+      real :: hf_fac = -4.1876e6 ! Heat flux convertion factor
+!
+      select case (idx)
+
+        case (4) ! Long wave radiation and other fluxes
+
+          if (mi.ne.rf_wtsur) then
+!
+            rf_wtsur = mi
+!
+            write(*,*) "[_] TODO: Implement long wave radiation",
+     $                 " BC reading."
+!
+          end if
+
+          return
+!
+        case (3) ! Short wave radiation flux
+!
+          if (mi.ne.rf_swrad) then
+!
+            rf_swrad = mi
+!
+            write(*,*) "[_] TODO: Implement short wave radiation",
+     $                 " BC reading."
+!
+          end if
+
+          return
+!
+        case (5) ! momentum flux
+!
+          if (mi.ne.rf_wsurf) then
+!
+            rf_wsurf = mi
+!
+            filename = trim(pth_wrk)//trim(pth_flx)//
+     $                 trim(pfx_dmn)//"pom_frc.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
+            call check( nf90_inq_varid(ncid, "wU", varid) )
+
+            call check( nf90_get_var(ncid, varid, wusurf
+     $                   ,(/1,1,mi/), (/im,jm,1/)) )
+
+            if (BC%ipl) then
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, wusurfb
+     $                   ,(/1,1,mi-1/), (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, wusurfb
+     $                   ,(/1,1,12/),   (/im,jm,1/)) )
+              end if
+            end if
+
+            call check( nf90_inq_varid(ncid, "wV", varid) )
+
+            call check( nf90_get_var(ncid, varid, wvsurf
+     $                   , (/1,1,mi/),   (/im,jmm1,1/)) )
+
+            if (BC%ipl) then
+              if (mi.ne.1) then
+                call check( nf90_get_var(ncid, varid, wvsurfb
+     $                   , (/1,1,mi-1/), (/im,jm,1/)) )
+              else
+                call check( nf90_get_var(ncid, varid, wvsurfb
+     $                   , (/1,1,12/),   (/im,jm,1/)) )
+              end if
+            end if
+
+            call check( nf90_close(ncid) )
+
+            ! Fill in boundaries
+            wusurf(1,:) = wusurf(2,:)
+            wvsurf(:,1) = wvsurf(:,2)
+            ! Taper wind stress along the boundary
+            do i = 2, imm1
+              do j = 2, jmm1
+                wusurf(i,j) = .25*wusurf(i,j)
+     $                       *(fsm(i,j+1)+fsm(i+1,j)
+     $                        +fsm(i,j-1)+fsm(i-1,j)) ! TODO: or use fsm? Fsm may be preferrable for i=1, j=1
+                wvsurf(i,j) = .25*wvsurf(i,j)
+     $                       *(fsm(i,j+1)+fsm(i+1,j)
+     $                        +fsm(i,j-1)+fsm(i-1,j)) !
+              end do
+            end do
+            do i = 2, imm1
+              wusurf(i, 1) = wusurf(i, 1)/3
+     $                      *(fsm(i,   2)+fsm(i+1, 1)
+     $                       +fsm(i-1, 1))
+              wusurf(i,jm) = wusurf(i,jm)/3
+     $                      *(fsm(i,jmm1)+fsm(i+1,jm)
+     $                       +fsm(i-1,jm))
+            end do
+            do j = 2, jmm1
+              wvsurf( 1,j) = wvsurf( 1,j)/3
+     $                      *(fsm( 1,j+1)+fsm(   2,j)
+     $                       +fsm( 1,j-1))
+              wvsurf(im,j) = wvsurf(im,j)/3
+     $                      *(fsm(im,j+1)+fsm(imm1,j)
+     $                       +fsm(im,j-1))
+            end do
+            wusurf( 1, 1) = .5*wusurf( 1, 1)
+     $                     *(fsm( 1,   2)+fsm(   2,   1))
+            wusurf(im, 1) = .5*wusurf(im, 1)
+     $                     *(fsm(im,   2)+fsm(imm1,   1))
+            wusurf( 1,jm) = .5*wusurf( 1,jm)
+     $                     *(fsm( 2,  jm)+fsm(   2,jmm1))
+            wusurf(im,jm) = .5*wusurf(im,jm)
+     $                     *(fsm(im,jmm1)+fsm(imm1,  jm))
+            wvsurf( 1, 1) = .5*wvsurf( 1, 1)
+     $                     *(fsm( 1,   2)+fsm(   2,   1))
+            wvsurf(im, 1) = .5*wvsurf(im, 1)
+     $                     *(fsm(im,   2)+fsm(imm1,   1))
+            wvsurf( 1,jm) = .5*wvsurf( 1,jm)
+     $                     *(fsm( 2,  jm)+fsm(   2,jmm1))
+            wvsurf(im,jm) = .5*wvsurf(im,jm)
+     $                     *(fsm(im,jmm1)+fsm(imm1,  jm))
+
+!
+            if (BC%ipl) then
+                
+              wusurff = wusurf
+              wvsurff = wvsurf
+
+              ! Taper for *b fields too.
+
+              ! Fill in boundaries
+              wusurfb(1,:) = wusurfb(2,:)
+              wvsurfb(:,1) = wvsurfb(:,2)
+              ! Taper wind stress along the boundary
+              do i = 2, imm1
+                do j = 2, jmm1
+                  wusurfb(i,j) = .25*wusurfb(i,j)
+     $                          *(fsm(i,j+1)+fsm(i+1,j)
+     $                           +fsm(i,j-1)+fsm(i-1,j)) ! TODO: or use fsm?
+                  wvsurfb(i,j) = .25*wvsurfb(i,j)
+     $                          *(fsm(i,j+1)+fsm(i+1,j)
+     $                           +fsm(i,j-1)+fsm(i-1,j)) !
+                end do
+              end do
+              do i = 2, imm1
+                wusurfb(i, 1) = wusurfb(i, 1)/3
+     $                         *(fsm(i,   2)+fsm(i+1, 1)
+     $                          +fsm(i-1, 1))
+                wusurfb(i,jm) = wusurfb(i,jm)/3
+     $                         *(fsm(i,jmm1)+fsm(i+1,jm)
+     $                          +fsm(i-1,jm))
+              end do
+              do j = 2, jmm1
+                wvsurfb( 1,j) = wvsurfb( 1,j)/3
+     $                        *(fsm( 1,j+1)+fsm(   2,j)
+     $                         +fsm( 1,j-1))
+                wvsurfb(im,j) = wvsurfb(im,j)/3
+     $                        *(fsm(im,j+1)+fsm(imm1,j)
+     $                         +fsm(im,j-1))
+              end do
+              wusurfb( 1, 1) = .5*wusurfb( 1, 1)
+     $                        *(fsm( 1,   2)+fsm(   2,   1))
+              wusurfb(im, 1) = .5*wusurfb(im, 1)
+     $                        *(fsm(im,   2)+fsm(imm1,   1))
+              wusurfb( 1,jm) = .5*wusurfb( 1,jm)
+     $                        *(fsm( 2,  jm)+fsm(   2,jmm1))
+              wusurfb(im,jm) = .5*wusurfb(im,jm)
+     $                        *(fsm(im,jmm1)+fsm(imm1,  jm))
+              wvsurfb( 1, 1) = .5*wvsurfb( 1, 1)
+     $                        *(fsm( 1,   2)+fsm(   2,   1))
+              wvsurfb(im, 1) = .5*wvsurfb(im, 1)
+     $                        *(fsm(im,   2)+fsm(imm1,   1))
+              wvsurfb( 1,jm) = .5*wvsurfb( 1,jm)
+     $                        *(fsm( 2,  jm)+fsm(   2,jmm1))
+              wvsurfb(im,jm) = .5*wvsurfb(im,jm)
+     $                        *(fsm(im,jmm1)+fsm(imm1,  jm))
+
+            end if
+
+            write(*,*) "Read w*surf:  ", mi
+
+          end if
+
+          if (BC%ipl) then
+            wusurf = wusurfb+fac*(wusurff-wusurfb)
+            wvsurf = wvsurfb+fac*(wvsurff-wvsurfb)
+          end if
+
+          return
+
+      end select
+C
+      return
+C
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+C
+      end
+!
+      subroutine flux_roms(idx)
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Reads (if necessary) forcing dataset                *
@@ -10976,8 +11201,8 @@ C
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
         call check( nf90_inq_varid(ncid, "R", varid) )
         call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
-        call check( nf90_inq_varid(ncid, "Rmean", varid) )
-        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+!        call check( nf90_inq_varid(ncid, "Rmean", varid) )
+!        call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
         
         call check( nf90_enddef(ncid) )
         
