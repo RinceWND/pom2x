@@ -1300,6 +1300,7 @@ C
         call bry(11)
         call bry(12)
       end if
+      call bry(3)   ! Update current velocity BCs.
 C
 clyo:
 !     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
@@ -10869,11 +10870,40 @@ C
           if (mi.ne.rf_uv) then
 !        If we move to the next month...
             rf_uv = mi
+            
+            write(*,*) "[@] TODO: implement variable BCs for currents."
 
-            write(*,*) "[@] TODO: implement current BCs."
+            filename = trim(pth_wrk)//trim(pth_grd)
+     $                 //trim(pfx_dmn)//"pom_bry.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+            if (BC%bnd%nth) then
+              call check( nf90_inq_varid(ncid, "north.v", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    vbn,(/1,1/),(/im,kb/)) )
+            end if
+            if (BC%bnd%est) then
+              call check( nf90_inq_varid(ncid, "east.u",  varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    ube,(/1,1/),(/jm,kb/)) )
+            end if
+            if (BC%bnd%sth) then
+              call check( nf90_inq_varid(ncid, "south.v", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    vbs,(/1,1/),(/im,kb/)) )
+            end if
+            if (BC%bnd%wst) then
+              call check( nf90_inq_varid(ncid, "west.u", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    ube,(/1,1/),(/im,kb/)) )
+            end if
+
+            call check( nf90_close(ncid) )
 
           end if
-!     Perform interpolation
+          
+          write(*,*) "[-] Velocity BC has been read."
+
           return
 !
         case (11) ! vertical TS
