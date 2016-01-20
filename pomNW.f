@@ -709,8 +709,8 @@ C
       time = time0
 !----------------------------------------------------------------------!
 !
-!   Store month offset for further warping.
       call upd_mnth(time0, BC%ipl)
+!   Store month offset for further warping.
       m0 = mi
 C
 clyo:wad:beg:
@@ -1086,7 +1086,7 @@ C
 C
 C-----------------------------------------------------------------------
 C
-      nccnt = int((iint+time0*86400./dti)/fprint)
+      nccnt = int(iint/fprint)
       ncid = create_output(nccnt)  ! rwnd:
       call ncflush(ncid
      $            ,int(modulo(float(iint)/float(iprint)
@@ -1296,10 +1296,7 @@ C
           end do
         end do
       end if
-      if (BC%clm) then
-        call bry(11)
-        call bry(12)
-      end if
+      if (BC%clm) call bry(4)
       call bry(3)   ! Update current velocity BCs.
 C
 clyo:
@@ -8648,15 +8645,15 @@ C--- 1D ---
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
       call check( nf90_inq_varid(ncid, "Tclim", varid) )
-      call check( nf90_get_var(ncid, varid, t, (/1,1,1,1/),
+      call check( nf90_get_var(ncid, varid, t, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] potential temperature retrieved"
       call check( nf90_inq_varid(ncid, "Sclim", varid) )
-      call check( nf90_get_var(ncid, varid, s, (/1,1,1,1/),
+      call check( nf90_get_var(ncid, varid, s, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] salinity retrieved"
       call check( nf90_inq_varid(ncid, "Rmean", varid) )
-      call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,1/),
+      call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
       call check( nf90_close(ncid) )
@@ -8666,11 +8663,11 @@ C--- 3D ---
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
       call check( nf90_inq_varid(ncid, "wU", varid) )
-      call check( nf90_get_var(ncid, varid, wusurf, (/1,1,1/),
+      call check( nf90_get_var(ncid, varid, wusurf, (/1,1,mi/),
      &                                            (/im,jm,1/)) )
       write(*, *) "[O] wusurf retrieved"
       call check( nf90_inq_varid(ncid, "wV", varid) )
-      call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,1/),
+      call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,mi/),
      &                                            (/im,jm,1/)) )
       write(*, *) "[O] wvsurf retrieved"
       call check( nf90_close(ncid) )
@@ -9475,7 +9472,7 @@ C
         !data lyrs /1,2,15/
         character(len=256) filename
 !
-        write(*,*) "[_] Writing record #", ri
+        write(*,*) "[-] Writing record #", ri
         count = 0
         NOK = .true.
         do i=1,nlyrs
@@ -10752,7 +10749,7 @@ C
 C
       select case (idx)
 !
-          case (0)            ! Read rmean from pom grid provided file.
+          case (0)            ! Read rmean from pom grid provided file. TODO: Maybe it should be better to move this to case 1 and read all rmean, tclim and sclim at the same time?
 
           if (mi /= rf_rmn) then
 
@@ -10782,12 +10779,15 @@ C
             do k=1,kbm1
               rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
             end do
+            
+            write(*,*) "[-] Read background density: ", mi
 
           end if
 
           if (BC%ipl) then
-            rmean = rmeanb+fac*(rmeanf-rmeanb)      ! TODO: Not sure if it is correct to intepolate rmean since interpolated field won't correspond to interpolated tclim and sclim.
+            rmean = rmeanb+fac*(rmeanf-rmeanb)      ! TODO: Not sure if it is correct to intepolate rmean since interpolated field won't correspond to interpolated tmean and smean.
           end if
+          
 
           return
 !
@@ -10842,13 +10842,20 @@ C
               sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
             end do
 
-            write(*,*) "Read climate: ", mi
+            write(*,*) "[-] Read climate:   ", mi
+!     Update surface T and S
+            tsurf = tclim(:,:,1)
+            ssurf = sclim(:,:,1)
+            write(*,*) "[-] Got surface TS: ", mi
 
           end if
 !     Perform interpolation
           if (BC%ipl) then
             tclim = (tclimb+fac*(tclimf-tclimb))
             sclim = (sclimb+fac*(sclimf-sclimb))
+!     Update surface T and S
+            tsurf = tclim(:,:,1)
+            ssurf = sclim(:,:,1)
           end if
 
           return
@@ -10865,7 +10872,7 @@ C
 
           return
 !
-        case (3) ! u and v (TODO: implement boundary currents)
+        case (3) ! u and v
 !
           if (mi.ne.rf_uv) then
 !        If we move to the next month...
@@ -10881,32 +10888,49 @@ C
               call check( nf90_inq_varid(ncid, "north.v", varid) )
               call check( nf90_get_var(ncid, varid,
      $                    vbn,(/1,1/),(/im,kb/)) )
+              vabn = 0.
+              do k=1,kbm1
+                vabn(:) = vabn(:) + dz(k)*vbn(:,k)
+              end do
             end if
             if (BC%bnd%est) then
               call check( nf90_inq_varid(ncid, "east.u",  varid) )
               call check( nf90_get_var(ncid, varid,
      $                    ube,(/1,1/),(/jm,kb/)) )
+              uabe = 0.
+              do k=1,kbm1
+                uabe(:) = uabe(:) + dz(k)*ube(:,k)
+              end do
             end if
             if (BC%bnd%sth) then
               call check( nf90_inq_varid(ncid, "south.v", varid) )
               call check( nf90_get_var(ncid, varid,
      $                    vbs,(/1,1/),(/im,kb/)) )
+              vabs = 0.
+              do k=1,kbm1
+                vabs(:) = vabs(:) + dz(k)*vbs(:,k)
+              end do
             end if
             if (BC%bnd%wst) then
               call check( nf90_inq_varid(ncid, "west.u", varid) )
               call check( nf90_get_var(ncid, varid,
      $                    ube,(/1,1/),(/im,kb/)) )
+              uabe = 0.
+              do k=1,kbm1
+                uabe(:) = uabe(:) + dz(k)*ube(:,k)
+              end do
             end if
 
             call check( nf90_close(ncid) )
+            
+            write(*,*) "[-] Read boundary velocities"
 
           end if
           
-          write(*,*) "[-] Velocity BC has been read."
 
           return
 !
-        case (11) ! vertical TS
+        case (4) ! vertical TS
 !
 !     Get boundary TS from Tclim and Sclim w/o reading the `clm` file for now.
           tbn = tclim(:,jm,:)
@@ -10918,17 +10942,7 @@ C
           tbw = tclim( 1,:,:)
           sbw = sclim( 1,:,:)
 
-          write(*,*) "Got verTS BCs:", mi
-
-          return
-          
-        case (12) ! surface TS
-!
-!     Get boundary TS from Tclim and Sclim w/o reading the `clm` file for now.
-          tsurf = tclim(:,:,1)
-          ssurf = sclim(:,:,1)
-
-          write(*,*) "Got horTS BCs:", mi
+          write(*,*) "[-] Got verTS BCs:", mi
 
           return
 !
