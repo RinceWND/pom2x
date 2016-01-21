@@ -1964,8 +1964,8 @@ C
 C
 !          call wadout  !lyo:!wad:
           
-          if (int((iint+time0*86400./dti)/fprint)/=nccnt) then
-              nccnt = int((iint+time0*86400./dti)/fprint)
+          if (int(iint/fprint)/=nccnt) then
+              nccnt = int(iint/fprint)
               write(*,*) "Output file change (", nccnt, ")"
               call ncclose(ncid)
               write(*,*) "Previous file closed."
