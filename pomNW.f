@@ -9465,7 +9465,8 @@ C
         integer :: count
         integer :: i, j, k, ncid, varid, status
         real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
-        real :: darea, dvol
+        real :: darea, dvol, mtot2(im), mtot3, vtot2(im), vtot3
+        real :: volAcc(im,kbm1), masAcc(im,kbm1), mtotAcc(im)
         integer nlyrs, fi, ri ! fi - file index, ri - record index
         parameter (nlyrs = kbm1)
         integer :: lyrs(nlyrs)
@@ -9493,12 +9494,16 @@ C
           tavg=0.e0
           qavg=0
 C
+          volAcc = 0.
+          masAcc = 0.
           do j=1,jm
             do i=1,im
-              darea=dx(i,j)*dy(i,j)*fsm(i,j)
+              darea=dx(i,j)*dy(i,j)*wetmask(i,j)
               do k=1,kbm1
                 dvol=darea*dt(i,j)*dz(k)
-                mtot=mtot+(rho(i,j,k)*rhoref+1000)*dvol
+                volAcc(i,k) = volAcc(i,k)+dvol
+                mtot=mtot+(rho(i,j,k)*rhoref+1000.)*dvol
+                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
                 vtot=vtot+dvol
                 tavg=tavg+tb(i,j,k)*dvol
                 qavg=qavg+q2(i,j,k)*dvol
@@ -9507,6 +9512,33 @@ C
               eavg=eavg+et(i,j)*darea
             end do
           end do
+          
+          mtot2 = 0.
+          vtot2 = 0.
+          do k=1,kbm1
+            do i=1,im
+              vtot2(i) = vtot2(i)+volAcc(i,k)
+              mtot2(i) = mtot2(i)+masAcc(i,k)
+            end do
+          end do
+          
+          mtot3 = 0.
+          vtot3 = 0.
+          do i=1,im
+            mtot3 = mtot3+mtot2(i)
+            vtot3 = vtot3+vtot2(i)
+          end do
+          
+          write(*,*) "Total vol  (old): ",vtot
+          write(*,*) "Total vol  (new): ",vtot3
+          vtot3 = vtot3-vtot
+          write(*,*) "Total volume discreapncy between ",
+     $               "two sum methods is: ",vtot3
+          write(*,*) "Total mass (old): ",mtot
+          write(*,*) "Total mass (new): ",mtot3
+          mtot3 = mtot3-mtot
+          write(*,*) "Total mass discreapncy between ",
+     $               "two sum methods is: ",mtot3
 C
           eavg=eavg/atot
           tavg=tavg/vtot
