@@ -10977,8 +10977,6 @@ C
           tbw = tclim( 1,:,:)
           sbw = sclim( 1,:,:)
 
-          write(*,*) "[-] Got verTS BCs:", mi
-
           return
 !
         end select
