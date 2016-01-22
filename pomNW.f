@@ -8638,6 +8638,9 @@ C--- 1D ---
       call check( nf90_get_var(ncid, varid, north_e) )
       write(*, *) "[O] latitude retrieved"
       call check( nf90_close(ncid) )
+      
+!     Override hmax parameter
+      hmax = maxval(h)
 
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"pom_clm.nc"
