@@ -8878,15 +8878,15 @@ C
           rot(i,j) = asin(dlon/dlnt)
         end do
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=0.e0
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     set all=0 for closed BCs.
+!     Values=0 for vel BC only, =1 is combination of vel+elev.
+      rfe=1.e0
       rfw=0.e0
       rfn=0.e0
-      rfs=0.e0  ! Meaningless with RaS boundary conditions.
-C
+      rfs=1.e0
+!
       return
 
       contains
@@ -9497,16 +9497,16 @@ C
           tavg=0.e0
           qavg=0
 C
-          volAcc = 0.
-          masAcc = 0.
+!          volAcc = 0.
+!          masAcc = 0.
           do j=1,jm
             do i=1,im
               darea=dx(i,j)*dy(i,j)*wetmask(i,j)
               do k=1,kbm1
                 dvol=darea*dt(i,j)*dz(k)
-                volAcc(i,k) = volAcc(i,k)+dvol
+!                volAcc(i,k) = volAcc(i,k)+dvol
                 mtot=mtot+(rho(i,j,k)*rhoref+1000.)*dvol
-                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
+!                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
                 vtot=vtot+dvol
                 tavg=tavg+tb(i,j,k)*dvol
                 qavg=qavg+q2(i,j,k)*dvol
@@ -9516,32 +9516,32 @@ C
             end do
           end do
           
-          mtot2 = 0.
-          vtot2 = 0.
-          do k=1,kbm1
-            do i=1,im
-              vtot2(i) = vtot2(i)+volAcc(i,k)
-              mtot2(i) = mtot2(i)+masAcc(i,k)
-            end do
-          end do
+!          mtot2 = 0.
+!          vtot2 = 0.
+!          do k=1,kbm1
+!            do i=1,im
+!              vtot2(i) = vtot2(i)+volAcc(i,k)
+!              mtot2(i) = mtot2(i)+masAcc(i,k)
+!            end do
+!          end do
+!          
+!          mtot3 = 0.
+!          vtot3 = 0.
+!          do i=1,im
+!            mtot3 = mtot3+mtot2(i)
+!            vtot3 = vtot3+vtot2(i)
+!          end do
           
-          mtot3 = 0.
-          vtot3 = 0.
-          do i=1,im
-            mtot3 = mtot3+mtot2(i)
-            vtot3 = vtot3+vtot2(i)
-          end do
-          
-          write(*,*) "Total vol  (old): ",vtot
-          write(*,*) "Total vol  (new): ",vtot3
-          vtot3 = vtot3-vtot
-          write(*,*) "Total volume discreapncy between ",
-     $               "two sum methods is: ",vtot3
-          write(*,*) "Total mass (old): ",mtot
-          write(*,*) "Total mass (new): ",mtot3
-          mtot3 = mtot3-mtot
-          write(*,*) "Total mass discreapncy between ",
-     $               "two sum methods is: ",mtot3
+!          write(*,*) "Total vol  (old): ",vtot
+!          write(*,*) "Total vol  (new): ",vtot3
+!          vtot3 = vtot3-vtot
+!          write(*,*) "Total volume discreapncy between ",
+!     $               "two sum methods is: ",vtot3
+!          write(*,*) "Total mass (old): ",mtot
+!          write(*,*) "Total mass (new): ",mtot3
+!          mtot3 = mtot3-mtot
+!          write(*,*) "Total mass discreapncy between ",
+!     $               "two sum methods is: ",mtot3
 C
           eavg=eavg/atot
           tavg=tavg/vtot
