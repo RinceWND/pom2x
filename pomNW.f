@@ -707,11 +707,7 @@ C
 !
 !     Override time with time0
       time = time0
-!----------------------------------------------------------------------!
 !
-      call upd_mnth(time0, BC%ipl)
-!   Store month offset for further warping.
-      m0 = mi
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -940,7 +936,7 @@ C
          period=(2.e0*pi)/abs(cor(im/2,jm/2))/86400.e0
       else
          period=1.0  !set to 1day
-         endif
+      endif
 C
 C     Initial conditions:
 C
@@ -1083,6 +1079,11 @@ C
       end do
       endif
 !                                                                      !
+!----------------------------------------------------------------------!
+!
+      call upd_mnth(time0, BC%ipl)
+!   Store month offset for further warping.
+      m0 = mi
 C
 C-----------------------------------------------------------------------
 C
@@ -1100,82 +1101,6 @@ C
       write(49,*) timestamp, ";",
      $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
 C
-C-----------------------------------------------------------------------
-C
-!C     Print geometry and other initial fields (select statements as
-!C     desired):
-!C
-!      call prxy('grid increment in x, dx                 ',
-!     $          time,dx ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('grid increment in y, dy                 ',
-!     $          time,dy ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Easting of elevation points, east_e     ',
-!     $          time,east_e ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Northing of elevation points, north_e   ',
-!     $          time,north_e,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Easting of cell corners, east_c         ',
-!     $          time,east_c ,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Northing of cell corners, north_c       ',
-!     $          time,north_c,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Rotation angle of x-axis wrt. east, rot ',
-!     $          time,rot,im,iskp,jm,jskp,0.e0)
-!C
-!      call prxy('Undisturbed water depth, h              ',
-!     $          time,h  ,im,iskp,jm,jskp,1.e1)
-!C
-!      call prxy('Land mask, fsm                          ',     !lyo:!wad:
-!     $          time,fsm,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('Wet & dry mask, wetmask                 ',     !lyo:!wad:
-!     $          time,wetmask,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('u-velocity mask, dum                    ',
-!     $          time,dum,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('v-velocity mask, dvm                    ',
-!     $          time,dvm,im,iskp,jm,jskp,1.e0)
-!C
-!      write(6,'('' Min CFL Time-step, cflmin = '',f10.4)') cflmin !lyo:_20080415:
-!
-!      call prxy('External (2-D) CFL time step, tps       ',
-!     $          time,tps,im,iskp,jm,jskp,1.e0)
-!C
-!      call prxy('Bottom friction coefficient, cbc        ',     !lyo:!wad:
-!     $          time,cbc,im,iskp,jm,jskp,0.e0)
-!C
-!C     Set sections for output:
-!C
-!      ko(1)=1
-!      ko(2)=kb/2
-!      ko(3)=kb-1
-!C
-!      call prxyz('Horizontally-averaged rho, rmean        ',
-!     $           time,rmean,im,iskp,jm,jskp,kb,ko,3,1.e-5)
-!C
-!C     Set sections for output:
-!C
-!      jo(1)=1
-!      jo(2)=jm/2
-!      jo(3)=jm-1
-!C
-!      call prxz('Horizontally-averaged rho, rmean        ',
-!     $          time,rmean,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
-!C
-!C     Set sections for output:
-!C
-!      io(1)=1
-!      io(2)=im/2
-!      io(3)=im-1
-!C
-!      call pryz('Horizontally-averaged rho, rmean        ',
-!     $          time,rmean,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
-!C
 C-----------------------------------------------------------------------
 C
 C     Initial conditions:
