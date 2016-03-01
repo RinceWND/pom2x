@@ -1084,9 +1084,11 @@ C
       call upd_mnth(time0, BC%ipl)
 !   Store month offset for further warping.
       m0 = mi
-C
-C-----------------------------------------------------------------------
-C
+!   Prevent writing zero time when it is not meant to be zero.
+      time = time0
+!
+!-----------------------------------------------------------------------
+!
       nccnt = int(iint/fprint)
       ncid = create_output(nccnt)  ! rwnd:
       call ncflush(ncid
@@ -1868,7 +1870,7 @@ C
 !          call ncTgtFlush(49)
           call time2date(time, time_start, timestamp)
           write(49,*) timestamp, ";",
-     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
+     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
         end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
@@ -8569,7 +8571,7 @@ C--- 1D ---
 
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"pom_clm.nc"
-      write(*,*) "\\",trim(filename)
+      write(*,*) "\\",trim(filename)      
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
       call check( nf90_inq_varid(ncid, "Tclim", varid) )
@@ -9292,6 +9294,7 @@ C
 !        call check( nf90_inq_varid(ncid, "CFL", varid) )
 !        call check( nf90_put_var(ncid, varid, tps) )
         write(*, *) "NetCDF output has been initialized (",ncid,")."
+        write(*, *) "Filepath: ",trim(filename)
 C
         return
 C
@@ -9625,7 +9628,7 @@ C
 !
             rf_wtsur = mi
 !
-            write(*,*) "[_] TODO: Implement long wave radiation",
+            write(*,*) "[@] TODO: Implement long wave radiation",
      $                 " BC reading."
 !
           end if
@@ -9638,7 +9641,7 @@ C
 !
             rf_swrad = mi
 !
-            write(*,*) "[_] TODO: Implement short wave radiation",
+            write(*,*) "[@] TODO: Implement short wave radiation",
      $                 " BC reading."
 !
           end if
@@ -9766,11 +9769,11 @@ C
               end do
               do j = 2, jmm1
                 wvsurfb( 1,j) = wvsurfb( 1,j)/3
-     $                        *(fsm( 1,j+1)+fsm(   2,j)
-     $                         +fsm( 1,j-1))
+     $                         *(fsm( 1,j+1)+fsm(   2,j)
+     $                          +fsm( 1,j-1))
                 wvsurfb(im,j) = wvsurfb(im,j)/3
-     $                        *(fsm(im,j+1)+fsm(imm1,j)
-     $                         +fsm(im,j-1))
+     $                         *(fsm(im,j+1)+fsm(imm1,j)
+     $                          +fsm(im,j-1))
               end do
               wusurfb( 1, 1) = .5*wusurfb( 1, 1)
      $                        *(fsm( 1,   2)+fsm(   2,   1))
@@ -9791,7 +9794,7 @@ C
 
             end if
 
-            write(*,*) "Read w*surf:  ", mi
+            write(*,*) "[-] Read w*surf:  ", mi
 
           end if
 
