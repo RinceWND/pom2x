@@ -297,6 +297,7 @@ C
         logical est     ! flag for eastern variable boundary
         logical sth     ! flag for southern variable boundary
         logical wst     ! flag for western variable boundary
+        logical vol     ! flag for boundary volume conservation
       end type
       type Tbc
       sequence
