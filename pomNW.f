@@ -663,7 +663,8 @@ C
       slice_b = 0.
       slice_e = 0.
 !     Climatological cycle
-      m0        = 0
+      m0        = 1
+      mi        = 1
       clm_cycle = 12
 
       nccnt = 0
@@ -913,7 +914,7 @@ C
       else if(iproblem.eq.13) then  !rwnd:box case to test curvilineal grid
         call ncdf2ic_box
       else if(iproblem.eq.14) then  !rwnd:pom grid generated ics
-        call ncdf2ic_pom
+        call ncdf2ic_pom(time0)
       else if(iproblem.eq.41) then  !lyo:!wad:
         call wadseamount
       else
@@ -1084,9 +1085,11 @@ C
       call upd_mnth(time0, BC%ipl)
 !   Store month offset for further warping.
       m0 = mi
-C
-C-----------------------------------------------------------------------
-C
+!   Prevent writing zero time when it is not meant to be zero.
+      time = time0
+!
+!-----------------------------------------------------------------------
+!
       nccnt = int(iint/fprint)
       ncid = create_output(nccnt)  ! rwnd:
       call ncflush(ncid
@@ -1868,7 +1871,7 @@ C
 !          call ncTgtFlush(49)
           call time2date(time, time_start, timestamp)
           write(49,*) timestamp, ";",
-     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
+     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
         end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
@@ -8503,7 +8506,7 @@ C
       end subroutine check
       end
 !
-      subroutine ncdf2ic_pom
+      subroutine ncdf2ic_pom(time0)
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Sets up my own problem.                             *
@@ -8522,6 +8525,7 @@ C
       real datr(im, jm, kbm1, 2)
       real datu(imm1, jm, kbm1, 2)
       real datv(im, jmm1, kbm1, 2)
+      real time0
       character (len = 256) :: filename
 !
       real rad,re,dlat,dlon,dlnt,cff
@@ -8564,15 +8568,17 @@ C--- 1D ---
       write(*, *) "[O] latitude retrieved"
       call check( nf90_close(ncid) )
       
+      call upd_mnth(time0, BC%ipl)
 !     Override hmax parameter
       hmax = maxval(h)
 
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"pom_clm.nc"
-      write(*,*) "\\",trim(filename)
+      write(*,*) "\\",trim(filename)      
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
       call check( nf90_inq_varid(ncid, "Tclim", varid) )
+      write(*,*) mi
       call check( nf90_get_var(ncid, varid, t, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] potential temperature retrieved"
@@ -8818,6 +8824,7 @@ C
       subroutine check(status)
         integer, intent ( in) :: status
         if(status /= nf90_noerr) then
+          write(*,*) status
           stop "Stopped"
         end if
       end subroutine check
@@ -9292,6 +9299,7 @@ C
 !        call check( nf90_inq_varid(ncid, "CFL", varid) )
 !        call check( nf90_put_var(ncid, varid, tps) )
         write(*, *) "NetCDF output has been initialized (",ncid,")."
+        write(*, *) "Filepath: ",trim(filename)
 C
         return
 C
@@ -9625,7 +9633,7 @@ C
 !
             rf_wtsur = mi
 !
-            write(*,*) "[_] TODO: Implement long wave radiation",
+            write(*,*) "[@] TODO: Implement long wave radiation",
      $                 " BC reading."
 !
           end if
@@ -9638,7 +9646,7 @@ C
 !
             rf_swrad = mi
 !
-            write(*,*) "[_] TODO: Implement short wave radiation",
+            write(*,*) "[@] TODO: Implement short wave radiation",
      $                 " BC reading."
 !
           end if
@@ -9766,11 +9774,11 @@ C
               end do
               do j = 2, jmm1
                 wvsurfb( 1,j) = wvsurfb( 1,j)/3
-     $                        *(fsm( 1,j+1)+fsm(   2,j)
-     $                         +fsm( 1,j-1))
+     $                         *(fsm( 1,j+1)+fsm(   2,j)
+     $                          +fsm( 1,j-1))
                 wvsurfb(im,j) = wvsurfb(im,j)/3
-     $                        *(fsm(im,j+1)+fsm(imm1,j)
-     $                         +fsm(im,j-1))
+     $                         *(fsm(im,j+1)+fsm(imm1,j)
+     $                          +fsm(im,j-1))
               end do
               wusurfb( 1, 1) = .5*wusurfb( 1, 1)
      $                        *(fsm( 1,   2)+fsm(   2,   1))
@@ -9791,7 +9799,7 @@ C
 
             end if
 
-            write(*,*) "Read w*surf:  ", mi
+            write(*,*) "[-] Read w*surf:  ", mi
 
           end if
 
@@ -10700,7 +10708,8 @@ C
       implicit none
 C
       integer, intent ( in) :: idx
-      integer :: i,j,k, ncid,varid
+      integer :: i,j,k, ncid,varid, dist_num,p
+      double precision :: trans_tot, trans_dist
 
       character(len=256) filename
 
@@ -10884,9 +10893,87 @@ C
             call check( nf90_close(ncid) )
             
             write(*,*) "[-] Read boundary velocities"
+            
+            if (BC%bnd%vol) then
+              
+              write(*,*) "[-] Volume conservation:"
+              
+              do p = 1, 12
+              
+                trans_tot = 0.
+                dist_num  = 0
+                ! TODO: get discrepancy from non-integrated BCs.
+                do i=1,im
+                  if (BC%bnd%sth) then
+                    trans_tot = trans_tot+fsm(i, 1)*vabs(i)
+     $                                    *(h(i, 1)+h(i,   2))*.5
+                    if (dvm(i, 1)/=0.) dist_num = dist_num+1
+                  end if
+                  if (BC%bnd%nth) then
+                    trans_tot = trans_tot-fsm(i,jm)*vabn(i)
+     $                                    *(h(i,jm)+h(i,jmm1))*.5  ! TODO: fsm? or dvm?
+                    if (dvm(i,jm)/=0.) dist_num = dist_num+1
+                  end if
+                end do
+                do j=1,jm
+                  if (BC%bnd%wst) then
+                    trans_tot = trans_tot+dum( 1,j)*uabw(j)
+     $                                    *(h( 1,j)+h(   2,j))*.5
+                    if (dum( 1,j)/=0.) dist_num = dist_num+1
+                  end if
+                  if (BC%bnd%est) then
+                    trans_tot = trans_tot-dum(im,j)*uabe(j)
+     $                                    *(h(im,j)+h(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
+                    if (dvm(im,j)/=0.) dist_num = dist_num+1
+                  end if
+                end do
+                
+                if (trans_tot/=0.) then   ! Pretty sure this will never be zero.
+                  trans_dist = trans_tot/float(dist_num)
+
+                  ! TODO: Code below doesn't modify non-integrated BCs
+                  do i=1,im
+                    vabs(i)=vabs(i)-trans_dist/((h(i, 1)+h(i,   2))*.5)
+                    vabn(i)=vabn(i)+trans_dist/((h(i,jm)+h(i,jmm1))*.5)
+                  end do
+                  do i=1,jm
+                    uabw(j)=uabw(j)-trans_dist/((h( 1,j)+h(   2,j))*.5)
+                    uabe(j)=uabe(j)+trans_dist/((h(im,j)+h(imm1,j))*.5)
+                  end do
+                end if
+                  
+              end do
+              
+              trans_tot = 0.
+              dist_num  = 0
+              ! TODO: get discrepancy from non-integrated BCs.
+              do i=1,im
+                if (BC%bnd%sth) then
+                  trans_tot = trans_tot+fsm(i, 1)*vabs(i)
+     $                                  *(h(i, 1)+h(i,   2))*.5
+                end if
+                if (BC%bnd%nth) then
+                  trans_tot = trans_tot-fsm(i,jm)*vabn(i)
+     $                                  *(h(i,jm)+h(i,jmm1))*.5  ! TODO: fsm? or dvm?
+                end if
+              end do
+              do j=1,jm
+                if (BC%bnd%wst) then
+                  trans_tot = trans_tot+dum( 1,j)*uabw(j)
+     $                                  *(h( 1,j)+h(   2,j))*.5
+                end if
+                if (BC%bnd%est) then
+                  trans_tot = trans_tot-dum(im,j)*uabe(j)
+     $                                  *(h(im,j)+h(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
+                end if
+              end do
+                
+              write(*,*) "[-] Discrepancy after ", p,
+     $                   " passes: ", trans_tot
+              
+            end if
 
           end if
-          
 
           return
 !
