@@ -1038,6 +1038,9 @@ C
           if (fsm(i,j).ne.0.0) cflmin=min(cflmin,tps(i,j)) !lyo:_20080415:
         end do
       end do
+      
+      write(*,*) "Minimal tps: ",minval(tps)
+      write(*,*) "Difference between minimal tps and chosen dte:",minval(tps)-dte
 C
 C-----------------------------------------------------------------------
 C
@@ -9117,7 +9120,7 @@ C **********************************************************************
 C *                                                                    *
 C *                         POM2K SOURCE CODE                          *
 C *                                                                    *
-C * ROUTINE NAME:  ic2ncdf                                             *
+C * ROUTINE NAME:  create_output                                       *
 C *                                                                    *
 C * FUNCTION    :  Creates a netCDF file for further output            *
 C *                                                                    *
@@ -9425,10 +9428,11 @@ C
 C
           vtot=0.d0
           atot=0.d0
-          qtot=0.
-          mtot=0.
+          qtot=0.d0
+          mtot=0.d0
           tavg=0.d0
-          qavg=0.
+          qavg=0.d0
+          eavg=0.d0
 C
 !          volAcc = 0.
 !          masAcc = 0.
