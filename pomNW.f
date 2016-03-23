@@ -1038,6 +1038,9 @@ C
           if (fsm(i,j).ne.0.0) cflmin=min(cflmin,tps(i,j)) !lyo:_20080415:
         end do
       end do
+      
+      write(*,*) "Minimal tps: ",minval(tps)
+      write(*,*) "Difference between minimal tps and chosen dte:",minval(tps)-dte
 C
 C-----------------------------------------------------------------------
 C
@@ -9117,7 +9120,7 @@ C **********************************************************************
 C *                                                                    *
 C *                         POM2K SOURCE CODE                          *
 C *                                                                    *
-C * ROUTINE NAME:  ic2ncdf                                             *
+C * ROUTINE NAME:  create_output                                       *
 C *                                                                    *
 C * FUNCTION    :  Creates a netCDF file for further output            *
 C *                                                                    *
@@ -9423,12 +9426,13 @@ C
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
 C
-          vtot=0.e0
-          atot=0.e0
-          qtot=0
-          mtot=0
-          tavg=0.e0
-          qavg=0
+          vtot=0.d0
+          atot=0.d0
+          qtot=0.d0
+          mtot=0.d0
+          tavg=0.d0
+          qavg=0.d0
+          eavg=0.d0
 C
 !          volAcc = 0.
 !          masAcc = 0.
@@ -10856,7 +10860,7 @@ C
             if (BC%bnd%nth) then
               call check( nf90_inq_varid(ncid, "north.v", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    vbn,(/1,1/),(/im,kb/)) )
+     $                    vbn,(/1,1,1/),(/im,kb,mi/)) )
               vabn = 0.
               do k=1,kbm1
                 vabn(:) = vabn(:) + dz(k)*vbn(:,k)
@@ -10865,7 +10869,7 @@ C
             if (BC%bnd%est) then
               call check( nf90_inq_varid(ncid, "east.u",  varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    ube,(/1,1/),(/jm,kb/)) )
+     $                    ube,(/1,1,1/),(/jm,kb,mi/)) )
               uabe = 0.
               do k=1,kbm1
                 uabe(:) = uabe(:) + dz(k)*ube(:,k)
@@ -10874,7 +10878,7 @@ C
             if (BC%bnd%sth) then
               call check( nf90_inq_varid(ncid, "south.v", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    vbs,(/1,1/),(/im,kb/)) )
+     $                    vbs,(/1,1,1/),(/im,kb,mi/)) )
               vabs = 0.
               do k=1,kbm1
                 vabs(:) = vabs(:) + dz(k)*vbs(:,k)
@@ -10883,7 +10887,7 @@ C
             if (BC%bnd%wst) then
               call check( nf90_inq_varid(ncid, "west.u", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    ube,(/1,1/),(/im,kb/)) )
+     $                    ube,(/1,1,1/),(/im,kb,mi/)) )
               uabe = 0.
               do k=1,kbm1
                 uabe(:) = uabe(:) + dz(k)*ube(:,k)
