@@ -440,7 +440,7 @@ C
 C     where "<+/->HH:MM" is the time zone (positive eastwards from
 C     Coordinated Universal Time). NOTE that the climatological time
 C     axis (i.e. beginning of year zero, which does not exist in the
-C     double precision-world calendar) has been used here. Insert your own date
+C     real-world calendar) has been used here. Insert your own date
 C     and time as required:
 C
       time_start='2000-01-01 00:00:00 +00:00'
