@@ -43,7 +43,7 @@
 !                                                                      !
 !     ifort pom2k.f -o a.out -r8                                       !
 !                                                                      !
-!     the -r8 option is the same as specifying -real_size 64 or        !
+!     the -r8 option is the same as specifying -double precision_size 64 or        !
 !     -auto_double.  However, the code works with or without -r8       !
 !                                                                      !
 !     A link to the netCDF library also needs to be specified. For this!
@@ -213,20 +213,20 @@ C
 C
 C     New declarations plus ispi,isp2i:
 C
-      real aam_init,atot
-      real cbcmax,cbcmin,darea
-      real days,dte2,dvol
-      real eaver
-      real horcon
-      real ispi,isp2i
-      real period,prtd1,prtd2,fsplt
-      real saver,smoth,sw,swtch
-      real taver,time0
-      real vamax,vtot,tsalt
-      real z0b
-      real tatm,satm
-      real wadsmoth  !lyo:!wad:
-      real cflmin    !lyo:_20080415:
+      double precision aam_init,atot
+      double precision cbcmax,cbcmin,darea
+      double precision days,dte2,dvol
+      double precision eaver
+      double precision horcon
+      double precision ispi,isp2i
+      double precision period,prtd1,prtd2,fsplt
+      double precision saver,smoth,sw,swtch
+      double precision taver,time0
+      double precision vamax,vtot,tsalt
+      double precision z0b
+      double precision tatm,satm
+      double precision wadsmoth  !lyo:!wad:
+      double precision cflmin    !lyo:_20080415:
       integer fprint
       integer io(100),jo(100),ko(100)
       integer i,iend,iext,imax,ispadv,isplit,iswtch
@@ -238,14 +238,14 @@ C
       logical lramp
       character*120 netcdf_file
 
-      real    bkp_gap
+      double precision    bkp_gap
       integer ncid   !rwnd: Ncdf file id.
       integer nccnt  !    : Ncdf file counter.
       character*256 filename
       character*26  timestamp
 !     target point coordinates
       integer tgt_lon, tgt_lat, tgt_sig
-      real    slice_b, slice_e
+      double precision    slice_b, slice_e
 C
 C***********************************************************************
 C
@@ -440,7 +440,7 @@ C
 C     where "<+/->HH:MM" is the time zone (positive eastwards from
 C     Coordinated Universal Time). NOTE that the climatological time
 C     axis (i.e. beginning of year zero, which does not exist in the
-C     real-world calendar) has been used here. Insert your own date
+C     double precision-world calendar) has been used here. Insert your own date
 C     and time as required:
 C
       time_start='2000-01-01 00:00:00 +00:00'
@@ -1040,7 +1040,8 @@ C
       end do
       
       write(*,*) "Minimal tps: ",minval(tps)
-      write(*,*) "Difference between minimal tps and chosen dte:",minval(tps)-dte
+      write(*,*) "Difference between minimal tps and chosen dte:",
+     $           minval(tps)-dte
 C
 C-----------------------------------------------------------------------
 C
@@ -1198,7 +1199,7 @@ C     the sea surface. See calculation of elf(i,j) below and subroutines
 C     vertvl, advt1 (or advt2). If w(1,j,1)=0, and, additionally, there
 C     is no net flow across lateral boundaries, the basin volume will be
 C     constant; if also vflux(i,j).ne.0, then, for example, the average
-C     salinity will change and, unrealistically, so will total salt.
+C     salinity will change and, undouble precisionistically, so will total salt.
 C
             w(i,j,1)=vfluxf(i,j)
 C
@@ -2068,8 +2069,8 @@ C-----------------------------------------------------------------------
 C
       subroutine elapsed_time_print(raw)
 
-        real, intent(in) :: raw
-        real             :: sec
+        double precision, intent(in) :: raw
+        double precision             :: sec
         integer          :: tmp, min, h, d
 
         sec = mod(raw, 60.)
@@ -2097,7 +2098,7 @@ C
 C
       include 'pomNW.c'
 C
-      real curv2d(im,jm)
+      double precision curv2d(im,jm)
       integer i,j
 C
 C     u-advection and diffusion:
@@ -2281,9 +2282,9 @@ C
 C
       include 'pomNW.c'
 C
-      real xflux(im,jm,kb),yflux(im,jm,kb)
-      real curv(im,jm,kb)
-      real dtaam
+      double precision xflux(im,jm,kb),yflux(im,jm,kb)
+      double precision curv(im,jm,kb)
+      double precision dtaam
       integer i,j,k
 C
       do k=1,kb
@@ -2485,8 +2486,8 @@ C
 C
       include 'pomNW.c'
 C
-      real qb(im,jm,kb),q(im,jm,kb),qf(im,jm,kb)
-      real xflux(im,jm,kb),yflux(im,jm,kb)
+      double precision qb(im,jm,kb),q(im,jm,kb),qf(im,jm,kb)
+      double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
 C
 C     Do horizontal advection:
@@ -2559,8 +2560,9 @@ C
 C
       include 'pomNW.c'
 C
-      real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
-      real xflux(im,jm,kb),yflux(im,jm,kb)
+      double precision
+     $             fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
+      double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
 C
       do j=1,jm
@@ -2701,12 +2703,14 @@ C
 C
       include 'pomNW.c'
 C
-      real fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
-      real xflux(im,jm,kb),yflux(im,jm,kb)
-      real sw
+      double precision
+     $             fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
+      double precision xflux(im,jm,kb),yflux(im,jm,kb)
+      double precision sw
       integer nitera
-      real fbmem(im,jm,kb),eta(im,jm)
-      real xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
+      double precision fbmem(im,jm,kb),eta(im,jm)
+      double precision
+     $          xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
       integer i,j,k,itera
 C
 C     Calculate horizontal mass fluxes:
@@ -3324,7 +3328,7 @@ C
       include 'pomNW.c'
 C
       integer idx
-      real ga,u1,wm,etide  !lyo:!wad:add etide
+      double precision ga,u1,wm,etide  !lyo:!wad:add etide
       integer i,j,k
 C
       if(idx.eq.1) then
@@ -3337,7 +3341,7 @@ C     In this example, the governing boundary conditions are a radiation
 C     condition on uaf in the east and in the west, and vaf in the north
 C     and south. The tangential velocities are set to zero on both
 C     boundaries. These are only one set of possibilities and may not
-C     represent a choice which yields the most physically realistic
+C     represent a choice which yields the most physically double precisionistic
 C     result.
 C
 C     Elevation (in this application, elevation is not a primary
@@ -3702,7 +3706,7 @@ C
       include 'pomNW.c'
 C
       integer idx
-      real cl,denom
+      double precision cl,denom
       integer i,j,k
 C
       if(idx.eq.1) then
@@ -3715,7 +3719,7 @@ C     In this example the governing boundary conditions are a radiation
 C     condition on uaf(im,j) in the east and an inflow uaf(2,j) in the
 C     west. The tangential velocities are set to zero on both
 C     boundaries. These are only one set of possibilities and may not
-C     represent a choice which yields the most physically realistic
+C     represent a choice which yields the most physically double precisionistic
 C     result.
 C
 C     Elevation (in this application, elevation is not a primary
@@ -3942,7 +3946,7 @@ C
 C
       include 'pomNW.c'
 C
-      real depth,delx,tatm,satm
+      double precision depth,delx,tatm,satm
       integer i,j,k
 C
 C     Water depth:
@@ -4307,8 +4311,8 @@ C
 C
       include 'pomNW.c'
 C
-      real si(im,jm,kb),ti(im,jm,kb),rhoo(im,jm,kb)
-      real cr,p,rhor,sr,tr,tr2,tr3,tr4  !,hij !lyo:!wad:define hij
+      double precision si(im,jm,kb),ti(im,jm,kb),rhoo(im,jm,kb)
+      double precision cr,p,rhor,sr,tr,tr2,tr3,tr4  !,hij !lyo:!wad:define hij
       integer i,j,k
 C
       do k=1,kbm1
@@ -4373,7 +4377,7 @@ C
 C
       include 'pomNW.c'
 C
-      real delz
+      double precision delz
       integer kdz(12)
       integer k
 C
@@ -4487,7 +4491,7 @@ C
 C
 !----------------------------------------------------------------------!
 !lyo:_20080415:This version (of file2ic) is basically still the old one!
-!     from pom2k - I have not converted it to setup for realistic      !
+!     from pom2k - I have not converted it to setup for double precisionistic      !
 !     WAD runs - but see subr. wadseamount for an example of how-to.   !
 !----------------------------------------------------------------------!
       subroutine file2ic
@@ -4505,7 +4509,7 @@ C
 C
       include 'pomNW.c'
 C
-      real rad,re,dlat,dlon,cff
+      double precision rad,re,dlat,dlon,cff
       integer i,j,k,m
       character*5 field
       rad=0.01745329
@@ -4963,16 +4967,17 @@ C
 C
       include 'pomNW.c'
 C
-      real sm(im,jm,kb),sh(im,jm,kb),cc(im,jm,kb)
-      real gh(im,jm,kb),boygr(im,jm,kb),dh(im,jm),stf(im,jm,kb)
-      real prod(im,jm,kb),kn(im,jm,kb)
-      real a1,a2,b1,b2,c1
-      real coef1,coef2,coef3,coef4,coef5
-      real const1,e1,e2,ghc
-      real p,sef,sp,tp
-      real l0(im,jm)
-      real cbcnst,surfl,shiw
-      real utau2, df0,df1,df2
+      double precision sm(im,jm,kb),sh(im,jm,kb),cc(im,jm,kb)
+      double precision gh(im,jm,kb),boygr(im,jm,kb),dh(im,jm)
+     $                ,stf(im,jm,kb)
+      double precision prod(im,jm,kb),kn(im,jm,kb)
+      double precision a1,a2,b1,b2,c1
+      double precision coef1,coef2,coef3,coef4,coef5
+      double precision const1,e1,e2,ghc
+      double precision p,sef,sp,tp
+      double precision l0(im,jm)
+      double precision cbcnst,surfl,shiw
+      double precision utau2, df0,df1,df2
 C
       integer i,j,k,ki
 C
@@ -5331,10 +5336,10 @@ C
 C
       include 'pomNW.c'
 C
-      real f(im,jm,kb),wfsurf(im,jm)
-      real fsurf(im,jm),dh(im,jm)
+      double precision f(im,jm,kb),wfsurf(im,jm)
+      double precision fsurf(im,jm),dh(im,jm)
       integer nbc
-      real rad(im,jm,kb),r(5),ad1(5),ad2(5)
+      double precision rad(im,jm,kb),r(5),ad1(5),ad2(5)
       integer i,j,k,ki
 C
 C-----------------------------------------------------------------------
@@ -5502,7 +5507,7 @@ C
       implicit none
 C
       include 'pomNW.c'
-      real dh(im,jm)
+      double precision dh(im,jm)
       integer i,j,k,ki
 C
 C     The following section solves the equation:
@@ -5612,7 +5617,7 @@ C
       implicit none
 C
       include 'pomNW.c'
-      real dh(im,jm)
+      double precision dh(im,jm)
       integer i,j,k,ki
 C
 C     The following section solves the equation:
@@ -5721,11 +5726,11 @@ C
       implicit none
 C
       integer im,jm
-      real a(im,jm)
-      real time,scala
+      double precision a(im,jm)
+      double precision time,scala
       integer iskp,jskp
       character label*(*)
-      real amx,scale
+      double precision amx,scale
       integer i,ib,ie,j,jwr,cols
 C
       if(scala.ge.0.e0) then
@@ -5811,12 +5816,12 @@ C
       implicit none
 C
       integer im,jm,kb
-      real a(im,jm,kb)
-      real time,scala
+      double precision a(im,jm,kb)
+      double precision time,scala
       integer ko(*)
       integer iskp,jskp,nko
       character label*(*)
-      real amx,scale
+      double precision amx,scale
       integer i,ib,ie,j,jwr,k,iko,cols
 C
       if(scala.ge.0.e0) then
@@ -5912,12 +5917,12 @@ C
       implicit none
 C
       integer im,jm,kb
-      real a(im,jm,kb),dt(im,jm),zz(kb)
-      real time,scala
+      double precision a(im,jm,kb),dt(im,jm),zz(kb)
+      double precision time,scala
       integer jo(*)
       integer iskp,njo
       character label*(*)
-      real amx,scale
+      double precision amx,scale
       integer i,ib,ie,j,k,ijo,cols
 C
       if(scala.ge.0.e0) then
@@ -6014,12 +6019,12 @@ C **********************************************************************
 C
       implicit none
       integer im,jm,kb
-      real a(im,jm,kb),dt(im,jm),zz(kb)
-      real time,scala
+      double precision a(im,jm,kb),dt(im,jm),zz(kb)
+      double precision time,scala
       integer io(*)
       integer jskp,nio
       character label*(*)
-      real amx,scale
+      double precision amx,scale
       integer i,j,jb,je,k,iio,cols
 C
       if(scala.ge.0.e0) then
@@ -6103,7 +6108,7 @@ C
 C
       include 'pomNW.c'
 C
-      real delh,delx,elejmid,elwjmid,ra,vel
+      double precision delh,delx,elejmid,elwjmid,ra,vel
       integer i,j,k
 C
 C     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
@@ -6466,7 +6471,7 @@ C
 C
       include 'pomNW.c'
 C
-      real mean,del
+      double precision mean,del
       integer i,j,loop
 C
       do loop=1,10
@@ -6558,12 +6563,13 @@ C
 C
       include 'pomNW.c'
 C
-      real ff(im,jm,kb)
-      real xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
-      real sw
-      real mol,abs_1,abs_2
-      real value_min,epsilon
-      real udx,u2dt,vdy,v2dt,wdz,w2dt
+      double precision ff(im,jm,kb)
+      double precision
+     $          xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
+      double precision sw
+      double precision mol,abs_1,abs_2
+      double precision value_min,epsilon
+      double precision udx,u2dt,vdy,v2dt,wdz,w2dt
       integer i,j,k
 C
       parameter (value_min=1.e-9,epsilon=1.0e-14)
@@ -6657,7 +6663,7 @@ C
 C
       include 'pomNW.c'
 C
-      real xflux(im,jm,kb),yflux(im,jm,kb)
+      double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
 C
 C     Reestablish boundary conditions:
@@ -6770,7 +6776,7 @@ C **********************************************************************
 C
       implicit none
 C
-      real sw,dti2
+      double precision sw,dti2
       integer nitera,im,jm,kb  !lyo:!wad:kb not required but defined
                                !         in "grid" below
 c
@@ -6778,16 +6784,16 @@ c
 !     PARAMETER (IM=131,JM=99)
       include 'grid'
 c
-      real fb(im,jm),f(im,jm),ff(im,jm)
-      real dx(im,jm),dy(im,jm),u(im,jm),v(im,jm),aam(im,jm)
-      real fsm(im,jm),dum(im,jm),dvm(im,jm)
-      real art(im,jm),aru(im,jm),arv(im,jm)
+      double precision fb(im,jm),f(im,jm),ff(im,jm)
+      double precision dx(im,jm),dy(im,jm),u(im,jm),v(im,jm),aam(im,jm)
+      double precision fsm(im,jm),dum(im,jm),dvm(im,jm)
+      double precision art(im,jm),aru(im,jm),arv(im,jm)
 
 c     integer ix,jx
 c     PARAMETER (IX=62,JX=18)
-      real xflux(im,jm),yflux(im,jm)
-      real fbmem(im,jm)
-      real xmassflux(im,jm),ymassflux(im,jm)
+      double precision xflux(im,jm),yflux(im,jm)
+      double precision fbmem(im,jm)
+      double precision xmassflux(im,jm),ymassflux(im,jm)
       integer i,j,k,itera,imm1,jmm1
 C
 C     Calculate horizontal mass fluxes:
@@ -6990,7 +6996,7 @@ c
       include 'pomNW.c'
 !                                                                      !
       integer npos,nneg
-      real hwatmin
+      double precision hwatmin
       integer i,j
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -7162,7 +7168,7 @@ C
 C
       include 'pomNW.c'
 C
-      real delh,delx,elejmid,elwjmid,ra,vel,hland  !lyo:!wad:define hland
+      double precision delh,delx,elejmid,elwjmid,ra,vel,hland  !lyo:!wad:define hland
       integer nvar                                 !lyo:!wad:define nvar
       integer i,j,k
 C
@@ -7608,13 +7614,13 @@ c
 !     PARAMETER (IM=131,JM=99)
       include 'grid'
 c
-      real ff(im,jm)
-      real xmassflux(im,jm),ymassflux(im,jm)
-      real fsm(im,jm),aru(im,jm),arv(im,jm)
-      real sw,dti2
-      real mol,abs_1,abs_2
-      real value_min,epsilon
-      real udx,u2dt,vdy,v2dt,wdz,w2dt
+      double precision ff(im,jm)
+      double precision xmassflux(im,jm),ymassflux(im,jm)
+      double precision fsm(im,jm),aru(im,jm),arv(im,jm)
+      double precision sw,dti2
+      double precision mol,abs_1,abs_2
+      double precision value_min,epsilon
+      double precision udx,u2dt,vdy,v2dt,wdz,w2dt
       integer i,j,k,imm1,jmm1
 C
       parameter (value_min=1.e-9,epsilon=1.0e-14)
@@ -7698,14 +7704,14 @@ C
 C
       include 'pomNW.c'
 C
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
+      double precision datr(im, jm, kbm1, 2)
+      double precision datu(imm1, jm, kbm1, 2)
+      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      real rad,re,dlat,dlon,cff
+      double precision rad,re,dlat,dlon,cff
       integer i,j,k,mm,ncid,varid
-      real lom(12)   ! length of month
+      double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
@@ -8148,14 +8154,14 @@ C
 C
       include 'pomNW.c'
 C
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
+      double precision datr(im, jm, kbm1, 2)
+      double precision datu(imm1, jm, kbm1, 2)
+      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      real rad,re,dlat,dlon,cff
+      double precision rad,re,dlat,dlon,cff
       integer i,j,k,mm,ncid,varid
-      real lom(12)   ! length of month
+      double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
@@ -8525,15 +8531,15 @@ C
 C
       include 'pomNW.c'
 C
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
-      real time0
+      double precision datr(im, jm, kbm1, 2)
+      double precision datu(imm1, jm, kbm1, 2)
+      double precision datv(im, jmm1, kbm1, 2)
+      double precision time0
       character (len = 256) :: filename
 !
-      real rad,re,dlat,dlon,dlnt,cff
+      double precision rad,re,dlat,dlon,dlnt,cff
       integer i,j,k,mm,ncid,varid
-      real lom(12)   ! length of month
+      double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
@@ -8849,14 +8855,14 @@ C
 C
       include 'pomNW.c'
 C
-      real datr(im, jm, kbm1, 2)
-      real datu(imm1, jm, kbm1, 2)
-      real datv(im, jmm1, kbm1, 2)
+      double precision datr(im, jm, kbm1, 2)
+      double precision datu(imm1, jm, kbm1, 2)
+      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      real rad,re,dlat,dlon,cff
+      double precision rad,re,dlat,dlon,cff
       integer i,j,k,mm,ncid,varid
-      real lom(12)   ! length of month
+      double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
       re=6371.E3
@@ -9132,7 +9138,7 @@ C
         include 'pomNW.c'
 C
         integer i, j, k, ncid, varid, fprint, nprint
-        real bot_depth(im,jm,kb)
+        double precision bot_depth(im,jm,kb)
         character(len=256) filename
         integer dim_srho, dim_sw, dim_strim, dim_auxuv
         integer dim_lat, dim_lon, dim_time
@@ -9403,9 +9409,9 @@ C
         logical :: NOK
         integer :: count
         integer :: i, j, k, ncid, varid, status
-        real :: vtot, tavg, atot, eavg, qavg, qtot, mtot
-        real :: darea, dvol, mtot2(im), mtot3, vtot2(im), vtot3
-        real :: volAcc(im,kbm1), masAcc(im,kbm1), mtotAcc(im)
+        double precision :: vtot, tavg, atot, eavg, qavg, qtot, mtot
+        double precision :: darea,dvol,mtot2(im),mtot3,vtot2(im),vtot3
+        double precision :: volAcc(im,kbm1),masAcc(im,kbm1),mtotAcc(im)
         integer nlyrs, fi, ri ! fi - file index, ri - record index
         parameter (nlyrs = kbm1)
         integer :: lyrs(nlyrs)
@@ -9624,10 +9630,10 @@ C
 !
       integer, intent (in) :: idx
       integer :: i,j, ncid, varid
-      real :: qq, dq, sst
+      double precision :: qq, dq, sst
       character(len=256) filename
 
-      real :: hf_fac = -4.1876e6 ! Heat flux convertion factor
+      double precision :: hf_fac = -4.1876e6 ! Heat flux convertion factor
 !
       select case (idx)
 
@@ -9844,10 +9850,10 @@ C
 !
       integer, intent (in) :: idx
       integer :: i,j, ncid, varid
-      real :: qq, dq, sst
+      double precision :: qq, dq, sst
       character(len=256) filename
 
-      real :: hf_fac = -4.1876e6 ! Heat flux convertion factor
+      double precision :: hf_fac = -4.1876e6 ! Heat flux convertion factor
 C
       select case (idx)
 
@@ -11015,7 +11021,7 @@ C
         include 'pomNW.c'
 
         logical,intent( in) :: ipl
-        real                :: tind, tmp, b, e
+        double precision                :: tind, tmp, b, e
 !
         tind = mod(tmp,365.)
 !
@@ -11179,7 +11185,7 @@ C
       subroutine time2date(time_in, time_off, date)
 
         character(len=*), intent(in) :: time_off
-        real                         :: time_in,  tmp
+        double precision                         :: time_in,  tmp
         character*26,     intent(out):: date
         integer  :: YYYY, MM, DD, hh, mi, ss, th, tm
         character :: sign

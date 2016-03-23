@@ -40,7 +40,7 @@ C-----------------------------------------------------------------------
 C
 C     Scalars:
 C
-      real
+      double precision
      $  alpha          ,dte            ,dti            ,dti2           ,
      $  grav           ,hmax           ,kappa          ,pi             ,
      $  ramp           ,rfe            ,rfn            ,rfs            ,
@@ -66,7 +66,7 @@ C-----------------------------------------------------------------------
 C
 C     1-D arrays:
 C
-      real
+      double precision
      $  dz             ,dzz            ,z              ,zz
 C
       common/blk1d/
@@ -76,7 +76,7 @@ C-----------------------------------------------------------------------
 C
 C     2-D arrays:
 C
-      real
+      double precision
      $  aam2d          ,advua          ,advva          ,adx2d          ,
      $  ady2d          ,art            ,aru            ,arv            ,
      $  cbc            ,cor            ,d              ,drx2d          ,
@@ -128,7 +128,7 @@ C-----------------------------------------------------------------------
 C
 C     3-D arrays:
 C
-      real
+      double precision
      $  aam            ,advx           ,advy           ,a              ,
      $  c              ,drhox          ,drhoy          ,dtef           ,
      $  ee             ,gg             ,kh             ,km             ,
@@ -160,7 +160,7 @@ C-----------------------------------------------------------------------
 C
 C     1 and 2-D boundary value arrays:
 C
-      real
+      double precision
      $  ele            ,eln            ,els            ,elw            ,
      $  sbe            ,sbn            ,sbs            ,sbw            ,
      $  tbe            ,tbn            ,tbs            ,tbw            ,
@@ -236,7 +236,7 @@ C
 !----------------------------------------------------------------------!
       integer nwad
 !
-      real
+      double precision
      $    alph0,hhi0,tidamp,hco,
      $    zsh,
      $    hmin,hc,hhi,
@@ -248,7 +248,7 @@ C
      $  zsh            ,hmin           ,hc             ,hhi            ,
      $  dtrat          ,cwetrlx1       ,cwetrlx2       ,nwad
 !
-      real
+      double precision
      $  wriv           ,dwet           ,wetmask        ,wmarsh         ,
      $  ddf            ,dd0            ,ddb            ,ssurfwet       ,
      $  hkeep
@@ -259,7 +259,7 @@ C
      $    ddf(IM,JM),dd0(IM,JM),ddb(IM,JM),
      $    hkeep(im,jm),ssurfwet(im,jm) !used for river specifications
 !
-      real
+      double precision
      $  pdens
 !
       common/blk3dwad/
@@ -279,7 +279,7 @@ C
       common/pth/ pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
      $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
 !
-      real    fac  ! fac - interpolation factor
+      double precision    fac  ! fac - interpolation factor
       integer mi,m0! mi  - month for interpolation, m0 - month offset for clim cycle
       integer clm_cycle !- climatological cycle
       common/misc/ fac, mi, m0, clm_cycle
