@@ -8599,6 +8599,10 @@ C--- 3D ---
       call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
+      call check( nf90_inq_varid(ncid, "el", varid) )
+      call check( nf90_get_var(ncid, varid, elb, (/1,1,mi/),
+     &                                         (/im,jm,1/)) )
+      write(*, *) "[O] elevation retrieved"
       call check( nf90_close(ncid) )
       
       filename = trim(pth_wrk)//trim(pth_grd)//
@@ -8627,8 +8631,8 @@ C--- 3D ---
 !
 !   Read elevation
 !
-      elb = 0.
-      el  = 0.
+!      elb = 0.
+!      el  = 0.
 
       tclim = t
       sclim = s
@@ -10846,6 +10850,7 @@ C
             rf_el = mi
             
             write(*,*) "[@] TODO: implement elevation BCs."
+            
 
           end if
 
@@ -10866,7 +10871,7 @@ C
             if (BC%bnd%nth) then
               call check( nf90_inq_varid(ncid, "north.v", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    vbn,(/1,1,1/),(/im,kb,mi/)) )
+     $                    vbn,(/1,1,mi/),(/im,kb,1/)) )
               vabn = 0.
               do k=1,kbm1
                 vabn(:) = vabn(:) + dz(k)*vbn(:,k)
@@ -10875,7 +10880,7 @@ C
             if (BC%bnd%est) then
               call check( nf90_inq_varid(ncid, "east.u",  varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    ube,(/1,1,1/),(/jm,kb,mi/)) )
+     $                    ube,(/1,1,mi/),(/jm,kb,1/)) )
               uabe = 0.
               do k=1,kbm1
                 uabe(:) = uabe(:) + dz(k)*ube(:,k)
@@ -10884,7 +10889,7 @@ C
             if (BC%bnd%sth) then
               call check( nf90_inq_varid(ncid, "south.v", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    vbs,(/1,1,1/),(/im,kb,mi/)) )
+     $                    vbs,(/1,1,mi/),(/im,kb,1/)) )
               vabs = 0.
               do k=1,kbm1
                 vabs(:) = vabs(:) + dz(k)*vbs(:,k)
@@ -10893,7 +10898,7 @@ C
             if (BC%bnd%wst) then
               call check( nf90_inq_varid(ncid, "west.u", varid) )
               call check( nf90_get_var(ncid, varid,
-     $                    ube,(/1,1,1/),(/im,kb,mi/)) )
+     $                    ube,(/1,1,mi/),(/im,kb,1/)) )
               uabe = 0.
               do k=1,kbm1
                 uabe(:) = uabe(:) + dz(k)*ube(:,k)
