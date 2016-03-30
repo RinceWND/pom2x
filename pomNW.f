@@ -1039,7 +1039,7 @@ C
         end do
       end do
       
-      write(*,*) "Minimal tps: ",minval(tps)
+      write(*,*) "Minimal tps: ",minval(tps, tps>0.)
       write(*,*) "Difference between minimal tps and chosen dte:",
      $           minval(tps)-dte
 C
@@ -1228,6 +1228,7 @@ C
           end do
         end do
       end if
+      call bry(2)
       if (BC%clm) call bry(4)
       call bry(3)   ! Update current velocity BCs.
 C
@@ -8826,10 +8827,10 @@ C
 !     Set lateral boundary conditions, for use in subroutine bcond
 !     set all=0 for closed BCs.
 !     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=1.e0
+      rfe=0.e0
       rfw=0.e0
       rfn=0.e0
-      rfs=1.e0
+      rfs=0.e0
 !
       return
 
@@ -10849,11 +10850,39 @@ C
 !     If we move to the next month...
             rf_el = mi
             
-            write(*,*) "[@] TODO: implement elevation BCs."
             
+            filename = trim(pth_wrk)//trim(pth_grd)
+     $                 //trim(pfx_dmn)//"pom_bry.nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 
+            if (BC%bnd%nth) then
+              call check( nf90_inq_varid(ncid, "north.el", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    eln,(/1,mi/),(/im,1/)) )
+            end if
+            if (BC%bnd%est) then
+              call check( nf90_inq_varid(ncid, "east.el",  varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    ele,(/1,mi/),(/jm,1/)) )
+            end if
+            if (BC%bnd%sth) then
+              call check( nf90_inq_varid(ncid, "south.el", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    els,(/1,mi/),(/im,1/)) )
+            end if
+            if (BC%bnd%wst) then
+              call check( nf90_inq_varid(ncid, "west.el", varid) )
+              call check( nf90_get_var(ncid, varid,
+     $                    elw,(/1,mi/),(/im,1/)) )
+            end if
+
+            call check( nf90_close(ncid) )
+
+            write(*,*) "[-] Elevation read. ", mi
+            
           end if
 
+          
           return
 !
         case (3) ! u and v
@@ -10965,21 +10994,25 @@ C
               do i=1,im
                 if (BC%bnd%sth) then
                   trans_tot = trans_tot+fsm(i, 1)*vabs(i)
-     $                                  *(h(i, 1)+h(i,   2))*.5
+     $                                  *(h(i, 1)+h(i,   2)
+     $                                   +el(i,1)+el(i,2)  )*.5
                 end if
                 if (BC%bnd%nth) then
                   trans_tot = trans_tot-fsm(i,jm)*vabn(i)
-     $                                  *(h(i,jm)+h(i,jmm1))*.5  ! TODO: fsm? or dvm?
+     $                                  *(h(i,jm)+h(i,jmm1)
+     $                                   +el(i,jm)+el(i,jmm1))*.5  ! TODO: fsm? or dvm?
                 end if
               end do
               do j=1,jm
                 if (BC%bnd%wst) then
                   trans_tot = trans_tot+dum( 1,j)*uabw(j)
-     $                                  *(h( 1,j)+h(   2,j))*.5
+     $                                  *(h( 1,j)+h(   2,j)
+     $                                   +el(1,j)+el(2,j)  )*.5
                 end if
                 if (BC%bnd%est) then
                   trans_tot = trans_tot-dum(im,j)*uabe(j)
-     $                                  *(h(im,j)+h(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
+     $                                  *(h(im,j)+h(imm1,j)
+     $                                   +el(im,j)+el(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
                 end if
               end do
                 
