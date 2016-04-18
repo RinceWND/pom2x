@@ -1086,6 +1086,7 @@ C
 !                                                                      !
 !----------------------------------------------------------------------!
 !
+!   TODO: Updating month here leads to incorrect m0 value if restarting a file with climate warping
       call upd_mnth(time0, BC%ipl)
 !   Store month offset for further warping.
       m0 = mi
@@ -1154,21 +1155,7 @@ C     wssurf, swrad and vflux.
       call upd_mnth(time, BC%ipl)
       call clm_warp
 
-      if (iproblem/=13) call bry(0)
       if (iproblem>=11 .and. iproblem<=19) then
-!
-        if (BC%clm) then
-          if (iproblem/=12) then
-            call bry(1)
-          end if
-        end if
-        if (BC%wnd) then
-          call flux(5)
-          if (iproblem==13) then
-            wusurf = -wusurf
-            wvsurf = -wvsurf
-          end if
-        end if
 !
       else
 C     Introduce simple wind stress. Value is negative for westerly or
@@ -1228,9 +1215,15 @@ C
           end do
         end do
       end if
-      call bry(2)
-      if (BC%clm) call bry(4)
-      call bry(3)   ! Update current velocity BCs.
+      
+      if (BC%clm) then
+        call bry(0)   ! Update Rmean
+        call bry(1)   ! Update TSclim
+      end if
+      if (BC%wnd) call flux(5)  ! Update wind stress
+      if (BC%ele) call bry(2)   ! Update boundary elevation
+      if (BC%clm) call bry(4)   ! Update boundary TS
+      if (BC%vel) call bry(3)   ! Update current velocity BCs.
 C
 clyo:
 !     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
@@ -4471,7 +4464,7 @@ C
       end do
 C
       call prxy('Streamfunction, psi from u              ',
-     $          time,psi,im,iskp,jm,jskp,0.e0)
+     $          time,psi,im,iskp,jm,jskp,0.d0)
 C
 C    Sweep eastward:
 C
@@ -4484,7 +4477,7 @@ C
       end do
 C
       call prxy('Streamfunction, psi from v              ',
-     $          time,psi,im,iskp,jm,jskp,0.e0)
+     $          time,psi,im,iskp,jm,jskp,0.d0)
 C
       return
 C
@@ -4784,13 +4777,13 @@ C
 C     2-D horizontal fields:
 C
           call prxy('Depth-averaged u, uab                   ',
-     $              time,uab,im,iskp,jm,jskp,0.e0)
+     $              time,uab,im,iskp,jm,jskp,0.d0)
 C
           call prxy('Depth-averaged v, vab                   ',
-     $              time,vab,im,iskp,jm,jskp,0.e0)
+     $              time,vab,im,iskp,jm,jskp,0.d0)
 C
           call prxy('Surface elevation, elb                  ',
-     $              time,elb,im,iskp,jm,jskp,0.e0)
+     $              time,elb,im,iskp,jm,jskp,0.d0)
 C
 C     Calculate and print streamfunction:
 C
@@ -4807,39 +4800,39 @@ C
             ko(3)=kb-1
 C
             call prxyz('x-velocity, u                           ',
-     $                 time,u    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+     $                 time,u    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
             call prxyz('y-velocity, v                           ',
-     $                 time,v    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+     $                 time,v    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
             ko(1)=2
             call prxyz('z-velocity, w                           ',
-     $                 time,w    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+     $                 time,w    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
             ko(1)=1
 C
             call prxyz('Potential temperature, t                ',
-     $                 time,t    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
+     $                 time,t    ,im,iskp,jm,jskp,kb,ko,3,1.d-2)
 C
             call prxyz('Salinity, s                              ',
-     $                 time,s    ,im,iskp,jm,jskp,kb,ko,3,1.e-2)
+     $                 time,s    ,im,iskp,jm,jskp,kb,ko,3,1.d-2)
 C
             call prxyz('(density-1000)/rhoref, rho              ',
-     $                 time,rho  ,im,iskp,jm,jskp,kb,ko,3,1.e-5)
+     $                 time,rho  ,im,iskp,jm,jskp,kb,ko,3,1.d-5)
 C
 c           call prxyz('Turbulent kinetic energy x 2, q2        ',
-c    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+c    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
 c           call prxyz('Turbulent length scale, l               ',
-c    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+c    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
             call prxyz('Horizontal kinematic viscosity, aam     ',
-     $                 time,aam  ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+     $                 time,aam  ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
             call prxyz('Vertical kinematic viscosity, km        ',
-     $                 time,km   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+     $                 time,km   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
 c           call prxyz('Vertical kinematic diffusivity, kh      ',
-c    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.e0 )
+c    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
 C
 C     Vertical sections of 3-D fields, normal to j-axis:
 C
@@ -4850,37 +4843,37 @@ C
             jo(3)=jm-1
 C
             call prxz('x-velocity, u                           ',
-     $                time,u    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+     $                time,u    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
 C
             call prxz('y-velocity, v                           ',
-     $                time,v    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+     $                time,v    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
 C
             call prxz('z-velocity, w                           ',
-     $                time,w    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+     $                time,w    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
 C
             call prxz('Potential temperature, t                ',
-     $                time,t    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
+     $                time,t    ,im,iskp,jm,kb,jo,3,1.d-2,dt,zz)
 C
             call prxz('Salinity, s                             ',
-     $                time,s    ,im,iskp,jm,kb,jo,3,1.e-2,dt,zz)
+     $                time,s    ,im,iskp,jm,kb,jo,3,1.d-2,dt,zz)
 C
             call prxz('(density-1000)/rhoref, rho              ',
-     $                time,rho  ,im,iskp,jm,kb,jo,3,1.e-5,dt,zz)
+     $                time,rho  ,im,iskp,jm,kb,jo,3,1.d-5,dt,zz)
 C
 c           call prxz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+c    $                time,q2   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
 C
 c           call prxz('Turbulent length scale, l               ',
-c    $                time,l    ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+c    $                time,l    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
 C
 c           call prxz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,iskp,jm,kb,jo,3,0.e0 ,dt,zz)
+c    $                time,aam  ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
 C
 c           call prxz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+c    $                time,km   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
 C
 c           call prxz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,iskp,jm,kb,jo,3,0.e0 ,dt,z )
+c    $                time,kh   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
 C
 C     Vertical sections of 3-D fields, normal to i-axis:
 C
@@ -4891,37 +4884,37 @@ C
             io(3)=im-1
 C
             call pryz('x-velocity, u                           ',
-     $                time,u    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+     $                time,u    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
 C
             call pryz('y-velocity, v                           ',
-     $                time,v    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+     $                time,v    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
 C
             call pryz('z-velocity, w                           ',
-     $                time,w    ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+     $                time,w    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
 C
             call pryz('Potential temperature, t                ',
-     $                time,t    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
+     $                time,t    ,im,jm,jskp,kb,io,3,1.d-2,dt,zz)
 C
 c           call pryz('Salinity x rho / rhoref, s              ',
-c    $                time,s    ,im,jm,jskp,kb,io,3,1.e-2,dt,zz)
+c    $                time,s    ,im,jm,jskp,kb,io,3,1.d-2,dt,zz)
 C
 c           call pryz('(density-1000)/rhoref, rho              ',
-c    $                time,rho  ,im,jm,jskp,kb,io,3,1.e-5,dt,zz)
+c    $                time,rho  ,im,jm,jskp,kb,io,3,1.d-5,dt,zz)
 C
 c           call pryz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+c    $                time,q2   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
 C
 c           call pryz('Turbulent length scale, l               ',
-c    $                time,l    ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+c    $                time,l    ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
 C
 c           call pryz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,jm,jskp,kb,io,3,0.e0 ,dt,zz)
+c    $                time,aam  ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
 C
 c           call pryz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+c    $                time,km   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
 C
 c           call pryz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,jm,jskp,kb,io,3,0.e0 ,dt,z )
+c    $                time,kh   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
 C
           endif
 C
@@ -6932,25 +6925,25 @@ C
 C     2-D horizontal fields:
 C
           call prxy('wetmask; =0 are land or dry, =1 are wet ',
-     $              time,wetmask,im,iskp,jm,jskp,1.e0)
+     $              time,wetmask,im,iskp,jm,jskp,1.d0)
 C
           do j=1,jm; do i=1,im
              tps(i,j)=fsm(i,j)-wetmask(i,j)
              enddo; enddo
           call prxy('fsm-wetmask; WAD: =1 are dry cells      ',
-     $              time,tps,im,iskp,jm,jskp,1.e0)
+     $              time,tps,im,iskp,jm,jskp,1.d0)
 C
           do j=1,jm; do i=1,im
              tps(i,j)=(elb(i,j)+hhi)*wetmask(i,j)
              enddo; enddo
           call prxy('elb+hhi (m; w.r.t MSL)                  ',
-     $              time,tps,im,iskp,jm,jskp,0.e0)
+     $              time,tps,im,iskp,jm,jskp,0.d0)
 c
           do j=1,jm; do i=1,im
              tps(i,j)=d(i,j)*fsm(i,j)
              enddo; enddo
           call prxy('Total Water Depth (m)                   ',
-     $              time,tps,im,iskp,jm,jskp,0.e0)
+     $              time,tps,im,iskp,jm,jskp,0.d0)
 c
 ctne: -------------- save for matlab plot
 c
@@ -7016,7 +7009,7 @@ c
       write(6,'('' Stopped in subr. wadh; incorrect defn of h:'')')
       write(6,'('' h is one-sign only; see comments in subr.wadh'',/)')
       write(6,'('' npos,nneg ='',2i5,/)') npos,nneg
-      call prxy('Undisturbed water depth, h',time,h,im,1,jm,1,0.0)
+      call prxy('Undisturbed water depth, h',time,h,im,1,jm,1,0.d0)
       stop
 !                                                                      !
  101  continue
@@ -7134,12 +7127,12 @@ c
 !                                                                      !
 !     Print to check:                                                  !
 !                                                                      !
-      CALL PRXY(' Input h ',TIME, hkeep(1,1),IM,1,JM,1,0.0)
-      CALL PRXY(' h after wadh ',TIME, h(1,1),IM,1,JM,1,0.0)
-      CALL PRXY(' FSM ',TIME, FSM(1,1),IM,1,JM,1,1.0)
-      CALL PRXY(' WETMASK ',TIME, WETMASK(1,1),IM,1,JM,1,1.0)
+      CALL PRXY(' Input h ',TIME, hkeep(1,1),IM,1,JM,1,0.d0)
+      CALL PRXY(' h after wadh ',TIME, h(1,1),IM,1,JM,1,0.d0)
+      CALL PRXY(' FSM ',TIME, FSM(1,1),IM,1,JM,1,1.d0)
+      CALL PRXY(' WETMASK ',TIME, WETMASK(1,1),IM,1,JM,1,1.d0)
       tps(:,:)=FSM(:,:)-WETMASK(:,:)
-      CALL PRXY('FSM-WETMASK',TIME,tps(1,1),IM,1,JM,1,1.0)
+      CALL PRXY('FSM-WETMASK',TIME,tps(1,1),IM,1,JM,1,1.d0)
 !                                                                      !
 !     Double-check masks for nwad=0:                                   !
 !                                                                      !
@@ -8827,10 +8820,10 @@ C
 !     Set lateral boundary conditions, for use in subroutine bcond
 !     set all=0 for closed BCs.
 !     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=0.e0
-      rfw=0.e0
-      rfn=0.e0
-      rfs=0.e0
+      rfe=1.e0
+      rfw=1.e0
+      rfn=1.e0
+      rfs=1.e0
 !
       return
 

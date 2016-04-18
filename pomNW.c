@@ -308,6 +308,8 @@ C
         logical     ssf ! flag for sea surface T and S
         logical     vap ! flag for surface evapouration
         logical     clm ! variable climatological background (tclim,sclim,rmean)
+        logical     ele ! elevation flag
+        logical     vel ! velocities flag
         type (Tbnd) bnd ! variable vertical boundaries
       end type                  ! rwnd:
       type (Tbc) BC
