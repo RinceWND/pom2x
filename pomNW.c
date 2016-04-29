@@ -218,13 +218,13 @@ C
 C     Character variables:
 C
       character*26
-     $  time_start
+     $  time_start, time_end
 C
       character*40
      $  source,title
 C
       common/blkchar/
-     $  time_start     ,source         ,title
+     $  time_start, time_end, source, title
 C
 !                                                                      !
 !----------------------------------------------------------------------!

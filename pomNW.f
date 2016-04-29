@@ -204,6 +204,7 @@ C *                59 Temple Place - Suite 330, Boston, MA 02111, USA. *
 C *                                                                    *
 C **********************************************************************
 C
+      use date_utility
       implicit none
 C
 !lyo:!wad:Add WAD variables in pomNW.c
@@ -245,7 +246,16 @@ C
       character*26  timestamp
 !     target point coordinates
       integer tgt_lon, tgt_lat, tgt_sig
-      double precision    slice_b, slice_e
+      double precision    slice_b, slice_e  
+      
+      integer :: date_start(3)
+      
+!     Formatting parameters
+      character*4 :: sBOLD, sRESET
+      character*5 :: sRED
+      parameter( sBOLD = char(27)//"[1m",
+     $           sRED  = char(27)//"[31m",
+     $           sRESET= char(27)//"[0m" )
 C
 C***********************************************************************
 C
@@ -444,10 +454,11 @@ C     real-world calendar) has been used here. Insert your own date
 C     and time as required:
 C
       time_start='2000-01-01 00:00:00 +00:00'
+      time_end  ='not-set'
 C
 C-----------------------------------------------------------------------
 C
-      days=0.025e0       ! run duration in days
+      days=0.025d0       ! run duration in days
 C
 !-----------------------------------------------------------------------
 !
@@ -455,15 +466,15 @@ C
 !
 C-----------------------------------------------------------------------
 C
-      prtd1=0.0125e0     ! Initial print interval (days)
+      prtd1=0.0125d0     ! Initial print interval (days)
 C
 C-----------------------------------------------------------------------
 C
-      prtd2=1.e0         ! Final print interval (days)
+      prtd2=1.d0         ! Final print interval (days)
 C
 C-----------------------------------------------------------------------
 C
-      swtch=1000.e0      ! Time to switch from prtd1 to prtd2
+      swtch=1000.d0      ! Time to switch from prtd1 to prtd2
 C
 C-----------------------------------------------------------------------
 C
@@ -705,10 +716,6 @@ C --- Above are the default parameters, alternatively one can
 C --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
 C
       include 'params'
-!
-!     Override time with time0
-      time = time0
-!
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -761,7 +768,10 @@ C
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
-c
+!
+      if (time_end/='not-set') then         ! rwnd: If end date is set, override days variable.
+        days=Days_in_Between(time_start, time_end)
+      end if
       iend=max0(nint(days*24.e0*3600.e0/dti),2)
       iprint=nint(prtd1*24.e0*3600.e0/dti)
       iswtch=nint(swtch*24.e0*3600.e0/dti)
@@ -791,6 +801,7 @@ C
       write(6,'('' dti        = '',f10.1)') dti
       write(6,'('' isplit     = '',i10)') isplit
       write(6,'('' time_start = '',a26)') time_start
+      write(6,'('' time_end   = '',a26)') time_end
       write(6,'('' days       = '',f10.4)') days
       write(6,'('' iend       = '',i10)') iend
       write(6,'('' prtd1      = '',f10.4)') prtd1
@@ -914,7 +925,7 @@ C
       else if(iproblem.eq.13) then  !rwnd:box case to test curvilineal grid
         call ncdf2ic_box
       else if(iproblem.eq.14) then  !rwnd:pom grid generated ics
-        call ncdf2ic_pom(time0)
+        call ncdf2ic_pom
       else if(iproblem.eq.41) then  !lyo:!wad:
         call wadseamount
       else
@@ -1059,15 +1070,30 @@ C
      $           km,kh,kq,l,q2,q2b,aam,q2l,q2lb
      $          ,wetmask,wmarsh   !lyo:!wad:
         close(70)
+        
+        if (time_end/='not-set') then   ! rwnd: In case of seamless reastart with specific end date, recalculate days left.
+          days = Days_in_between(time_start, time_end)-time0
+          if (days<=0) then
+            write(*,*) sBOLD,sRED,"[X]",sRESET,
+     $        " Simulation had already exceeded specified end date."
+            write(*,*) "    Please, specify time_end variable ",
+     $                 "past the ",
+     $        DateTime_Build(Days_since_to_DateTime(time_start, time0))
+            write(*,*) sBOLD,sRED,
+     $                 "[[ SIMULATION TERMINATED ]]",sRESET
+!            write(*,*) char(27),"[37;44m","White on blue background...",sRESET
+            stop
+          end if
+        end if
+        
       end if
-C
+!
       do j=1,jm
         do i=1,im
           d(i,j)=h(i,j)+el(i,j)
           dt(i,j)=h(i,j)+et(i,j)
         end do
       end do
-C
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Update cbc:                                                  !
@@ -8509,7 +8535,7 @@ C
       end subroutine check
       end
 !
-      subroutine ncdf2ic_pom(time0)
+      subroutine ncdf2ic_pom
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Sets up my own problem.                             *
@@ -8521,18 +8547,16 @@ C *                                                                    *
 C **********************************************************************
 C
       use netcdf
+      use date_utility
       implicit none
 C
       include 'pomNW.c'
 C
-      double precision datr(im, jm, kbm1, 2)
-      double precision datu(imm1, jm, kbm1, 2)
-      double precision datv(im, jmm1, kbm1, 2)
-      double precision time0
       character (len = 256) :: filename
+      integer :: YYYY, MM, DD, hh, ii, ss
 !
       double precision rad,re,dlat,dlon,dlnt,cff
-      integer i,j,k,mm,ncid,varid
+      integer i,j,k,ncid,varid
       double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
@@ -8571,7 +8595,6 @@ C--- 1D ---
       write(*, *) "[O] latitude retrieved"
       call check( nf90_close(ncid) )
       
-      call upd_mnth(time0, BC%ipl)
 !     Override hmax parameter
       hmax = maxval(h)
 
@@ -10931,88 +10954,7 @@ C
             
             write(*,*) "[-] Read boundary velocities"
             
-            if (BC%bnd%vol) then
-              
-              write(*,*) "[-] Volume conservation:"
-              
-              do p = 1, 12
-              
-                trans_tot = 0.
-                dist_num  = 0
-                ! TODO: get discrepancy from non-integrated BCs.
-                do i=1,im
-                  if (BC%bnd%sth) then
-                    trans_tot = trans_tot+fsm(i, 1)*vabs(i)
-     $                                    *(h(i, 1)+h(i,   2))*.5
-                    if (dvm(i, 1)/=0.) dist_num = dist_num+1
-                  end if
-                  if (BC%bnd%nth) then
-                    trans_tot = trans_tot-fsm(i,jm)*vabn(i)
-     $                                    *(h(i,jm)+h(i,jmm1))*.5  ! TODO: fsm? or dvm?
-                    if (dvm(i,jm)/=0.) dist_num = dist_num+1
-                  end if
-                end do
-                do j=1,jm
-                  if (BC%bnd%wst) then
-                    trans_tot = trans_tot+dum( 1,j)*uabw(j)
-     $                                    *(h( 1,j)+h(   2,j))*.5
-                    if (dum( 1,j)/=0.) dist_num = dist_num+1
-                  end if
-                  if (BC%bnd%est) then
-                    trans_tot = trans_tot-dum(im,j)*uabe(j)
-     $                                    *(h(im,j)+h(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
-                    if (dvm(im,j)/=0.) dist_num = dist_num+1
-                  end if
-                end do
-                
-                if (trans_tot/=0.) then   ! Pretty sure this will never be zero.
-                  trans_dist = trans_tot/float(dist_num)
-
-                  ! TODO: Code below doesn't modify non-integrated BCs
-                  do i=1,im
-                    vabs(i)=vabs(i)-trans_dist/((h(i, 1)+h(i,   2))*.5)
-                    vabn(i)=vabn(i)+trans_dist/((h(i,jm)+h(i,jmm1))*.5)
-                  end do
-                  do i=1,jm
-                    uabw(j)=uabw(j)-trans_dist/((h( 1,j)+h(   2,j))*.5)
-                    uabe(j)=uabe(j)+trans_dist/((h(im,j)+h(imm1,j))*.5)
-                  end do
-                end if
-                  
-              end do
-              
-              trans_tot = 0.
-              dist_num  = 0
-              ! TODO: get discrepancy from non-integrated BCs.
-              do i=1,im
-                if (BC%bnd%sth) then
-                  trans_tot = trans_tot+fsm(i, 1)*vabs(i)
-     $                                  *(h(i, 1)+h(i,   2)
-     $                                   +el(i,1)+el(i,2)  )*.5
-                end if
-                if (BC%bnd%nth) then
-                  trans_tot = trans_tot-fsm(i,jm)*vabn(i)
-     $                                  *(h(i,jm)+h(i,jmm1)
-     $                                   +el(i,jm)+el(i,jmm1))*.5  ! TODO: fsm? or dvm?
-                end if
-              end do
-              do j=1,jm
-                if (BC%bnd%wst) then
-                  trans_tot = trans_tot+dum( 1,j)*uabw(j)
-     $                                  *(h( 1,j)+h(   2,j)
-     $                                   +el(1,j)+el(2,j)  )*.5
-                end if
-                if (BC%bnd%est) then
-                  trans_tot = trans_tot-dum(im,j)*uabe(j)
-     $                                  *(h(im,j)+h(imm1,j)
-     $                                   +el(im,j)+el(imm1,j))*.5 ! TODO: is getting mean depth a good idea?
-                end if
-              end do
-                
-              write(*,*) "[-] Discrepancy after ", p,
-     $                   " passes: ", trans_tot
-              
-            end if
+            if (BC%bnd%vol) call volConserve
 
           end if
 
@@ -11317,6 +11259,101 @@ C
         return
 
       end
+      
+      subroutine volConserve
+        
+        implicit none
+        
+        include 'pomNW.c'
+        
+        double precision :: wn(im,kb), we(jm,kb),
+     $                      ws(im,kb), ww(jm,kb),
+     $                      an(im,kb), ae(jm,kb),
+     $                      as(im,kb), aw(jm,kb),
+     $                      trn, tre, trs, trw  ! total boundary section transport
+        double precision :: trans_tot, trans_discr
+        integer :: i,j,k,p
+        
+        write(*,*) "[-] Volume conservation:"
+        
+! Calculate areas and weights
+        do k=1,kbm1
+          an(:,k) = dx(:,jm)*(h(:,jm)+h(:,jmm1))*.5*dz(k)
+          ae(:,k) = dy(im,:)*(h(im,:)+h(imm1,:))*.5*dz(k)
+          as(:,k) = dx(:, 1)*h(:,1)*dz(k)
+          aw(:,k) = dy( 1,:)*h(1,:)*dz(k)
+        end do
+        an(:,kb) = 0.
+        ae(:,kb) = 0.
+        as(:,kb) = 0.
+        aw(:,kb) = 0.
+        
+        do k=1,kbm1
+          wn(:,k) = dvm(:,jm)*an(:,k)*vbn(:,k)
+          we(:,k) = dum(im,:)*ae(:,k)*ube(:,k)
+          ws(:,k) = dvm(:, 1)*as(:,k)*vbs(:,k)
+          ww(:,k) = dum( 1,:)*aw(:,k)*ubw(:,k)
+        end do
+        wn(:,kb) = 0.
+        we(:,kb) = 0.
+        ws(:,kb) = 0.
+        ww(:,kb) = 0.
+        
+        trn = sum(wn)
+        tre = sum(we)
+        trs = sum(ws)
+        trw = sum(ww)
+        
+        trans_tot   = trn+tre+trs+trw
+        trans_discr = trs-trn+trw-tre
+        write(*,*) "[ ] Transport discrepancy before: ", trans_discr
+        
+        wn = wn/trans_tot
+        we = we/trans_tot
+        ws = ws/trans_tot
+        ww = ww/trans_tot
+        
+        vbn(:,1:kbm1) = vbn(:,1:kbm1)
+     $                 +wn(:,1:kbm1)*trans_discr/an(:,1:kbm1)
+        vbs(:,1:kbm1) = vbs(:,1:kbm1)
+     $                 -ws(:,1:kbm1)*trans_discr/as(:,1:kbm1)
+        ube(:,1:kbm1) = ube(:,1:kbm1)
+     $                 +we(:,1:kbm1)*trans_discr/ae(:,1:kbm1)
+        ubw(:,1:kbm1) = ubw(:,1:kbm1)
+     $                 -ww(:,1:kbm1)*trans_discr/aw(:,1:kbm1)
+        vabn = 0.
+        vabs = 0.
+        uabw = 0.
+        uabe = 0.
+        do k=1,kbm1
+          vabn = vabn + vbn(:,k)*dz(k)
+          vabs = vabs + vbs(:,k)*dz(k)
+          uabw = uabw + ubw(:,k)*dz(k)
+          uabe = uabe + ube(:,k)*dz(k)
+        end do
+        
+! Check transport discrepancy
+        do k=1,kbm1
+          wn(:,k) = dvm(:,jm)*an(:,k)*vbn(:,k)
+          we(:,k) = dum(im,:)*ae(:,k)*ube(:,k)
+          ws(:,k) = dvm(:, 1)*as(:,k)*vbs(:,k)
+          ww(:,k) = dum( 1,:)*aw(:,k)*ubw(:,k)
+        end do
+        wn(:,kb) = 0.
+        we(:,kb) = 0.
+        ws(:,kb) = 0.
+        ww(:,kb) = 0.
+        
+        trn = sum(wn)
+        tre = sum(we)
+        trs = sum(ws)
+        trw = sum(ww)
+        
+        trans_tot   = trn+tre+trs+trw
+        trans_discr = trs-trn+trw-tre
+        write(*,*) "[ ] Transport discrepancy after: ", trans_discr
+              
+      end subroutine
 
       subroutine ncclose(ncid)
         use netcdf
