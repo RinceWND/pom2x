@@ -1,7 +1,8 @@
 module Date_Utility
   implicit none
   private
-  public :: Date_since, Days_in_between, get_Month, get_Month_Range, Number_of_Days, get_Day_of_Year, T_TimeStamp
+  public :: Date_since, Days_in_between, get_Month, get_Month_Range, Number_of_Days, get_Day_of_Year, Days_to_TimeStamp
+  public :: T_TimeStamp, T_Zone
   integer*1, parameter :: N_MONTHS = 13
   integer*2, parameter :: MONTH_DAYS(N_MONTHS) = (/ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 /)
 !  integer*2, parameter :: YEAR_OFFSET = 1900
@@ -303,7 +304,7 @@ module Date_Utility
                   +ceiling(TimeStamp%date%year/400.)))  ! Tmp storage
       ! correction variable to fix month detection for leap years
       leap = 0
-      if (Is_Leap_Year(TimeStamp%date%year)) leap = 1
+      if (Is_Leap_Year(TimeStamp%date%year) .and. Time > 59.) leap = 1
       TimeStamp%date%month = minloc(MONTH_DAYS, 1, MONTH_DAYS >= Time-leap)-1
       
       TimeStamp%date%day = floor(Time - float( MONTH_DAYS(TimeStamp%date%month) ))

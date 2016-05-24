@@ -206,14 +206,14 @@ C **********************************************************************
 C
       use date_utility
       implicit none
-C
+!
 !lyo:!wad:Add WAD variables in pomNW.c
       include 'pomNW.c'
 
       integer, external :: create_output
-C
-C     New declarations plus ispi,isp2i:
-C
+!
+!     New declarations plus ispi,isp2i:
+!
       double precision aam_init,atot
       double precision cbcmax,cbcmin,darea
       double precision days,dte2,dvol
@@ -233,7 +233,7 @@ C
       integer i,iend,iext,imax,ispadv,isplit,iswtch
       integer j,jmax
       integer k
-      integer nadv,nbct,nbcs,nitera,nread
+      integer nadv,nbct,nbcs,npg,nitera,nread
       integer iproblem
       integer nsmolar  !lyo:!wad:
       logical lramp
@@ -649,6 +649,18 @@ C
 C     NOTE that only 1 and 3 are allowed for salinity.
 C
       nbcs=1
+!-----------------------------------------------------------------------
+!
+!     Pressure gradient scheme:
+!
+!       npg    scheme
+!
+!        1      2nd order as originally used in POM
+!        2      4th order (McCalpin...)
+!
+!     NOTE that only 1 and 3 are allowed for salinity.
+!
+      npg=1
 C
 C-----------------------------------------------------------------------
 C
@@ -1038,7 +1050,11 @@ C
 C
       call dens(s,t,rho)
 C
-      call baropg
+      if (npg==1) then
+        call baropg
+      else
+        call baropg_mcc
+      end if
 C
       do k=1,kbm1
         do j=1,jm
@@ -1202,7 +1218,7 @@ C-----------------------------------------------------------------------
 C
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 C
-        time=dti*float(iint)/86400.e0+time0
+        time=dti*float(iint)/86400.d0+time0
 C
         if(lramp) then
           ramp=time/period
@@ -1315,7 +1331,11 @@ C                                     +.5*(du/dy+dv/dx)**2) )
 C
         if(mode.ne.2) then
           call advct(a,c,ee)
-          call baropg
+          if (npg==1) then
+            call baropg
+          else
+            call baropg_mcc
+          end if
 C
           if (horcon.gt.0.0) then !lyo:_20080415:
           do k=1,kbm1
@@ -3295,6 +3315,200 @@ C
 C
       end
 C
+!_______________________________________________________________________
+      subroutine baropg_mcc
+! calculate  baroclinic pressure gradient
+! 4th order correction terms, following McCalpin
+      implicit none
+      include 'pomNW.c'
+      integer i,j,k
+      real d4(im,jm),ddx(im,jm),drho(im,jm,kb),rhou(im,jm,kb)
+      real rho4th(0:im,0:jm,kb),d4th(0:im,0:jm)
+
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rho(i,j,k)=rho(i,j,k)-rmean(i,j,k)
+          end do
+        end do
+      end do
+
+! compute terms correct to 4th order
+      do i=1,im
+        do j=1,jm
+          ddx(i,j)=0.
+          d4(i,j)=0.
+        end do
+      end do
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rhou(i,j,k)=0.
+            drho(i,j,k)=0.
+          end do
+        end do
+      end do
+
+! compute DRHO, RHOU, DDX and D4
+      do j=1,jm
+        do i=2,im
+          do k=1,kbm1
+            drho(i,j,k)=(rho(i,j,k)-rho(i-1,j,k))*dum(i,j)
+            rhou(i,j,k)=0.5*(rho(i,j,k)+rho(i-1,j,k))*dum(i,j)
+          end do
+          ddx(i,j)=(d(i,j)-d(i-1,j))*dum(i,j)
+          d4(i,j)=.5*(d(i,j)+d(i-1,j))*dum(i,j)
+        end do
+      end do
+
+      do j=1,jm
+        do i=3,imm1
+          do k=1,kbm1
+            drho(i,j,k)=drho(i,j,k) - (1./24.)*
+     $                  (dum(i+1,j)*(rho(i+1,j,k)-rho(i,j,k))-
+     $                  2*(rho(i,j,k)-rho(i-1,j,k))+
+     $                  dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
+            rhou(i,j,k)=rhou(i,j,k) + (1./16.)*
+     $                  (dum(i+1,j)*(rho(i,j,k)-rho(i+1,j,k))+
+     $                  dum(i-1,j)*(rho(i-1,j,k)-rho(i-2,j,k)))
+          end do
+          ddx(i,j)=ddx(i,j)-(1./24.)*
+     $             (dum(i+1,j)*(d(i+1,j)-d(i,j))-
+     $             2*(d(i,j)-d(i-1,j))+
+     $             dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
+          d4(i,j)=d4(i,j)+(1./16.)*
+     $            (dum(i+1,j)*(d(i,j)-d(i+1,j))+
+     $            dum(i-1,j)*(d(i-1,j)-d(i-2,j)))
+        end do
+      end do
+
+! calculate x-component of baroclinic pressure gradient
+      do j=2,jmm1
+        do i=2,imm1
+          drhox(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
+        end do
+      end do
+
+      do k=2,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=drhox(i,j,k-1)
+     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
+     $                   *(drho(i,j,k-1)+drho(i,j,k))
+     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
+     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
+          end do
+        end do
+      end do
+
+      do k=1,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=.25e0*(dt(i,j)+dt(i-1,j))
+     $                        *drhox(i,j,k)*dum(i,j)
+     $                        *(dy(i,j)+dy(i-1,j))
+          end do
+        end do
+      end do
+
+! compute terms correct to 4th order
+      do i=1,im
+        do j=1,jm
+          ddx(i,j)=0.
+          d4(i,j)=0.
+        end do
+      end do
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rhou(i,j,k)=0.
+            drho(i,j,k)=0.
+          end do
+        end do
+      end do
+
+! compute DRHO, RHOU, DDX and D4
+      do j=2,jm
+        do i=1,im
+          do k=1,kbm1
+            drho(i,j,k)=(rho(i,j,k)-rho(i,j-1,k))*dvm(i,j)
+            rhou(i,j,k)=.5*(rho(i,j,k)+rho(i,j-1,k))*dvm(i,j)
+          end do
+          ddx(i,j)=(d(i,j)-d(i,j-1))*dvm(i,j)
+          d4(i,j)=.5*(d(i,j)+d(i,j-1))*dvm(i,j)
+        end do
+      end do
+
+      do j=3,jmm1
+        do i=1,im
+          do k=1,kbm1
+            drho(i,j,k)=drho(i,j,k)-(1./24.)*
+     $                  (dvm(i,j+1)*(rho(i,j+1,k)-rho(i,j,k))-
+     $                  2*(rho(i,j,k)-rho(i,j-1,k))+
+     $                  dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
+            rhou(i,j,k)=rhou(i,j,k)+(1./16.)*
+     $                  (dvm(i,j+1)*(rho(i,j,k)-rho(i,j+1,k))+
+     $                  dvm(i,j-1)*(rho(i,j-1,k)-rho(i,j-2,k)))
+          end do
+          ddx(i,j)=ddx(i,j)-(1./24)*
+     $             (dvm(i,j+1)*(d(i,j+1)-d(i,j))-
+     $             2*(d(i,j)-d(i,j-1))+
+     $             dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
+          d4(i,j)=d4(i,j)+(1./16.)*
+     $            (dvm(i,j+1)*(d(i,j)-d(i,j+1))+
+     $            dvm(i,j-1)*(d(i,j-1)-d(i,j-2)))
+        end do
+      end do
+
+! calculate y-component of baroclinic pressure gradient
+      do j=2,jmm1
+        do i=2,imm1
+          drhoy(i,j,1)=grav*(-zz(1))*d4(i,j)*drho(i,j,1)
+        end do
+      end do
+
+      do k=2,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhoy(i,j,k)=drhoy(i,j,k-1)
+     $                   +grav*0.5e0*dzz(k-1)*d4(i,j)
+     $                   *(drho(i,j,k-1)+drho(i,j,k))
+     $                   +grav*0.5e0*(zz(k-1)+zz(k))*ddx(i,j)
+     $                   *(rhou(i,j,k)-rhou(i,j,k-1))
+          end do
+        end do
+      end do
+
+      do k=1,kbm1
+        do j=2,jmm1
+          do i=2,imm1
+            drhoy(i,j,k)=.25e0*(dt(i,j)+dt(i,j-1))
+     $                        *drhoy(i,j,k)*dvm(i,j)
+     $                        *(dx(i,j)+dx(i,j-1))
+          end do
+        end do
+      end do
+
+      do k=1,kb
+        do j=2,jmm1
+          do i=2,imm1
+            drhox(i,j,k)=ramp*drhox(i,j,k)
+            drhoy(i,j,k)=ramp*drhoy(i,j,k)
+          end do
+        end do
+      end do
+
+      do k=1,kb
+        do j=1,jm
+          do i=1,im
+            rho(i,j,k)=rho(i,j,k)+rmean(i,j,k)
+          end do
+        end do
+      end do
+
+      return
+      end
+
       subroutine bcond(idx)
 C **********************************************************************
 C *                                                                    *
@@ -8885,10 +9099,10 @@ C
 !     Set lateral boundary conditions, for use in subroutine bcond
 !     set all=0 for closed BCs.
 !     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=0.e0
+      rfe=1.e0
       rfw=0.e0
       rfn=0.e0
-      rfs=0.e0
+      rfs=1.e0
 !
       return
 
@@ -9516,7 +9730,7 @@ C
 !                volAcc(i,k) = volAcc(i,k)+dvol
                 mass=fsm(i,j)*(rho(i,j,k)*rhoref+1000.)*dvol
                 ktot=ktot+mass*.5*
-     $ sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
+     $                    sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
                 mtot=mtot+mass
 !                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
                 vtot=vtot+dvol
@@ -10804,6 +11018,8 @@ C
           if (mi /= rf_rmn) then
 
             rf_rmn = mi
+            
+            write(*,*) mi
 
             filename = trim(pth_wrk)//trim(pth_grd)
      $                 //trim(pfx_dmn)//"pom_clm.nc"
@@ -10957,8 +11173,6 @@ C
 !        If we move to the next month...
             rf_uv = mi
             
-            write(*,*) "[@] TODO: implement variable BCs for currents."
-
             filename = trim(pth_wrk)//trim(pth_grd)
      $                 //trim(pfx_dmn)//"pom_bry.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
@@ -11033,6 +11247,7 @@ C
             integer, intent ( in) :: status
 !            if (DBG) write(*,*) status
             if(status /= nf90_noerr) then
+              write(*,*) "NetCDF error at subroutine `bry`: ", status
               stop "Stopped"
             end if
           end subroutine check
@@ -11047,7 +11262,8 @@ C
         include 'pomNW.c'
 
         double precision :: day, day_offset, rng(2)
-        type(T_TimeStamp) :: date
+!        type(T_TimeStamp) :: date
+!        type(T_Zone) :: zone
 !
         day = get_Day_of_Year(day_offset+time)
         mi  = get_Month(day_offset+time)
