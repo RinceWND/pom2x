@@ -248,14 +248,36 @@ C
       integer tgt_lon, tgt_lat, tgt_sig
       double precision    slice_b, slice_e  
       
-      integer :: date_start(3)
+      double precision :: day_of_start
       
 !     Formatting parameters
-      character*4 :: sBOLD, sRESET
-      character*5 :: sRED
-      parameter( sBOLD = char(27)//"[1m",
-     $           sRED  = char(27)//"[31m",
-     $           sRESET= char(27)//"[0m" )
+      character*4 :: sBOLD, sRESET, sULINE
+      character*5 :: sBLACK, sRED, sGREEN, sYELLOW, sBLUE,
+     $               sMAGENTA, sCYAN, sWHITE, sDEFAULT, sNULINE
+      character*5 :: sBgBLACK, sBgRED, sBgGREEN, sBgYELLOW, sBgBLUE,
+     $               sBgMAGENTA, sBgCYAN, sBgWHITE, sBgDEFAULT
+      parameter( sBOLD   = char(27)//"[1m",
+     $           sULINE  = char(27)//"[4m",
+     $           sNULINE = char(27)//"[24m",
+     $           sBLACK  = char(27)//"[30m",
+     $           sRED    = char(27)//"[31m",
+     $           sGREEN  = char(27)//"[32m",
+     $           sYELLOW = char(27)//"[33m",
+     $           sBLUE   = char(27)//"[34m",
+     $           sMAGENTA= char(27)//"[35m",
+     $           sCYAN   = char(27)//"[36m",
+     $           sWHITE  = char(27)//"[37m",
+     $           sDEFAULT= char(27)//"[39m",
+     $           sBgBLACK  = char(27)//"[40m",
+     $           sBgRED    = char(27)//"[41m",
+     $           sBgGREEN  = char(27)//"[42m",
+     $           sBgYELLOW = char(27)//"[43m",
+     $           sBgBLUE   = char(27)//"[44m",
+     $           sBgMAGENTA= char(27)//"[45m",
+     $           sBgCYAN   = char(27)//"[46m",
+     $           sBgWHITE  = char(27)//"[47m",
+     $           sBgDEFAULT= char(27)//"[49m",
+     $           sRESET  = char(27)//"[0m" )
 C
 C***********************************************************************
 C
@@ -454,7 +476,7 @@ C     real-world calendar) has been used here. Insert your own date
 C     and time as required:
 C
       time_start='2000-01-01 00:00:00 +00:00'
-      time_end  ='not-set'
+      time_end  ='not-set'    !rwnd: if set time_end overrides days paramter (even if the latter is set too)
 C
 C-----------------------------------------------------------------------
 C
@@ -716,6 +738,26 @@ C --- Above are the default parameters, alternatively one can
 C --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
 C
       include 'params'
+!
+! Params sanity check
+!
+      if (time_end /= 'not-set') then
+        days = Days_in_between(time_start, time_end)
+        if (days <= 0) then
+          write(*,*) sBOLD,sRED,"[X]",
+     $        " End date cannot be before start date."
+          write(*,*) "    Please, specify time_end variable ",
+     $                 "after ", time_start, sRESET
+          write(*,*) sBOLD,sRED,
+     $                 "[[ SIMULATION TERMINATED ]]",sRESET
+          stop
+        end if
+      end if
+      
+      time0 = 0.
+      
+      day_of_start = Number_of_Days(time_start)
+      
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -769,9 +811,6 @@ C
 !----------------------------------------------------------------------!
 !                                                                      !
 !
-      if (time_end/='not-set') then         ! rwnd: If end date is set, override days variable.
-        days=Days_in_Between(time_start, time_end)
-      end if
       iend=max0(nint(days*24.e0*3600.e0/dti),2)
       iprint=nint(prtd1*24.e0*3600.e0/dti)
       iswtch=nint(swtch*24.e0*3600.e0/dti)
@@ -801,7 +840,7 @@ C
       write(6,'('' dti        = '',f10.1)') dti
       write(6,'('' isplit     = '',i10)') isplit
       write(6,'('' time_start = '',a26)') time_start
-      write(6,'('' time_end   = '',a26)') time_end
+      write(6,'('' time_end   = '',a26)') time_end    !rwnd:
       write(6,'('' days       = '',f10.4)') days
       write(6,'('' iend       = '',i10)') iend
       write(6,'('' prtd1      = '',f10.4)') prtd1
@@ -1049,10 +1088,14 @@ C
           if (fsm(i,j).ne.0.0) cflmin=min(cflmin,tps(i,j)) !lyo:_20080415:
         end do
       end do
-      
-      write(*,*) "Minimal tps: ",minval(tps, tps>0.)
-      write(*,*) "Difference between minimal tps and chosen dte:",
-     $           minval(tps)-dte
+!rwnd:
+      if (minval(tps, tps>0.)-dte < 0.) then
+        write(*,'(2a5,"[!] Specified timestep (",f5.2,
+     $           ") is too large.",a4)') sBOLD, sMAGENTA, dte, sRESET
+        write(*,'("     You are strongly advised to make dte smaller ",
+     $            "than ",f5.2, ".")') minval(tps, tps>0.)
+        write(*,*) ""
+      end if
 C
 C-----------------------------------------------------------------------
 C
@@ -1071,20 +1114,22 @@ C
      $          ,wetmask,wmarsh   !lyo:!wad:
         close(70)
         
-        if (time_end/='not-set') then   ! rwnd: In case of seamless reastart with specific end date, recalculate days left.
-          days = Days_in_between(time_start, time_end)-time0
-          if (days<=0) then
+        if (time_end /= 'not-set') then   ! rwnd: In case of seamless reastart with specific end date, recalculate days left.
+          days = days-time0   ! rwnd: days variable is already initialised right after including params
+          write(*,*) "Days in between: ", days
+          if (days <= 0) then
             write(*,*) sBOLD,sRED,"[X]",sRESET,
      $        " Simulation had already exceeded specified end date."
             write(*,*) "    Please, specify time_end variable ",
-     $                 "past the ",
-     $        DateTime_Build(Days_since_to_DateTime(time_start, time0))
+     $                 "past the ", Date_since(time_start, time0)
             write(*,*) sBOLD,sRED,
      $                 "[[ SIMULATION TERMINATED ]]",sRESET
-!            write(*,*) char(27),"[37;44m","White on blue background...",sRESET
+!           write(*,*) char(27),"[37;44m","White on blue background...",sRESET
             stop
           end if
         end if
+        
+        time_start = Date_since(time_start, time0)
         
       end if
 !
@@ -1112,12 +1157,11 @@ C
 !                                                                      !
 !----------------------------------------------------------------------!
 !
-!   TODO: Updating month here leads to incorrect m0 value if restarting a file with climate warping
-      call upd_mnth(time0, BC%ipl)
-!   Store month offset for further warping.
-      m0 = mi
-!   Prevent writing zero time when it is not meant to be zero.
       time = time0
+!   TODO: Updating month here leads to incorrect m0 value if restarting a file with climate warping
+      read(time_start, '(5x, i2)') m0
+      call upd_mnth(day_of_start)
+!   Prevent writing zero time when it is not meant to be zero.
 !
 !-----------------------------------------------------------------------
 !
@@ -1178,7 +1222,7 @@ C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 C     wssurf, swrad and vflux.
 !
 !     Update month
-      call upd_mnth(time, BC%ipl)
+      call upd_mnth(day_of_start)
       call clm_warp
 
       if (iproblem>=11 .and. iproblem<=19) then
@@ -2064,13 +2108,13 @@ c
      $  km,kh,kq,l,q2,q2b,aam,q2l,q2lb
      $ ,wetmask,wmarsh   !lyo:!wad:
       close(71)
-C
-C     Close netCDF file:
-C
+!
+!     Close netCDF file:
+!
 !        if(netcdf_file.ne.'nonetcdf') then
 !      call write_netcdf(netcdf_file,3)                        ! *netCDF*
 !        endif
-C
+!
 !lyo:!wad:print final successful completion:
 !     Execution time total:
       call cpu_time(slice_e)
@@ -2079,14 +2123,12 @@ C
 !
       call elapsed_time_print(slice_e)
 !
-      stop
-C
-      end
-C
-C     End of main program
-C
-C-----------------------------------------------------------------------
-C
+      end program
+!
+!     End of main program
+!
+!-----------------------------------------------------------------------
+!
       subroutine elapsed_time_print(raw)
 
         double precision, intent(in) :: raw
@@ -8843,10 +8885,10 @@ C
 !     Set lateral boundary conditions, for use in subroutine bcond
 !     set all=0 for closed BCs.
 !     Values=0 for vel BC only, =1 is combination of vel+elev.
-      rfe=1.e0
-      rfw=1.e0
-      rfn=1.e0
-      rfs=1.e0
+      rfe=0.e0
+      rfw=0.e0
+      rfn=0.e0
+      rfs=0.e0
 !
       return
 
@@ -9201,6 +9243,8 @@ C
      $          (/ dim_time /), varid) )
         call check( nf90_def_var(ncid, "Mtot", NF90_DOUBLE,
      $          (/ dim_time /), varid) )
+        call check( nf90_def_var(ncid, "Ktot", NF90_DOUBLE,
+     $          (/ dim_time /), varid) )
 !        call check( nf90_def_var(ncid, "tgt-point_1", NF90_DOUBLE,
 !     $          (/ dim_auxuv, dim_time /), varid) ) ! u,v
         call check( nf90_def_var(ncid, "Latitude", NF90_DOUBLE,
@@ -9430,7 +9474,7 @@ C
         logical :: NOK
         integer :: count
         integer :: i, j, k, ncid, varid, status
-        double precision :: vtot, tavg, atot, eavg, qavg, qtot, mtot
+        double precision :: vtot,tavg,atot,eavg,qavg,qtot,mtot,mass,ktot
         double precision :: darea,dvol,mtot2(im),mtot3,vtot2(im),vtot3
         double precision :: volAcc(im,kbm1),masAcc(im,kbm1),mtotAcc(im)
         integer nlyrs, fi, ri ! fi - file index, ri - record index
@@ -9460,6 +9504,7 @@ C
           tavg=0.d0
           qavg=0.d0
           eavg=0.d0
+          ktot=0.d0
 C
 !          volAcc = 0.
 !          masAcc = 0.
@@ -9469,7 +9514,10 @@ C
               do k=1,kbm1
                 dvol=darea*dt(i,j)*dz(k)
 !                volAcc(i,k) = volAcc(i,k)+dvol
-                mtot=mtot+(rho(i,j,k)*rhoref+1000.)*dvol
+                mass=fsm(i,j)*(rho(i,j,k)*rhoref+1000.)*dvol
+                ktot=ktot+mass*.5*
+     $ sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
+                mtot=mtot+mass
 !                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
                 vtot=vtot+dvol
                 tavg=tavg+tb(i,j,k)*dvol
@@ -9524,6 +9572,8 @@ C
         call check( nf90_put_var(ncid, varid, qavg, (/ri/)) )
         call check( nf90_inq_varid(ncid, "Mtot", varid) )
         call check( nf90_put_var(ncid, varid, mtot, (/ri/)) )
+        call check( nf90_inq_varid(ncid, "Ktot", varid) )
+        call check( nf90_put_var(ncid, varid, ktot, (/ri/)) )
 !
         if (mode.ge.3) then
           call check( nf90_inq_varid(ncid, "U", varid) )
@@ -10986,159 +11036,24 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end subroutine bry
 !
-      subroutine upd_mnth(tmp, ipl)
-
+      subroutine upd_mnth(day_offset)
+        
+        use date_utility
+        
+        implicit none
         include 'pomNW.c'
 
-        logical,intent( in) :: ipl
-        double precision                :: tind, tmp, b, e
+        double precision :: day, day_offset, rng(2)
+        type(T_TimeStamp) :: date
 !
-        tind = mod(tmp,365.)
-!
-!       If interpolation is enabled we slice months up at their middles.
-!
-!       Climatological cycle doesn't work for ipl yet.
-        if (ipl) then
-
-          if (tind.lt.15) then
-            mi = 1
-            b = -15.5
-            e = 15.
-          else
-            if (tind.lt.44) then
-              mi = 2
-              b = 15.
-              e = 44.
-            else
-              if (tind.lt.73.5) then
-                mi = 3
-                b = 44.
-                e = 73.5
-              else
-                if (tind.lt.104) then
-                  mi = 4
-                  b = 73.5
-                  e = 104.
-                else
-                  if (tind.lt.134.5) then
-                    mi = 5
-                    b = 104.
-                    e = 134.5
-                  else
-                    if (tind.lt.165) then
-                      mi = 6
-                      b = 134.5
-                      e = 165.
-                    else
-                      if (tind.lt.195.5) then
-                        mi = 7
-                        b = 165.
-                        e = 195.5
-                      else
-                        if (tind.lt.226.5) then
-                          mi = 8
-                          b = 195.5
-                          e = 226.5
-                        else
-                          if (tind.lt.258) then
-                            mi = 9
-                            b = 226.5
-                            e = 258.
-                          else
-                            if (tind.lt.288.5) then
-                              mi = 10
-                              b = 258.
-                              e = 288.5
-                            else
-                              if (tind.lt.319) then
-                                mi = 11
-                                b = 288.5
-                                e = 319.
-                              else
-                                if (tind.lt.349.5) then
-                                  mi = 12
-                                  b = 319.
-                                  e = 349.5
-                                else
-                                  mi = 1
-                                  b = 349.5
-                                  e = 380.5
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-          end if
-!
-          fac = (tind-b)/(e-b)
-
-        else
-!
-!     If interpolation is disabled we just detect which month the day is in.
-!
-          if (tind.lt.31) then
-            mi = 1
-          else
-            if (tind.lt.59) then
-              mi = 2
-            else
-              if (tind.lt.90) then
-                mi = 3
-              else
-                if (tind.lt.120) then
-                  mi = 4
-                else
-                  if (tind.lt.151) then
-                    mi = 5
-                  else
-                    if (tind.lt.181) then
-                      mi = 6
-                    else
-                      if (tind.lt.212) then
-                        mi = 7
-                      else
-                        if (tind.lt.243) then
-                          mi = 8
-                        else
-                          if (tind.lt.273) then
-                            mi = 9
-                          else
-                            if (tind.lt.304) then
-                              mi = 10
-                            else
-                              if (tind.lt.334) then
-                                mi = 11
-                              else
-                                if (tind.lt.365) then
-                                  mi = 12
-                                else
-                                  ! How did you get here?
-                                  mi = 1
-                                end if
-                              end if
-                            end if
-                          end if
-                        end if
-                      end if
-                    end if
-                  end if
-                end if
-              end if
-            end if
-          end if
-!
-        end if
-!
-        return
+        day = get_Day_of_Year(day_offset+time)
+        mi  = get_Month(day_offset+time)
+        rng = get_Month_Range(day_offset+time)
+        
+        fac = (day-rng(1))/(rng(2)-rng(1))  ! TODO: Insead of time here should be day of year (type of double)
 
       end
 !
