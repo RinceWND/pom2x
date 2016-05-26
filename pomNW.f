@@ -217,13 +217,16 @@ C
       double precision aam_init,atot
       double precision cbcmax,cbcmin,darea
       double precision days,dte2,dvol
-      double precision eaver
+      double precision eavg
       double precision horcon
       double precision ispi,isp2i
+      double precision ktot
+      double precision mtot
       double precision period,prtd1,prtd2,fsplt
-      double precision saver,smoth,sw,swtch
-      double precision taver,time0
-      double precision vamax,vtot,tsalt
+      double precision qavg
+      double precision savg,smoth,stot,sw,swtch
+      double precision tavg,time0
+      double precision vamax,vtot
       double precision z0b
       double precision tatm,satm
       double precision wadsmoth  !lyo:!wad:
@@ -770,6 +773,9 @@ C
       
       day_of_start = Number_of_Days(time_start)
       
+      read(time_start, '(5x, i2)') m0
+      call upd_mnth(day_of_start)
+      
 C
 clyo:wad:beg:
 c     Overwrite some input constants: see "params" above in runpom08
@@ -1143,6 +1149,9 @@ C
 !           write(*,*) char(27),"[37;44m","White on blue background...",sRESET
             stop
           end if
+          
+          day_of_start = day_of_start + time0
+          
         end if
         
         time_start = Date_since(time_start, time0)
@@ -1174,12 +1183,6 @@ C
 !----------------------------------------------------------------------!
 !
       time = time0
-!   TODO: Updating month here leads to incorrect m0 value if restarting a file with climate warping
-      read(time_start, '(5x, i2)') m0
-      call upd_mnth(day_of_start)
-!   Prevent writing zero time when it is not meant to be zero.
-!
-!-----------------------------------------------------------------------
 !
       nccnt = int(iint/fprint)
       ncid = create_output(nccnt)  ! rwnd:
@@ -1854,7 +1857,7 @@ C
             call advv
             call profu
             call profv
-            call bcond(3)
+            call bcond_rwnd(3)
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Check wet/dry on UF & VF:                                    !
@@ -1952,7 +1955,7 @@ C-----------------------------------------------------------------------
 C
 C     Beginning of print section:
 C
-        if(iint.ge.iswtch) iprint=nint(prtd2*24.e0*3600.e0/dti)
+        if(iint.ge.iswtch) iprint=nint(prtd2*24.d0*3600.d0/dti)
 C
 !     Target point output
         if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
@@ -1991,37 +1994,44 @@ C
      $                ,int(modulo(float(iint)/float(iprint)
      $                           ,float(fprint)/float(iprint)))+1)
 !
-          vtot=0.e0
-          atot=0.e0
-          taver=0.e0
-          saver=0.e0
-          eaver=0.e0
-          do k=1,kbm1
-            do j=1,jm
-              do i=1,im
-                darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
-                dvol=darea*dt(i,j)*dz(k)
-                vtot=vtot+dvol
-                taver=taver+tb(i,j,k)*dvol
-                saver=saver+sb(i,j,k)*dvol
-              end do
-            end do
-          end do
+     
+          call intpar_calc(tavg,stot,eavg,mtot,ktot,qavg,atot,vtot)  ! calculate integral parameters (tavg, eavg, qavg, mtot, ktot)
+          tavg = tavg/vtot
+          savg = stot/vtot
+          qavg = qavg/vtot
+          eavg = eavg/atot
+          
+!          vtot=0.e0
+!          atot=0.e0
+!          taver=0.e0
+!          saver=0.e0
+!          eaver=0.e0
+!          do k=1,kbm1
+!            do j=1,jm
+!              do i=1,im
+!                darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
+!                dvol=darea*dt(i,j)*dz(k)
+!                vtot=vtot+dvol
+!                taver=taver+tb(i,j,k)*dvol
+!                saver=saver+sb(i,j,k)*dvol
+!              end do
+!            end do
+!          end do
+!C
+!          do j=1,jm
+!            do i=1,im
+!              darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
+!              atot=atot+darea
+!              eaver=eaver+et(i,j)*darea
+!            end do
+!          end do
+!C
+!          taver=taver/vtot
+!          saver=saver/vtot
+!          eaver=eaver/atot
+!          tsalt=(saver+sbias)*vtot
 C
-          do j=1,jm
-            do i=1,im
-              darea=dx(i,j)*dy(i,j)*wetmask(i,j) !lyo:!wad:
-              atot=atot+darea
-              eaver=eaver+et(i,j)*darea
-            end do
-          end do
-C
-          taver=taver/vtot
-          saver=saver/vtot
-          eaver=eaver/atot
-          tsalt=(saver+sbias)*vtot
-C
-          write(6,5) vtot,atot,eaver,taver,saver,tsalt
+          write(6,5) vtot,atot,eavg,tavg,stot,savg
     5     format('vtot = ',e16.7,'   atot = ',e16.7,
      $           '  eaver =',e16.7/'taver =',e16.7,
      $           '   saver =',e16.7,'  tsalt =',e16.7)
@@ -3958,6 +3968,365 @@ C
       endif
 C
       end
+      
+      subroutine bcond_rwnd(idx)
+C **********************************************************************
+C *                                                                    *
+C * FUNCTION    :  Applies open boundary conditions.                   *
+C *                                                                    *
+C **********************************************************************
+C
+      implicit none
+C
+      include 'pomNW.c'
+C
+      integer idx
+      double precision ga,u1,wm,etide  !lyo:!wad:add etide
+      integer i,j,k
+C
+      if(idx.eq.1) then
+C
+C-----------------------------------------------------------------------
+C
+C     External (2-D) boundary conditions:
+C
+C     Elevation (Clamped):
+C
+        do j=1,jm
+          elf( 1,j) = els(j)
+          elf(im,j) = eln(j)
+        end do
+C
+        do i=1,im
+          elf(i, 1) = elw(i)
+          elf(i,jm) = ele(i)
+        end do
+C
+        do j=1,jm
+          do i=1,im
+            elf(i,j) = elf(i,j)*fsm(i,j)
+          end do
+        end do
+C
+        return
+C
+      else if(idx.eq.2) then
+C
+C     External (2-D) velocity:
+C
+!tne:!wad:
+C Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
+C      note that ELW already include hhi (see SEAMOUNT)
+!lyo:!wad:Specify time-dependent tidal tidal amplitude w/period=1day,
+!         & amplitude=9m; note that tide is to be added to the geostro-
+!         phically balanced ELW below.  So ETIDE is referenced wrt MSL:
+!         [but perhaps it will be more direct to specify elevation??]
+!        etide=-9.e0*sin(2.e0*pi*time/1.e0)
+         etide=-tidamp*sin(2.e0*pi*time/1.e0) !minus so ebb near time=0
+!
+        do j=2,jmm1
+C
+C     East:
+C
+!tne:!wad:- for wad replace H with D
+          uaf(im,j)=uabe(j)
+     $               +rfe*sqrt(grav/d(imm1,j))
+     $                         *(el(imm1,j)-ele(j))
+          uaf(im,j)=ramp*uaf(im,j)
+          vaf(im,j)=0.e0
+C
+C     West:
+C
+!tne:!wad:- for wad replace H with D add tide
+          uaf(2,j)=uabw(j)
+     $              -rfw*sqrt(grav/d(2,j))
+     $                        *(el(2,j)-elw(j)-etide)
+          uaf(2,j)=ramp*uaf(2,j)
+          uaf(1,j)=uaf(2,j)
+          vaf(1,j)=0.e0
+C
+        end do
+C
+        do i=2,imm1
+C
+C     North:
+C
+!tne:!wad:- for wad replace H with D
+          vaf(i,jm)=vabn(i)
+     $               +rfn*sqrt(grav/d(i,jmm1))
+     $                         *(el(i,jmm1)-eln(i))
+          vaf(i,jm)=ramp*vaf(i,jm)
+          uaf(i,jm)=0.e0
+C
+C     South:
+C
+!tne:!wad:- for wad replace H with D
+          vaf(i,2)=vabs(i)
+     $              -rfs*sqrt(grav/d(i,2))
+     $                        *(el(i,2)-els(i))
+          vaf(i,2)=ramp*vaf(i,2)
+          vaf(i,1)=vaf(i,2)
+          uaf(i,1)=0.e0
+C
+        end do
+C
+        do j=1,jm
+          do i=1,im
+            uaf(i,j)=uaf(i,j)*dum(i,j)
+            vaf(i,j)=vaf(i,j)*dvm(i,j)
+          end do
+        end do
+C
+        return
+C
+      else if(idx.eq.3) then
+C
+C-----------------------------------------------------------------------
+C
+C     Internal (3-D) boundary conditions:
+C
+C     Velocity (radiation conditions; smoothing is used in the direction
+C     tangential to the boundaries):
+C
+        do k=1,kbm1
+          do j=2,jmm1
+C
+C     East:
+C
+            ga=sqrt(d(im,j)/hmax)  !lyo:!wad:replace h w/d
+            uf(im,j,k)=ga*(.25e0*u(imm1,j-1,k)+.5e0*u(imm1,j,k)
+     $                     +.25e0*u(imm1,j+1,k))
+     $                  +(1.e0-ga)*(.25e0*ube(j-1,k)+.5e0*ube(j,k)
+     $                    +.25e0*ube(j+1,k))
+            vf(im,j,k)=0.e0
+C
+C     West:
+C
+            ga=sqrt(d(1,j)/hmax)  !lyo:!wad:replace h w/d
+            uf(2,j,k)=ga*(.25e0*u(3,j-1,k)+.5e0*u(3,j,k)
+     $                    +.25e0*u(3,j+1,k))
+     $                 +(1.e0-ga)*(.25e0*ubw(j-1,k)+.5e0*ubw(j,k)
+     $                   +.25e0*ubw(j+1,k))
+            uf(1,j,k)=uf(2,j,k)
+            vf(1,j,k)=0.e0
+          end do
+        end do
+C
+        do k=1,kbm1
+          do i=2,imm1
+C
+C     North:
+C
+            ga=sqrt(d(i,jm)/hmax)  !lyo:!wad:replace h w/d
+            vf(i,jm,k)=ga*(.25e0*v(i-1,jmm1,k)+.5e0*v(i,jmm1,k)
+     $                     +.25e0*v(i+1,jmm1,k))
+     $                  +(1.e0-ga)*(.25e0*vbn(i-1,k)+.5e0*vbn(i,k)
+     $                    +.25e0*vbn(i+1,k))
+            uf(i,jm,k)=0.e0
+C
+C     South:
+C
+            ga=sqrt(d(i,1)/hmax)  !lyo:!wad:replace h w/d
+            vf(i,2,k)=ga*(.25e0*v(i-1,3,k)+.5e0*v(i,3,k)
+     $                    +.25e0*v(i+1,3,k))
+     $                 +(1.e0-ga)*(.25e0*vbs(i-1,k)+.5e0*vbs(i,k)
+     $                   +.25e0*vbs(i+1,k))
+            vf(i,1,k)=vf(i,2,k)
+            uf(i,1,k)=0.e0
+          end do
+        end do
+C
+        do k=1,kbm1
+          do j=1,jm
+            do i=1,im
+              uf(i,j,k)=uf(i,j,k)*dum(i,j)
+              vf(i,j,k)=vf(i,j,k)*dvm(i,j)
+            end do
+          end do
+        end do
+C
+        return
+C
+      else if(idx.eq.4) then
+C
+C     Temperature and salinity boundary conditions (using uf and vf,
+C     respectively):
+C
+        do k=1,kbm1
+          do j=1,jm
+C
+C     East:
+C
+            u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
+            if(u1.le.0.e0) then
+              uf(im,j,k)=t(im,j,k)-u1*(tbe(j,k)-t(im,j,k))
+              vf(im,j,k)=s(im,j,k)-u1*(sbe(j,k)-s(im,j,k))
+            else
+              uf(im,j,k)=t(im,j,k)-u1*(t(im,j,k)-t(imm1,j,k))
+              vf(im,j,k)=s(im,j,k)-u1*(s(im,j,k)-s(imm1,j,k))
+              if(k.ne.1.and.k.ne.kbm1) then
+                wm=.5e0*(w(imm1,j,k)+w(imm1,j,k+1))*dti
+     $              /((zz(k-1)-zz(k+1))*dt(imm1,j))
+                uf(im,j,k)=uf(im,j,k)-wm*(t(imm1,j,k-1)-t(imm1,j,k+1))
+                vf(im,j,k)=vf(im,j,k)-wm*(s(imm1,j,k-1)-s(imm1,j,k+1))
+              endif
+            endif
+C
+C     West:
+C
+            u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
+            if(u1.ge.0.e0) then
+              uf(1,j,k)=t(1,j,k)-u1*(t(1,j,k)-tbw(j,k))
+              vf(1,j,k)=s(1,j,k)-u1*(s(1,j,k)-sbw(j,k))
+            else
+              uf(1,j,k)=t(1,j,k)-u1*(t(2,j,k)-t(1,j,k))
+              vf(1,j,k)=s(1,j,k)-u1*(s(2,j,k)-s(1,j,k))
+              if(k.ne.1.and.k.ne.kbm1) then
+                wm=.5e0*(w(2,j,k)+w(2,j,k+1))*dti
+     $              /((zz(k-1)-zz(k+1))*dt(2,j))
+                uf(1,j,k)=uf(1,j,k)-wm*(t(2,j,k-1)-t(2,j,k+1))
+                vf(1,j,k)=vf(1,j,k)-wm*(s(2,j,k-1)-s(2,j,k+1))
+              endif
+            endif
+          end do
+        end do
+C
+        do k=1,kbm1
+          do i=1,im
+C
+C     North:
+C
+            u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
+            if(u1.le.0.e0) then
+              uf(i,jm,k)=t(i,jm,k)-u1*(tbn(i,k)-t(i,jm,k))
+              vf(i,jm,k)=s(i,jm,k)-u1*(sbn(i,k)-s(i,jm,k))
+            else
+              uf(i,jm,k)=t(i,jm,k)-u1*(t(i,jm,k)-t(i,jmm1,k))
+              vf(i,jm,k)=s(i,jm,k)-u1*(s(i,jm,k)-s(i,jmm1,k))
+              if(k.ne.1.and.k.ne.kbm1) then
+                wm=.5e0*(w(i,jmm1,k)+w(i,jmm1,k+1))*dti
+     $              /((zz(k-1)-zz(k+1))*dt(i,jmm1))
+                uf(i,jm,k)=uf(i,jm,k)-wm*(t(i,jmm1,k-1)-t(i,jmm1,k+1))
+                vf(i,jm,k)=vf(i,jm,k)-wm*(s(i,jmm1,k-1)-s(i,jmm1,k+1))
+              endif
+            endif
+C
+C     South:
+C
+            u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
+            if(u1.ge.0.e0) then
+              uf(i,1,k)=t(i,1,k)-u1*(t(i,1,k)-tbs(i,k))
+              vf(i,1,k)=s(i,1,k)-u1*(s(i,1,k)-sbs(i,k))
+            else
+              uf(i,1,k)=t(i,1,k)-u1*(t(i,2,k)-t(i,1,k))
+              vf(i,1,k)=s(i,1,k)-u1*(s(i,2,k)-s(i,1,k))
+              if(k.ne.1.and.k.ne.kbm1) then
+                wm=.5e0*(w(i,2,k)+w(i,2,k+1))*dti
+     $              /((zz(k-1)-zz(k+1))*dt(i,2))
+                uf(i,1,k)=uf(i,1,k)-wm*(t(i,2,k-1)-t(i,2,k+1))
+                vf(i,1,k)=vf(i,1,k)-wm*(s(i,2,k-1)-s(i,2,k+1))
+              endif
+            endif
+          end do
+        end do
+C
+        do k=1,kbm1
+          do j=1,jm
+            do i=1,im
+              uf(i,j,k)=uf(i,j,k)*fsm(i,j)
+              vf(i,j,k)=vf(i,j,k)*fsm(i,j)
+            end do
+          end do
+        end do
+C
+        return
+C
+      else if(idx.eq.5) then
+C
+C     Vertical velocity boundary conditions:
+C
+        do k=1,kbm1
+          do j=1,jm
+            do i=1,im
+              w(i,j,k)=w(i,j,k)*fsm(i,j)
+            end do
+          end do
+        end do
+C
+        return
+C
+      else if(idx.eq.6) then
+C
+C     q2 and q2l boundary conditions:
+C
+        do k=1,kb
+          do j=1,jm
+C
+C     East:
+C
+            u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
+            if(u1.le.0.e0) then
+              uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
+              vf(im,j,k)=q2l(im,j,k)-u1*(small-q2l(im,j,k))
+            else
+              uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
+              vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
+            endif
+C
+C     West:
+C
+            u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
+            if(u1.ge.0.e0) then
+              uf(1,j,k)=q2(1,j,k)-u1*(q2(1,j,k)-small)
+              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(1,j,k)-small)
+            else
+              uf(1,j,k)=q2(1,j,k)-u1*(q2(2,j,k)-q2(1,j,k))
+              vf(1,j,k)=q2l(1,j,k)-u1*(q2l(2,j,k)-q2l(1,j,k))
+            endif
+          end do
+        end do
+C
+        do k=1,kb
+          do i=1,im
+C
+C     North:
+C
+            u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
+            if(u1.le.0.e0) then
+              uf(i,jm,k)=q2(i,jm,k)-u1*(small-q2(i,jm,k))
+              vf(i,jm,k)=q2l(i,jm,k)-u1*(small-q2l(i,jm,k))
+            else
+              uf(i,jm,k)=q2(i,jm,k)-u1*(q2(i,jm,k)-q2(i,jmm1,k))
+              vf(i,jm,k)=q2l(i,jm,k)-u1*(q2l(i,jm,k)-q2l(i,jmm1,k))
+            endif
+C
+C     South:
+C
+            u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
+            if(u1.ge.0.e0) then
+              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,1,k)-small)
+              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,1,k)-small)
+            else
+              uf(i,1,k)=q2(i,1,k)-u1*(q2(i,2,k)-q2(i,1,k))
+              vf(i,1,k)=q2l(i,1,k)-u1*(q2l(i,2,k)-q2l(i,1,k))
+            endif
+          end do
+        end do
+C
+        do k=1,kb
+          do j=1,jm
+            do i=1,im
+              uf(i,j,k)=uf(i,j,k)*fsm(i,j)+1.e-10
+              vf(i,j,k)=vf(i,j,k)*fsm(i,j)+1.e-10
+            end do
+          end do
+        end do
+C
+        return
+C
+      endif
+C
+      end subroutine bcond_rwnd
 C
       subroutine bcondorl(idx)
 C **********************************************************************
@@ -8859,8 +9228,8 @@ C--- 1D ---
       write(*,*) "\\",trim(filename)      
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 C--- 3D ---
+      write(*,*) "Starting to read IC form ",mi," month."
       call check( nf90_inq_varid(ncid, "Tclim", varid) )
-      write(*,*) mi
       call check( nf90_get_var(ncid, varid, t, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] potential temperature retrieved"
@@ -9689,8 +10058,7 @@ C
         integer :: count
         integer :: i, j, k, ncid, varid, status
         double precision :: vtot,tavg,atot,eavg,qavg,qtot,mtot,mass,ktot
-        double precision :: darea,dvol,mtot2(im),mtot3,vtot2(im),vtot3
-        double precision :: volAcc(im,kbm1),masAcc(im,kbm1),mtotAcc(im)
+        double precision :: darea,dvol,savg
         integer nlyrs, fi, ri ! fi - file index, ri - record index
         parameter (nlyrs = kbm1)
         integer :: lyrs(nlyrs)
@@ -9711,68 +10079,11 @@ C
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
 C
-          vtot=0.d0
-          atot=0.d0
-          qtot=0.d0
-          mtot=0.d0
-          tavg=0.d0
-          qavg=0.d0
-          eavg=0.d0
-          ktot=0.d0
-C
-!          volAcc = 0.
-!          masAcc = 0.
-          do j=1,jm
-            do i=1,im
-              darea=dx(i,j)*dy(i,j)*wetmask(i,j)
-              do k=1,kbm1
-                dvol=darea*dt(i,j)*dz(k)
-!                volAcc(i,k) = volAcc(i,k)+dvol
-                mass=fsm(i,j)*(rho(i,j,k)*rhoref+1000.)*dvol
-                ktot=ktot+mass*.5*
-     $                    sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
-                mtot=mtot+mass
-!                masAcc(i,k) = masAcc(i,k)+(rho(i,j,k)*rhoref+1000.)*dvol
-                vtot=vtot+dvol
-                tavg=tavg+tb(i,j,k)*dvol
-                qavg=qavg+q2(i,j,k)*dvol
-              end do
-              atot=atot+darea
-              eavg=eavg+et(i,j)*darea
-            end do
-          end do
-          
-!          mtot2 = 0.
-!          vtot2 = 0.
-!          do k=1,kbm1
-!            do i=1,im
-!              vtot2(i) = vtot2(i)+volAcc(i,k)
-!              mtot2(i) = mtot2(i)+masAcc(i,k)
-!            end do
-!          end do
-!          
-!          mtot3 = 0.
-!          vtot3 = 0.
-!          do i=1,im
-!            mtot3 = mtot3+mtot2(i)
-!            vtot3 = vtot3+vtot2(i)
-!          end do
-          
-!          write(*,*) "Total vol  (old): ",vtot
-!          write(*,*) "Total vol  (new): ",vtot3
-!          vtot3 = vtot3-vtot
-!          write(*,*) "Total volume discreapncy between ",
-!     $               "two sum methods is: ",vtot3
-!          write(*,*) "Total mass (old): ",mtot
-!          write(*,*) "Total mass (new): ",mtot3
-!          mtot3 = mtot3-mtot
-!          write(*,*) "Total mass discreapncy between ",
-!     $               "two sum methods is: ",mtot3
-C
-          eavg=eavg/atot
-          tavg=tavg/vtot
-          qtot=qavg
-          qavg=qtot/vtot
+        call intpar_calc(tavg,savg,eavg,mtot,ktot,qavg,atot,vtot)  ! calculate integral parameters (tavg, eavg, qavg, mtot, ktot)
+        tavg = tavg/vtot
+        savg = savg/vtot
+        qavg = qavg/vtot
+        eavg = eavg/atot
 C
         call check( nf90_inq_varid(ncid, "Tavg", varid) )
         call check( nf90_put_var(ncid, varid, tavg, (/ri/)) )
@@ -11485,6 +11796,90 @@ C
         write(*,*) "[ ] Transport discrepancy after: ", trans_discr
               
       end subroutine
+      
+      subroutine intpar_calc(tt, st, pt, mt, kt, qt, at, vt)
+        
+        include 'pomNW.c'
+        
+        double precision, intent(out) :: tt,st,pt,mt,kt,qt,at,vt
+        double precision :: da, dv
+        double precision, dimension(im,jm) :: ta,sa,pa,ma,ka,qa,aa,vl
+        
+        vt = 0.d0
+        at = 0.d0
+        mt = 0.d0
+        tt = 0.d0
+        qt = 0.d0
+        pt = 0.d0
+        kt = 0.d0
+        
+        ta = 0.d0
+        sa = 0.d0
+        pa = 0.d0
+        ma = 0.d0
+        ka = 0.d0
+        qa = 0.d0
+        aa = 0.d0
+        vl = 0.d0
+!        volAcc = 0.
+!        masAcc = 0.
+        do j = 1,jm
+          do i = 1,im
+            da = dx(i,j)*dy(i,j)*wetmask(i,j)
+            aa(i,j) = aa(i,j)+da
+            pa(i,j) = pa(i,j)+et(i,j)*da
+            do k=1,kbm1
+              dv = da*dt(i,j)*dz(k)
+              vl(i,j) = vl(i,j)+dv
+              dm = fsm(i,j)*(rho(i,j,k)*rhoref+1000.)*dv
+              ka(i,j) = ka(i,j)+dm*.5*
+     $                  sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
+              ma(i,j) = ma(i,j)+dm
+              ta(i,j) = ta(i,j)+tb(i,j,k)*dv
+              sa(i,j) = sa(i,j)+sb(i,j,k)*dv
+              qa(i,j) = qa(i,j)+q2(i,j,k)*dv
+            end do
+          end do
+        end do
+        
+        tt = sum(ta)
+        st = sum(sa)
+        pt = sum(pa)
+        mt = sum(ma)
+        kt = sum(ka)
+        qt = sum(qa)
+        at = sum(aa)
+        vt = sum(vl)
+          
+!          mtot2 = 0.
+!          vtot2 = 0.
+!          do k=1,kbm1
+!            do i=1,im
+!              vtot2(i) = vtot2(i)+volAcc(i,k)
+!              mtot2(i) = mtot2(i)+masAcc(i,k)
+!            end do
+!          end do
+!          
+!          mtot3 = 0.
+!          vtot3 = 0.
+!          do i=1,im
+!            mtot3 = mtot3+mtot2(i)
+!            vtot3 = vtot3+vtot2(i)
+!          end do
+          
+!          write(*,*) "Total vol  (old): ",vtot
+!          write(*,*) "Total vol  (new): ",vtot3
+!          vtot3 = vtot3-vtot
+!          write(*,*) "Total volume discreapncy between ",
+!     $               "two sum methods is: ",vtot3
+!          write(*,*) "Total mass (old): ",mtot
+!          write(*,*) "Total mass (new): ",mtot3
+!          mtot3 = mtot3-mtot
+!          write(*,*) "Total mass discreapncy between ",
+!     $               "two sum methods is: ",mtot3
+C
+        
+      end subroutine intpar_calc
 
       subroutine ncclose(ncid)
         use netcdf
