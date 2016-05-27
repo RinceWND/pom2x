@@ -241,7 +241,9 @@ C
       integer nsmolar  !lyo:!wad:
       logical lramp
       character*120 netcdf_file
-
+!___________________________________________________________________
+!
+      integer*1 bcond_idx
       double precision    bkp_gap
       integer ncid   !rwnd: Ncdf file id.
       integer nccnt  !    : Ncdf file counter.
@@ -701,9 +703,12 @@ C
       if (iproblem .eq. 41) tidamp=9.e0
 !----------------------------------------------------------------------!
 !                                                                      !
-!     initialise time0 (May be overriden with params)
-      time0 = 0.
+! bcond suffix string (null-character by default to call original bcond)
+!
+      bcond_idx = 0
+!
 !     initialise tgt coordinates
+!
       tgt_lon = 1
       tgt_lat = 1
       tgt_sig = 1
@@ -738,6 +743,7 @@ C
       BC%ssf = .false.
       BC%vap = .false.
       BC%clm = .false.
+!      BC%vel = .true.
       BC%bnd%nth = .false.
       BC%bnd%est = .false.
       BC%bnd%sth = .false.
@@ -1465,7 +1471,7 @@ C
 !                                                                      !
 !----------------------------------------------------------------------!
 C
-          call bcond(1)
+      call bcond(1, bcond_idx)
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Check wet/dry on ELF:                                        !
@@ -1549,7 +1555,7 @@ C
             end do
           end do
 C
-          call bcond(2)
+          call bcond(2, bcond_idx)
 C
           if(iext.eq.(isplit-2))then
             do j=1,jm
@@ -1737,7 +1743,7 @@ C
 C     vertvl calculates w from u, v, dt (h+et), etf and etb:
 C
             call vertvl(a,c)
-            call bcond(5)
+            call bcond(5, bcond_idx)
 C
 C
             do k=1,kb
@@ -1755,7 +1761,7 @@ C
             call advq(q2b,q2,uf,a,c)
             call advq(q2lb,q2l,vf,a,c)
             call profq(a,c,tps,dtef)
-            call bcond(6)
+            call bcond(6, bcond_idx)
 C
             do k=1,kb
               do j=1,jm
@@ -1813,7 +1819,7 @@ C
 C
               call proft(uf,wtsurf,tsurf,nbct,tps)
               call proft(vf,wssurf,ssurf,nbcs,tps)
-              call bcond(4)
+              call bcond(4, bcond_idx)
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Prepare dry-cell T/S "initial conditions" for next time-step !
@@ -1857,7 +1863,7 @@ C
             call advv
             call profu
             call profv
-            call bcond_rwnd(3)
+            call bcond(3, bcond_idx)
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Check wet/dry on UF & VF:                                    !
@@ -3518,8 +3524,26 @@ C
 
       return
       end
+      
+      subroutine bcond(idx, sub)
+        
+        integer*1, intent(in) :: sub
+        integer,   intent(in) :: idx
+        
+        select case (sub)
+          case (0)
+            call bcond_orig(idx)
+          case (1)
+            call bcond_rwnd(idx)
+          case (99)
+            call bcondorl(idx)
+          case default
+            call bcond_orig(idx)
+        end select
+        
+      end subroutine bcond
 
-      subroutine bcond(idx)
+      subroutine bcond_orig(idx)
 C **********************************************************************
 C *                                                                    *
 C * FUNCTION    :  Applies open boundary conditions.                   *
@@ -3989,27 +4013,18 @@ C
 C-----------------------------------------------------------------------
 C
 C     External (2-D) boundary conditions:
-C
-C     Elevation (Clamped):
-C
-        do j=1,jm
-          elf( 1,j) = els(j)
-          elf(im,j) = eln(j)
-        end do
-C
-        do i=1,im
-          elf(i, 1) = elw(i)
-          elf(i,jm) = ele(i)
-        end do
-C
-        do j=1,jm
-          do i=1,im
-            elf(i,j) = elf(i,j)*fsm(i,j)
-          end do
-        end do
-C
+!
+!     Elevation (Clamped):
+!
+        elf( 1,:) = elw(:)
+        elf(im,:) = ele(:)
+        elf(:, 1) = els(:)
+        elf(:,jm) = eln(:)
+!
+        elf = elf*fsm
+!
         return
-C
+!     -------------------------
       else if(idx.eq.2) then
 C
 C     External (2-D) velocity:
@@ -9333,54 +9348,50 @@ C
       !call wadh
       call areas_masks
 !
-C
-C                    --- EAST & WEST BCs ---
-        do j=1,jm
-            ele(j)=0.
-            elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
-            do k=1,kb
-              ubw(j,k)=0.                ! RWND
-              ube(j,k)=0.                !
-              uabe(j) =0.                ! RWND
-              uabw(j) =0.                !  Calculate vertical averages
-              tbw(j,k)=tclim(1,j,k)
-              sbw(j,k)=sclim(1,j,k)
-              tbe(j,k)=tclim(im,j,k)
-              sbe(j,k)=sclim(im,j,k)
-            end do
-        end do
-C                    --- NORTH & SOUTH BCs ---
-        do i=1,im
-              els(i)=0. !elb(i,1)   ! RWND
-              eln(i)=0. !elb(i,jm)  !
-            do k=1,kb
-              vbs(i,k)=0.                ! RWND
-              vbn(i,k)=0.                !
-              vabs(j) =0.                ! RWND
-              vabn(j) =0.                !  Calculate vertical means
-              tbs(i,k)=tclim(i,1,k)
-              sbs(i,k)=sclim(i,1,k)
-              tbn(i,k)=tclim(i,jm,k)
-              sbn(i,k)=sclim(i,jm,k)
-            end do
-        end do
-C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
+!________________________________________________
+!
+!     --- EAST & WEST BCs ---
+!
+      ele(:) = elb(im,:)
+      elw(:) = elb( 1,:)
+!   Current velocities are read in bry()
+      ubw(:,:) = 0.
+      ube(:,:) = 0.
+      uabe(:)  = 0.
+      uabw(:)  = 0.
+      
+      tbw(:,:) = tclim( 1,:,:)
+      sbw(:,:) = sclim( 1,:,:)
+      tbe(:,:) = tclim(im,:,:)
+      sbe(:,:) = sclim(im,:,:)
+!________________________________________________
+!
+!     --- NORTH & SOUTH BCs ---
+!
+      els(:) = elb(:, 1)
+      eln(:) = elb(:,jm)
+!   Current velocities are read in bry()
+      vbs(:,:) = 0.
+      vbn(:,:) = 0.
+      vabs(:)  = 0.
+      vabn(:)  = 0.
+      
+      tbs(:,:) = tclim(:, 1,:)
+      sbs(:,:) = sclim(:, 1,:)
+      tbn(:,:) = tclim(:,im,:)
+      sbn(:,:) = sclim(:,im,:)
+!
+!     Set initial conditions:
+!       and apply free-surface mask ! rwnd:
       do k=1,kb
         t(:,:,k) = t(:,:,k)*fsm(:,:)
         s(:,:,k) = s(:,:,k)*fsm(:,:)
-        do j=1,jm
-          do i=1,im
-            tb(i,j,k)=t(i,j,k)
-            sb(i,j,k)=s(i,j,k)
-            ub(i,j,k)=u(i,j,k)
-            vb(i,j,k)=v(i,j,k)
-          end do
-        end do
+        tb(:,:,k)= t(:,:,k)
+        sb(:,:,k)= s(:,:,k)
+        ub(:,:,k)= u(:,:,k)
+        vb(:,:,k)= v(:,:,k)
       end do
-C
+!
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       call bry(0)   ! always read rmean
@@ -9388,12 +9399,12 @@ C
       call bry(11)  ! always get vertical...
       call bry(12)  ! ...and horizontal boundaries for TS
       if (BC%wnd) call flux(5)
-C
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
+!
+!
+! --- the following grids are needed only for netcdf plotting
+!
+!     Corner of cell points:
+!
       do j=2,jm
         do i=2,im
           east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
@@ -9402,49 +9413,49 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-C
-C
-C     Extrapolate ends (approx.):
-C
+!
+!
+!     Extrapolate ends (approx.):
+!
       do i=2,im
         east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
         north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
       end do
         east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
+!
       do j=2,jm
         east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
         north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
       end do
         north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
@@ -11556,7 +11567,7 @@ C
         contains
           subroutine check(status)
             integer, intent ( in) :: status
-!            if (DBG) write(*,*) status
+!            if (DBG) write(*,*)  status
             if(status /= nf90_noerr) then
               write(*,*) "NetCDF error at subroutine `bry`: ", status
               stop "Stopped"
