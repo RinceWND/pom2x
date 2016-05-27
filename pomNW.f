@@ -67,143 +67,143 @@
 !----------------------------------------------------------------------!
 !                                                                      !
 !                                                                      !
-clyo:Notes:                                                            !
-c     This version incorporates WAD into pom2k.f, and also corrects    !
-c     the bug found by Charles Tang, Glen Carter and Alain Caya (and   !
-c     corrected in the 2006-05-03 version of pom2k.f).                 !
-c     Search for "clyo:"for all the changes I have made.               !
-c                                                                      !
-c                       ... lyo (Jun/14/2006)                          !
-c                                                                      !
-C **********************************************************************
-C *                                                                    *
-C *   The last code change as rcorded in pomNW.change was on           *
-C *                                                                    *
-C *                     2006-05-03                                     *
-C *                                  (adding IC from file)             *
-C *                                                                    *
-C * FUNCTION    :  This is a version of the three dimensional, time    *
-C *                dependent, primitive equation, ocean model          *
-C *                developed by Alan Blumberg and George Mellor with   *
-C *                subsequent contributions by Leo Oey, Steve Brenner  *
-C *                and others. It is now called the Princeton Ocean    *
-C *                Model. Two references are:                          *
-C *                                                                    *
-C *                Blumberg, A.F. and G.L. Mellor; Diagnostic and      *
-C *                  prognostic numerical circulation studies of the   *
-C *                  South Atlantic Bight, J. Geophys. Res. 88,        *
-C *                  4579-4592, 1983.                                  *
-C *                                                                    *
-C *                Blumberg, A.F. and G.L. Mellor; A description of a  *
-C *                  three-dimensional coastal ocean circulation model,*
-C *                  Three-Dimensional Coastal Ocean Models, Coastal   *
-C *                  and Estuarine Sciences, 4, N.S. Heaps, ed.,       *
-C *                  American Geophysical Union, 1-16, 1987.           *
-C *                                                                    *
-C *                In subroutine profq the model makes use of the      *
-C *                turbulence closure sub-model described in:          *
-C *                                                                    *
-C *                Mellor, G.L. and T. Yamada; Development of a        *
-C *                  turbulence closure model for geophysical fluid    *
-C *                  problems, Rev. Geophys. Space Phys., 20, No. 4,   *
-C *                  851-875, 1982.                                    *
-C *            (note recent profq that includes breaking waves)        *
-C *                                                                    *
-C *                A user's guide is available:                        *
-C *                                                                    *
-C *                Mellor, G.L.; User's guide for a three-dimensional, *
-C *                  primitive equation, numerical ocean model.        *
-C *                  Princeton University Report, 1998.                *
-C *                                                                    *
-C *                In October 2001, the source code underwent          *
-C *                revision by John Hunter of the University of        *
-C *                Tasmania. Major aspects of the revision were:       *
-C *                                                                    *
-C *                (1) The revision was based on pom98 updated to      *
-C *                    12/9/2001.                                      *
-C *                (2) Declaration of all variables.                   *
-C *                (3) Rationalisation of the input of all constants.  *
-C *                (4) Modifications to the "printer" output.          *
-C *                (5) Output to a netCDF file.                        *
-C *                (6) Inclusion of surface freshwater flux.           *
-C *                (7) Inclusion of atmospheric pressure.              *
-C *                (8) Inclusion of an additional problem to check (6) *
-C *                    and (7), above.                                 *
-C *                (9) Inclusion of option for Smolarkiewicz           *
-C *                    advection scheme.                               *
-C *                                                                    *
-C *                This revised version is functionally almost         *
-C *                equivalent to pom98. The output to device 6 from    *
-C *                the "seamount" problem should be almost the same,   *
-C *                any differences being due to minor format changes   *
-C *                and improvements in rounding.                       *
-C *                                                                    *
-C *                This revision was helped by the following people:   *
-C *                Tal Ezer, Peter Holloway, George Mellor, Rich       *
-C *                Signell, Ian Webster, Brian Williams and Emma Young.*
-C *                                                                    *
-C **********************************************************************
-C *                                                                    *
-C *                                  GENERAL NOTES                     *
-C *                                                                    *
-C *                1. All units are S.I. (M.K.S.) unless otherwise     *
-C *                   stated. NOTE that time is in days from the start *
-C *                   of the run.                                      *
-C *                                                                    *
-C *                2. "b", <nothing> and "f" refers to backward,       *
-C *                   central and forward time levels.                 *
-C *                                                                    *
-C *                3. NetCDF output may be used. In order to omit/use  *
-C *                   netCDF, comment/uncomment all statements         *
-C *                   carrying the comment "*netCDF*" at the end of    *
-C *                   the line (or set netcdf_file='nonetcdf')         *
-C *                                                                    *
-C *                4. NetCDF is version 3. An attempt has been made to *
-C *                   conform to the NetCDF Climate and Forecast (CF)  *
-C *                   Metadata Conventions, but this may not yet be    *
-C *                   complete (see:                                   *
-C *                                                                    *
-C *          http://www.cgd.ucar.edu/cms/eaton/cf-metadata/index.html) *
-C *                                                                    *
-C *                5. In order to use netCDF, the program should be    *
-C *                   compiled with the appropriate library. For       *
-C *                   example, if using g77, you may need to type:     *
-C *                                                                    *
-C *                     g77 -o pom2k pom2k.f /usr/lib/libnetcdf.a      *
-C *                                                                    *
-C *                   You should also have the "include" file of       *
-C *                   netCDF subroutines (pom2k.n).                    *
-C *                                                                    *
-C *                6. In order to use netCDF, you may need to change   *
-C *                   the name of the "include" file in the statement: *
-C *                                                                    *
-C *                     include '/usr/include/netcdf.inc'              *
-C *                                                                    *
-C *                   in subroutine write_netcdf                       *
-C *                                                                    *
-C **********************************************************************
-C *                                                                    *
-C *                                SOFTWARE LICENSING                  *
-C *                                                                    *
-C *                This program is free software; you can redistribute *
-C *                it and/or modify it under the terms of the GNU      *
-C *                General Public License as published by the Free     *
-C *                Software Foundation, either Version 2 of the        *
-C *                license, or (at your option) any later version.     *
-C *                                                                    *
-C *                This program is distributed in the hope that it     *
-C *                will be useful, but without any warranty; without   *
-C *                even the implied warranty of merchantability or     *
-C *                fitness for a particular purpose. See the GNU       *
-C *                General Public License for more details.            *
-C *                                                                    *
-C *                A copy of the GNU General Public License is         *
-C *                available at http://www.gnu.org/copyleft/gpl.html   *
-C *                or by writing to the Free Software Foundation, Inc.,*
-C *                59 Temple Place - Suite 330, Boston, MA 02111, USA. *
-C *                                                                    *
-C **********************************************************************
-C
+!lyo:Notes:                                                            !
+!     This version incorporates WAD into pom2k.f, and also corrects    !
+!     the bug found by Charles Tang, Glen Carter and Alain Caya (and   !
+!     corrected in the 2006-05-03 version of pom2k.f).                 !
+!     Search for "clyo:"for all the changes I have made.               !
+!                                                                      !
+!                       ... lyo (Jun/14/2006)                          !
+!                                                                      !
+! **********************************************************************
+! *                                                                    *
+! *   The last code change as rcorded in pomNW.change was on           *
+! *                                                                    *
+! *                     2006-05-03                                     *
+! *                                  (adding IC from file)             *
+! *                                                                    *
+! * FUNCTION    :  This is a version of the three dimensional, time    *
+! *                dependent, primitive equation, ocean model          *
+! *                developed by Alan Blumberg and George Mellor with   *
+! *                subsequent contributions by Leo Oey, Steve Brenner  *
+! *                and others. It is now called the Princeton Ocean    *
+! *                Model. Two references are:                          *
+! *                                                                    *
+! *                Blumberg, A.F. and G.L. Mellor; Diagnostic and      *
+! *                  prognostic numerical circulation studies of the   *
+! *                  South Atlantic Bight, J. Geophys. Res. 88,        *
+! *                  4579-4592, 1983.                                  *
+! *                                                                    *
+! *                Blumberg, A.F. and G.L. Mellor; A description of a  *
+! *                  three-dimensional coastal ocean circulation model,*
+! *                  Three-Dimensional Coastal Ocean Models, Coastal   *
+! *                  and Estuarine Sciences, 4, N.S. Heaps, ed.,       *
+! *                  American Geophysical Union, 1-16, 1987.           *
+! *                                                                    *
+! *                In subroutine profq the model makes use of the      *
+! *                turbulence closure sub-model described in:          *
+! *                                                                    *
+! *                Mellor, G.L. and T. Yamada; Development of a        *
+! *                  turbulence closure model for geophysical fluid    *
+! *                  problems, Rev. Geophys. Space Phys., 20, No. 4,   *
+! *                  851-875, 1982.                                    *
+! *            (note recent profq that includes breaking waves)        *
+! *                                                                    *
+! *                A user's guide is available:                        *
+! *                                                                    *
+! *                Mellor, G.L.; User's guide for a three-dimensional, *
+! *                  primitive equation, numerical ocean model.        *
+! *                  Princeton University Report, 1998.                *
+! *                                                                    *
+! *                In October 2001, the source code underwent          *
+! *                revision by John Hunter of the University of        *
+! *                Tasmania. Major aspects of the revision were:       *
+! *                                                                    *
+! *                (1) The revision was based on pom98 updated to      *
+! *                    12/9/2001.                                      *
+! *                (2) Declaration of all variables.                   *
+! *                (3) Rationalisation of the input of all constants.  *
+! *                (4) Modifications to the "printer" output.          *
+! *                (5) Output to a netCDF file.                        *
+! *                (6) Inclusion of surface freshwater flux.           *
+! *                (7) Inclusion of atmospheric pressure.              *
+! *                (8) Inclusion of an additional problem to check (6) *
+! *                    and (7), above.                                 *
+! *                (9) Inclusion of option for Smolarkiewicz           *
+! *                    advection scheme.                               *
+! *                                                                    *
+! *                This revised version is functionally almost         *
+! *                equivalent to pom98. The output to device 6 from    *
+! *                the "seamount" problem should be almost the same,   *
+! *                any differences being due to minor format changes   *
+! *                and improvements in rounding.                       *
+! *                                                                    *
+! *                This revision was helped by the following people:   *
+! *                Tal Ezer, Peter Holloway, George Mellor, Rich       *
+! *                Signell, Ian Webster, Brian Williams and Emma Young.*
+! *                                                                    *
+! **********************************************************************
+! *                                                                    *
+! *                                  GENERAL NOTES                     *
+! *                                                                    *
+! *                1. All units are S.I. (M.K.S.) unless otherwise     *
+! *                   stated. NOTE that time is in days from the start *
+! *                   of the run.                                      *
+! *                                                                    *
+! *                2. "b", <nothing> and "f" refers to backward,       *
+! *                   central and forward time levels.                 *
+! *                                                                    *
+! *                3. NetCDF output may be used. In order to omit/use  *
+! *                   netCDF, comment/uncomment all statements         *
+! *                   carrying the comment "*netCDF*" at the end of    *
+! *                   the line (or set netcdf_file='nonetcdf')         *
+! *                                                                    *
+! *                4. NetCDF is version 3. An attempt has been made to *
+! *                   conform to the NetCDF Climate and Forecast (CF)  *
+! *                   Metadata Conventions, but this may not yet be    *
+! *                   complete (see:                                   *
+! *                                                                    *
+! *          http://www.cgd.ucar.edu/cms/eaton/cf-metadata/index.html) *
+! *                                                                    *
+! *                5. In order to use netCDF, the program should be    *
+! *                   compiled with the appropriate library. For       *
+! *                   example, if using g77, you may need to type:     *
+! *                                                                    *
+! *                     g77 -o pom2k pom2k.f /usr/lib/libnetcdf.a      *
+! *                                                                    *
+! *                   You should also have the "include" file of       *
+! *                   netCDF subroutines (pom2k.n).                    *
+! *                                                                    *
+! *                6. In order to use netCDF, you may need to change   *
+! *                   the name of the "include" file in the statement: *
+! *                                                                    *
+! *                     include '/usr/include/netcdf.inc'              *
+! *                                                                    *
+! *                   in subroutine write_netcdf                       *
+! *                                                                    *
+! **********************************************************************
+! *                                                                    *
+! *                                SOFTWARE LICENSING                  *
+! *                                                                    *
+! *                This program is free software; you can redistribute *
+! *                it and/or modify it under the terms of the GNU      *
+! *                General Public License as published by the Free     *
+! *                Software Foundation, either Version 2 of the        *
+! *                license, or (at your option) any later version.     *
+! *                                                                    *
+! *                This program is distributed in the hope that it     *
+! *                will be useful, but without any warranty; without   *
+! *                even the implied warranty of merchantability or     *
+! *                fitness for a particular purpose. See the GNU       *
+! *                General Public License for more details.            *
+! *                                                                    *
+! *                A copy of the GNU General Public License is         *
+! *                available at http://www.gnu.org/copyleft/gpl.html   *
+! *                or by writing to the Free Software Foundation, Inc.,*
+! *                59 Temple Place - Suite 330, Boston, MA 02111, USA. *
+! *                                                                    *
+! **********************************************************************
+!
       use date_utility
       implicit none
 !
@@ -283,61 +283,61 @@ C
      $           sBgWHITE  = char(27)//"[47m",
      $           sBgDEFAULT= char(27)//"[49m",
      $           sRESET  = char(27)//"[0m" )
-C
-C***********************************************************************
-C
-C     source should agree with source_c in pomNW.c and source_n in
-C     pom2k.n.
-C
+!
+!***********************************************************************
+!
+!     source should agree with source_c in pomNW.c and source_n in
+!     pom2k.n.
+!
       source='pom08  2008-04-18'
-C
+!
       if(source.ne.source_c) then
         write(6,7)
     7   format(/'Incompatible versions of program and include files ',
      $          '..... program terminated; in pom2k.f'/)
         stop
       endif
-C
-C***********************************************************************
-C
+!
+!***********************************************************************
+!
       small=1.e-9           ! Small value
-C
+!
       pi=atan(1.e0)*4.e0    ! PI
-C
-C***********************************************************************
-C
-C     Input of filenames and constants:
-C
-C     NOTE that the array sizes im, jm and kb should be set in
-C     pomNW.c or the 'grid' file created by runpom08
-C
-C-----------------------------------------------------------------------
-C
+!
+!***********************************************************************
+!
+!     Input of filenames and constants:
+!
+!     NOTE that the array sizes im, jm and kb should be set in
+!     pomNW.c or the 'grid' file created by runpom08
+!
+!-----------------------------------------------------------------------
+!
       title='Run 1                                   ' ! run's title
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       netcdf_file='pom2k.nc'  ! netCDF output file
-c     netcdf_file='nonetcdf'      ! disable netCDF output
-C
-C-----------------------------------------------------------------------
-C
-C     Problem number:
-C
-C     iproblem      problem      initialisation
-C                    type          subroutine
-C
-C         1        seamount       seamount
-C
-C         2        conservation   box
-C                  box
-C
-C         3        IC from file   file2ic
-C
-C         4n       WAD prob#n, n=1,2 or 3     !lyo:!wad:
-C
+!     netcdf_file='nonetcdf'      ! disable netCDF output
+!
+!-----------------------------------------------------------------------
+!
+!     Problem number:
+!
+!     iproblem      problem      initialisation
+!                    type          subroutine
+!
+!         1        seamount       seamount
+!
+!         2        conservation   box
+!                  box
+!
+!         3        IC from file   file2ic
+!
+!         4n       WAD prob#n, n=1,2 or 3     !lyo:!wad:
+!
       iproblem=41
-C
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
@@ -383,56 +383,56 @@ C
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
-C
-C-----------------------------------------------------------------------
-C
-C       mode                     description
-C
-C        2        2-D calculation (bottom stress calculated in advave)
-C
-C        3        3-D calculation (bottom stress calculated in profu,v)
-C
-C        4        3-D calculation with t and s held fixed
-C
+!
+!-----------------------------------------------------------------------
+!
+!       mode                     description
+!
+!        2        2-D calculation (bottom stress calculated in advave)
+!
+!        3        3-D calculation (bottom stress calculated in profu,v)
+!
+!        4        3-D calculation with t and s held fixed
+!
       mode=3
-C
-C-----------------------------------------------------------------------
-C
-C     Advection scheme:
-C
-C      nadv     Advection scheme
-C
-C        1       Centred scheme, as originally provide in POM
-C        2       Smolarkiewicz iterative upstream scheme, based on
-C                subroutines provided by Gianmaria Sannino and Vincenzo
-C                Artale
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Advection scheme:
+!
+!      nadv     Advection scheme
+!
+!        1       Centred scheme, as originally provide in POM
+!        2       Smolarkiewicz iterative upstream scheme, based on
+!                subroutines provided by Gianmaria Sannino and Vincenzo
+!                Artale
+!
       nadv=1
-C
-C-----------------------------------------------------------------------
-C
-C     Constants for Smolarkiewicz iterative upstream scheme.
-C
-C     Number of iterations. This should be in the range 1 - 4. 1 is
-C     standard upstream differencing; 3 adds 50% CPU time to POM:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Constants for Smolarkiewicz iterative upstream scheme.
+!
+!     Number of iterations. This should be in the range 1 - 4. 1 is
+!     standard upstream differencing; 3 adds 50% CPU time to POM:
+!
       nitera=3  !=2   !lyo:!wad:
-C
-C     Smoothing parameter. This should preferably be 1, but 0 < sw < 1
-C     gives smoother solutions with less overshoot when nitera > 1:
-C
+!
+!     Smoothing parameter. This should preferably be 1, but 0 < sw < 1
+!     gives smoother solutions with less overshoot when nitera > 1:
+!
       sw=1.e0  !=0.5e0   !lyo:!wad:
-C
-C-----------------------------------------------------------------------
-C
-C     Index to indicate whether run to start from restart file
-C     (nread=0: no restart input file; nread=1: restart input file):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Index to indicate whether run to start from restart file
+!     (nread=0: no restart input file; nread=1: restart input file):
+!
       nread=0
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) time step (secs.) according to CFL:
+!
+!-----------------------------------------------------------------------
+!
+!     External (2-D) time step (secs.) according to CFL:
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
@@ -457,202 +457,202 @@ C     External (2-D) time step (secs.) according to CFL:
 !     & ISPLIT=5, or DTE=6 & ISPLIT=10 (as used below) can remove the  !
 !     isolated thin-fluid cells.                                       !
 !----------------------------------------------------------------------!
-C
+!
       dte=6.e0
-C
-C-----------------------------------------------------------------------
-C
-C     <Internal (3-D) time step>/<External (2-D) time step>
-C     (dti/dte; dimensionless):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     <Internal (3-D) time step>/<External (2-D) time step>
+!     (dti/dte; dimensionless):
+!
       isplit=10 !tne:!wad:dte=6.0 & isplit=30 work w/nwad=0 & hmax=200m
-C
-C-----------------------------------------------------------------------
-C
-C     Date and time of start of initial run of model in format (i.e.
-C     UDUNITS convention)
-C
-C       YYYY-MM-DD HH:MM:SS <+/->HH:MM
-C
-C     where "<+/->HH:MM" is the time zone (positive eastwards from
-C     Coordinated Universal Time). NOTE that the climatological time
-C     axis (i.e. beginning of year zero, which does not exist in the
-C     real-world calendar) has been used here. Insert your own date
-C     and time as required:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Date and time of start of initial run of model in format (i.e.
+!     UDUNITS convention)
+!
+!       YYYY-MM-DD HH:MM:SS <+/->HH:MM
+!
+!     where "<+/->HH:MM" is the time zone (positive eastwards from
+!     Coordinated Universal Time). NOTE that the climatological time
+!     axis (i.e. beginning of year zero, which does not exist in the
+!     real-world calendar) has been used here. Insert your own date
+!     and time as required:
+!
       time_start='2000-01-01 00:00:00 +00:00'
       time_end  ='not-set'    !rwnd: if set time_end overrides days paramter (even if the latter is set too)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       days=0.025d0       ! run duration in days
-C
+!
 !-----------------------------------------------------------------------
 !
       fsplt=1.           ! Output file splitting (days)
 !
-C-----------------------------------------------------------------------
-C
+!-----------------------------------------------------------------------
+!
       prtd1=0.0125d0     ! Initial print interval (days)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       prtd2=1.d0         ! Final print interval (days)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       swtch=1000.d0      ! Time to switch from prtd1 to prtd2
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       iskp=1             ! Printout skip interval in i
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       jskp=1             ! Printout skip interval in j
-C
-C-----------------------------------------------------------------------
-C
-C     Logical for inertial ramp (.true. if inertial ramp to be applied
-C     to wind stress and baroclinic forcing, otherwise .false.)
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Logical for inertial ramp (.true. if inertial ramp to be applied
+!     to wind stress and baroclinic forcing, otherwise .false.)
+!
       lramp=.false.
-C
-C-----------------------------------------------------------------------
-C
-C     Reference density (recommended values: 1025 for seawater,
-C     1000 for freswater; S.I. units):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Reference density (recommended values: 1025 for seawater,
+!     1000 for freswater; S.I. units):
+!
       rhoref=1025.e0
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       tbias=0.e0         ! Temperature bias (deg. C)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       sbias=0.e0         ! Salinity bias
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       grav=9.806e0       ! gravity constant (S.I. units)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       kappa=0.4e0        ! von Karman's constant
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       z0b=.01e0          ! Bottom roughness (metres)
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       zsh=.01e0          ! Bottom Log-layer shift (metres) !lyo:!wad:
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       cbcmin=.0025e0     ! Minimum bottom friction coeff.
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       cbcmax=1.e0        ! Maximum bottom friction coeff.
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
 !lyo:!wad:I would use horcon=0.1 (un-related to WAD)
       horcon=0.2e0       ! Smagorinsky diffusivity coeff.
-C
-C-----------------------------------------------------------------------
-C
-C     Inverse horizontal turbulent Prandtl number
-C     (ah/am; dimensionless):
-C
-C     NOTE that tprni=0.e0 yields zero horizontal diffusivity!
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Inverse horizontal turbulent Prandtl number
+!     (ah/am; dimensionless):
+!
+!     NOTE that tprni=0.e0 yields zero horizontal diffusivity!
+!
       tprni=.2e0
-C
-C-----------------------------------------------------------------------
-C
-C     Background viscosity used in subroutines profq, proft, profu and
-C     profv (S.I. units):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Background viscosity used in subroutines profq, proft, profu and
+!     profv (S.I. units):
+!
       umol=2.e-5
-C
-C-----------------------------------------------------------------------
-C
-C     Maximum depth used in radiation boundary condition in subroutine
-C     bcond (metres):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Maximum depth used in radiation boundary condition in subroutine
+!     bcond (metres):
+!
       hmax=4500.e0
-C
-C-----------------------------------------------------------------------
-C
-C     Maximum magnitude of vaf (used in check that essentially tests
-C     for CFL violation):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Maximum magnitude of vaf (used in check that essentially tests
+!     for CFL violation):
+!
       vmaxl=100.e0
-C
-C-----------------------------------------------------------------------
-C
-C     Maximum allowable value of:
-C
-C       <difference of depths>/<sum of depths>
-C
-C     for two adjacent cells (dimensionless). This is used in subroutine
-C     slpmax. If >= 1, then slpmax is not applied:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Maximum allowable value of:
+!
+!       <difference of depths>/<sum of depths>
+!
+!     for two adjacent cells (dimensionless). This is used in subroutine
+!     slpmax. If >= 1, then slpmax is not applied:
+!
       slmax=2.e0
-C
-C-----------------------------------------------------------------------
-C
-C     Integers defining the number of logarithmic layers at the
-C     surface and bottom (used by subroutine depth). The number of
-C     logarithmic layers are kl1-2 at the surface and kb-kl2-1
-C     at the bottom. For no log portions, set kl1=2 and kl2=kb-1:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Integers defining the number of logarithmic layers at the
+!     surface and bottom (used by subroutine depth). The number of
+!     logarithmic layers are kl1-2 at the surface and kb-kl2-1
+!     at the bottom. For no log portions, set kl1=2 and kl2=kb-1:
+!
       kl1=6
       kl2=kb-2
-C
-C-----------------------------------------------------------------------
-C
-C     Water type, used in subroutine proft.
-C
-C       ntp    Jerlov water type
-C
-C        1            i
-C        2            ia
-C        3            ib
-C        4            ii
-C        5            iii
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Water type, used in subroutine proft.
+!
+!       ntp    Jerlov water type
+!
+!        1            i
+!        2            ia
+!        3            ib
+!        4            ii
+!        5            iii
+!
       ntp=2
-C
-C-----------------------------------------------------------------------
-C
-C     Surface temperature boundary condition, used in subroutine proft:
-C
-C       nbct   prescribed    prescribed   short wave
-C              temperature      flux      penetration
-C
-C        1        no           yes           no
-C        2        no           yes           yes
-C        3        yes          no            no
-C        4        yes          no            yes
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Surface temperature boundary condition, used in subroutine proft:
+!
+!       nbct   prescribed    prescribed   short wave
+!              temperature      flux      penetration
+!
+!        1        no           yes           no
+!        2        no           yes           yes
+!        3        yes          no            no
+!        4        yes          no            yes
+!
       nbct=1
-C
-C-----------------------------------------------------------------------
-C
-C     Surface salinity boundary condition, used in subroutine proft:
-C
-C       nbcs   prescribed    prescribed
-C               salinity      flux
-C
-C        1        no           yes
-C        3        yes          no
-C
-C     NOTE that only 1 and 3 are allowed for salinity.
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Surface salinity boundary condition, used in subroutine proft:
+!
+!       nbcs   prescribed    prescribed
+!               salinity      flux
+!
+!        1        no           yes
+!        3        yes          no
+!
+!     NOTE that only 1 and 3 are allowed for salinity.
+!
       nbcs=1
 !-----------------------------------------------------------------------
 !
@@ -666,33 +666,33 @@ C
 !     NOTE that only 1 and 3 are allowed for salinity.
 !
       npg=1
-C
-C-----------------------------------------------------------------------
-C
-C     Step interval during which external (2-D) mode advective terms are
-C     not updated (dimensionless):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Step interval during which external (2-D) mode advective terms are
+!     not updated (dimensionless):
+!
       ispadv=5
-C
-C-----------------------------------------------------------------------
-C
-C     Constant in temporal filter used to prevent solution splitting
-C     (dimensionless):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Constant in temporal filter used to prevent solution splitting
+!     (dimensionless):
+!
       smoth=0.10e0
-C
-C-----------------------------------------------------------------------
-C
-C     Weight used for surface slope term in external (2-D) dynamic
-C     equation (a value of alph0 = 0.e0 is perfectly acceptable, but the
-C     value, alph0=.225e0 permits a longer time step):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Weight used for surface slope term in external (2-D) dynamic
+!     equation (a value of alph0 = 0.e0 is perfectly acceptable, but the
+!     value, alph0=.225e0 permits a longer time step):
+!
       alph0=0.225e0 !lyo:!wad:use alph0 instead of alpha - defined later
-C
-C-----------------------------------------------------------------------
-C
-C     Initial value of aam:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Initial value of aam:
+!
       aam_init=500.e0
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -751,13 +751,13 @@ C
 
       IC%el = .false.
       IC%u  = .false.
-C
-C     End of input of constants
-C***********************************************************************
-C
-C --- Above are the default parameters, alternatively one can
-C --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
-C
+!
+!     End of input of constants
+!***********************************************************************
+!
+! --- Above are the default parameters, alternatively one can
+! --- use parameters from a file created by runscript runpom2k_pow_wad !clyo:wad:
+!
       include 'params'
 !
 ! Params sanity check
@@ -782,15 +782,15 @@ C
       read(time_start, '(5x, i2)') m0
       call upd_mnth(day_of_start)
       
-C
-clyo:wad:beg:
-c     Overwrite some input constants: see "params" above in runpom08
-clyo:wad:end:
-c
-C***********************************************************************
-C
-C     Calculate some constants:
-C
+!
+!lyo:wad:beg:
+!     Overwrite some input constants: see "params" above in runpom08
+!lyo:wad:end:
+!
+!***********************************************************************
+!
+!     Calculate some constants:
+!
       dti=dte*float(isplit)
       dte2=dte*2
       dti2=dti*2
@@ -839,14 +839,14 @@ C
       iprint=nint(prtd1*24.e0*3600.e0/dti)
       iswtch=nint(swtch*24.e0*3600.e0/dti)
       fprint=nint(fsplt*24.e0*3600.e0/dti)  ! rwnd:
-C
+!
       ispi=1.e0/float(isplit)
       isp2i=1.e0/(2.e0*float(isplit))
-C
-C-----------------------------------------------------------------------
-C
-C     Print initial summary:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Print initial summary:
+!
       write(6,'(/,'' source   = '',a40)') source
       write(6,'('' title      = '',a40/)') title
       write(6,'('' iproblem   = '',i10)') iproblem
@@ -897,11 +897,11 @@ C
       write(6,'('' smoth      = '',f10.4)') smoth
       write(6,'('' alpha      = '',f10.4)') alpha
       write(6,'('' tidamp     = '',f10.4)') tidamp
-C
-C-----------------------------------------------------------------------
-C
-C     Initialise boundary arrays:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Initialise boundary arrays:
+!
       do i=1,im
         vabn(i)=0.e0
         vabs(i)=0.e0
@@ -916,7 +916,7 @@ C
           sbs(i,k)=0.e0
         end do
       end do
-C
+!
       do j=1,jm
         uabe(j)=0.e0
         uabw(j)=0.e0
@@ -931,12 +931,12 @@ C
           sbw(j,k)=0.e0
         end do
       end do
-C
-C-----------------------------------------------------------------------
-C
-C     Initialise 2-D and 3-D arrays for safety (this may be overwritten
-C     later):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Initialise 2-D and 3-D arrays for safety (this may be overwritten
+!     later):
+!
       do j=1,jm
         do i=1,im
           uab(i,j)=0.e0
@@ -955,7 +955,7 @@ C
           dry2d(i,j)=0.e0
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -964,17 +964,17 @@ C
           end do
         end do
       end do
-C
-C-----------------------------------------------------------------------
-C
-C     Set up sigma layers:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Set up sigma layers:
+!
       if(iproblem.lt.3) call depth
-C
-C-----------------------------------------------------------------------
-C
-C     Read in grid data, and initial and lateral boundary conditions:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Read in grid data, and initial and lateral boundary conditions:
+!
       if(iproblem.eq.1) then
         call seamount
       else if(iproblem.eq.2) then
@@ -1003,22 +1003,22 @@ C
          wetmask(:,:)=fsm(:,:)
          endif
 !
-C
-C     Inertial period for temporal filter:
-C
+!
+!     Inertial period for temporal filter:
+!
 !lyo:_20080415:
       if (cor(im/2,jm/2).ne.0.0) then
          period=(2.e0*pi)/abs(cor(im/2,jm/2))/86400.e0
       else
          period=1.0  !set to 1day
       endif
-C
-C     Initial conditions:
-C
-C     NOTE that lateral thermodynamic boundary conditions are often set
-C     equal to the initial conditions and are held constant thereafter.
-C     Users can of course create variable boundary conditions.
-C
+!
+!     Initial conditions:
+!
+!     NOTE that lateral thermodynamic boundary conditions are often set
+!     equal to the initial conditions and are held constant thereafter.
+!     Users can of course create variable boundary conditions.
+!
       do i=1,im
         do j=1,jm
           ua(i,j)=uab(i,j)
@@ -1031,7 +1031,7 @@ C
           w(i,j,1)=vfluxf(i,j)
         end do
       end do
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -1046,7 +1046,7 @@ C
         end do
       end do
       if (horcon.le.0.0) aam(:,:,:)=-horcon  !lyo:_20080415:
-C
+!
       do k=1,kbm1
         do i=1,im
           do j=1,jm
@@ -1059,15 +1059,15 @@ C
           end do
         end do
       end do
-C
+!
       call dens(s,t,rho)
-C
+!
       if (npg==1) then
         call baropg
       else
         call baropg_mcc
       end if
-C
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -1076,7 +1076,7 @@ C
           end do
         end do
       end do
-C
+!
 !lyo:!wad:cbc_change:begins:-------------------------------------------!
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -1096,17 +1096,17 @@ C
 !lyo:!wad:lyo's originals:---------------------------------------------!
 !
           cbc(i,j)=max(cbcmin,cbc(i,j))
-C
-C     If the following is invoked, then it is probable that the wrong
-C     choice of z0b or vertical spacing has been made:
-C
+!
+!     If the following is invoked, then it is probable that the wrong
+!     choice of z0b or vertical spacing has been made:
+!
           cbc(i,j)=min(cbcmax,cbc(i,j))
         end do
       end do
 !lyo:!wad:cbc_change:ends:---------------------------------------------!
-C
-C     Calculate external (2-D) CFL time step:
-C
+!
+!     Calculate external (2-D) CFL time step:
+!
 !lyo:_20080415:
       cflmin=1.e10
       do j=1,jm
@@ -1124,13 +1124,13 @@ C
      $            "than ",f5.2, ".")') minval(tps, tps>0.)
         write(*,*) ""
       end if
-C
-C-----------------------------------------------------------------------
-C
-C     The following data are needed for a seamless restart. if nread=1,
-C     data had been created by a previous run (see write(71) at end of
-C     this program). nread=0 denotes a first time run.
-C
+!
+!-----------------------------------------------------------------------
+!
+!     The following data are needed for a seamless restart. if nread=1,
+!     data had been created by a previous run (see write(71) at end of
+!     this program). nread=0 denotes a first time run.
+!
       if(nread.eq.1) then
         open(70, file=trim(pth_wrk)//trim(ptf_rst), action='read'
      $          ,form='unformatted')
@@ -1203,48 +1203,48 @@ C
       call time2date(time, time_start, timestamp)
       write(49,*) timestamp, ";",
      $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
-C
-C-----------------------------------------------------------------------
-C
-C     Initial conditions:
-C
-C     Select print statements in printall as desired:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Initial conditions:
+!
+!     Select print statements in printall as desired:
+!
 !      call printall
-C
-C-----------------------------------------------------------------------
-C
-C     Initialise netCDF output and output initial set of data:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Initialise netCDF output and output initial set of data:
+!
 !        if(netcdf_file.ne.'nonetcdf') then
 !      call write_netcdf(netcdf_file,1)                        ! *netCDF*
 !      call write_netcdf(netcdf_file,2)                        ! *netCDF*
 !        endif
-C
-C-----------------------------------------------------------------------
+!
+!-----------------------------------------------------------------------
 !     Set timer
       call cpu_time(slice_b)
-C
+!
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
-C
+!
         time=dti*float(iint)/86400.d0+time0
-C
+!
         if(lramp) then
           ramp=time/period
           if(ramp.gt.1.e0) ramp=1.e0
         else
           ramp=1.e0
         endif
-C
-C       write(6,2) mode,iint,time
-C   2   format(' mode,iint,time =',2i5,f9.2)
-C
-C-----------------------------------------------------------------------
-C
-C     Set time dependent, surface and lateral boundary conditions.
-C     The latter will be used in subroutine bcond. Users may
-C     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
-C     wssurf, swrad and vflux.
+!
+!       write(6,2) mode,iint,time
+!   2   format(' mode,iint,time =',2i5,f9.2)
+!
+!-----------------------------------------------------------------------
+!
+!     Set time dependent, surface and lateral boundary conditions.
+!     The latter will be used in subroutine bcond. Users may
+!     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
+!     wssurf, swrad and vflux.
 !
 !     Update month
       call upd_mnth(day_of_start)
@@ -1253,60 +1253,60 @@ C     wssurf, swrad and vflux.
       if (iproblem>=11 .and. iproblem<=19) then
 !
       else
-C     Introduce simple wind stress. Value is negative for westerly or
-C     southerly winds. The following wind stress has been tapered
-C     along the boundary to suppress numerically induced oscilations
-C     near the boundary (Jamart and Ozer, J.G.R., 91, 10621-10631).
-C     To make a healthy surface Ekman layer, it would be well to set
-C     kl1=9.
-C
+!     Introduce simple wind stress. Value is negative for westerly or
+!     southerly winds. The following wind stress has been tapered
+!     along the boundary to suppress numerically induced oscilations
+!     near the boundary (Jamart and Ozer, J.G.R., 91, 10621-10631).
+!     To make a healthy surface Ekman layer, it would be well to set
+!     kl1=9.
+!
         do j=2,jmm1
           do i=2,imm1
-c
+!
       if(iproblem.ne.3) then     ! constant wind read in file2ic
-c
-c           wusurf(i,j)=ramp*(1.e-4*cos(pi*(j-1)/jmm1))
+!
+!           wusurf(i,j)=ramp*(1.e-4*cos(pi*(j-1)/jmm1))
 !           wusurf(i,j)=1.00*(1.e-4*cos(pi*(j-1)/jmm1))
 !    $                    *.25e0*(dvm(i,j+1)+dvm(i-1,j+1)
 !    $                          +dvm(i-1,j)+dvm(i,j))
-C --- no wind ----
+! --- no wind ----
             wusurf(i,j)=0.e0  !lyo:_20080415:
             wvsurf(i,j)=0.e0
        endif
             e_atmos(i,j)=0.e0
             vfluxf(i,j)=0.e0
-C
-C     Set w(i,j,1)=vflux(i,j).ne.0 if one wishes non-zero flow across
-C     the sea surface. See calculation of elf(i,j) below and subroutines
-C     vertvl, advt1 (or advt2). If w(1,j,1)=0, and, additionally, there
-C     is no net flow across lateral boundaries, the basin volume will be
-C     constant; if also vflux(i,j).ne.0, then, for example, the average
-C     salinity will change and, undouble precisionistically, so will total salt.
-C
+!
+!     Set w(i,j,1)=vflux(i,j).ne.0 if one wishes non-zero flow across
+!     the sea surface. See calculation of elf(i,j) below and subroutines
+!     vertvl, advt1 (or advt2). If w(1,j,1)=0, and, additionally, there
+!     is no net flow across lateral boundaries, the basin volume will be
+!     constant; if also vflux(i,j).ne.0, then, for example, the average
+!     salinity will change and, undouble precisionistically, so will total salt.
+!
             w(i,j,1)=vfluxf(i,j)
-C
-C     Set wtsurf to the sensible heat, the latent heat (which involves
-C     only the evaporative component of vflux) and the long wave
-C     radiation:
-C
+!
+!     Set wtsurf to the sensible heat, the latent heat (which involves
+!     only the evaporative component of vflux) and the long wave
+!     radiation:
+!
             wtsurf(i,j)=0.e0
-C
-C     Set swrad to the short wave radiation:
-C
+!
+!     Set swrad to the short wave radiation:
+!
             swrad(i,j)=0.e0
-C
-C     To account for change in temperature of flow crossing the sea
-C     surface (generally quite small compared to latent heat effect)
-C
+!
+!     To account for change in temperature of flow crossing the sea
+!     surface (generally quite small compared to latent heat effect)
+!
             tatm=t(i,j,1)+tbias    ! an approximation
             wtsurf(i,j)=wtsurf(i,j)+vfluxf(i,j)*(tatm-t(i,j,1)-tbias)
-C
-C     Set the salinity of water vapor/precipitation which enters/leaves
-C     the atmosphere (or e.g., an ice cover)
-C
+!
+!     Set the salinity of water vapor/precipitation which enters/leaves
+!     the atmosphere (or e.g., an ice cover)
+!
             satm=0.e0
             wssurf(i,j)=            vfluxf(i,j)*(satm-s(i,j,1)-sbias)
-C
+!
           end do
         end do
       end if
@@ -1319,25 +1319,25 @@ C
       if (BC%ele) call bry(2)   ! Update boundary elevation
       if (BC%clm) call bry(4)   ! Update boundary TS
       if (BC%vel) call bry(3)   ! Update current velocity BCs.
-C
-clyo:
+!
+!lyo:
 !     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
-c
-C-----------------------------------------------------------------------
-C
-C     Set lateral viscosity:
-C
-C     If mode=2 then initial values of aam2d are used. If one wishes
-C     to use Smagorinsky lateral viscosity and diffusion for an
-C     external (2-D) mode calculation, then appropiate code can be
-C     adapted from that below and installed just before the end of the
-C     "if(mode.eq.2)" loop in subroutine advave.
-C
-C     Calculate Smagorinsky lateral viscosity:
-C
-C       ( hor visc = horcon*dx*dy*sqrt((du/dx)**2+(dv/dy)**2
-C                                     +.5*(du/dy+dv/dx)**2) )
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Set lateral viscosity:
+!
+!     If mode=2 then initial values of aam2d are used. If one wishes
+!     to use Smagorinsky lateral viscosity and diffusion for an
+!     external (2-D) mode calculation, then appropiate code can be
+!     adapted from that below and installed just before the end of the
+!     "if(mode.eq.2)" loop in subroutine advave.
+!
+!     Calculate Smagorinsky lateral viscosity:
+!
+!       ( hor visc = horcon*dx*dy*sqrt((du/dx)**2+(dv/dy)**2
+!                                     +.5*(du/dy+dv/dx)**2) )
+!
         if(mode.ne.2) then
           call advct(a,c,ee)
           if (npg==1) then
@@ -1345,7 +1345,7 @@ C
           else
             call baropg_mcc
           end if
-C
+!
           if (horcon.gt.0.0) then !lyo:_20080415:
           do k=1,kbm1
             do j=2,jmm1
@@ -1363,10 +1363,10 @@ C
             end do
           end do
           endif  !if (horcon.gt.0.0) then !lyo:_20080415:
-C
-C     Form vertical averages of 3-D fields for use in external (2-D)
-C     mode:
-C
+!
+!     Form vertical averages of 3-D fields for use in external (2-D)
+!     mode:
+!
           do j=1,jm
             do i=1,im
               adx2d(i,j)=0.e0
@@ -1376,7 +1376,7 @@ C
               aam2d(i,j)=0.e0
             end do
           end do
-C
+!
           do k=1,kbm1
             do j=1,jm
               do i=1,im
@@ -1388,25 +1388,25 @@ C
               end do
             end do
           end do
-C
+!
           call advave(tps)
-C
+!
           do j=1,jm
             do i=1,im
               adx2d(i,j)=adx2d(i,j)-advua(i,j)
               ady2d(i,j)=ady2d(i,j)-advva(i,j)
             end do
           end do
-C
+!
         endif
-C
-clyo:beg:changes by Tang et al.
+!
+!lyo:beg:changes by Tang et al.
         do j=1,jm
           do i=1,im
             egf(i,j)=el(i,j)*ispi
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im
             utf(i,j)=ua(i,j)*(d(i,j)+d(i-1,j))*isp2i
@@ -1417,19 +1417,19 @@ C
             vtf(i,j)=va(i,j)*(d(i,j)+d(i,j-1))*isp2i
           end do
         end do
-clyo:end:
-C
-C-----------------------------------------------------------------------
-C
-clyomoving:decide to skip wriv & wmarsh for now; wriv in particular
-c     needs to make consistent with vflux
+!lyo:end:
+!
+!-----------------------------------------------------------------------
+!
+!lyomoving:decide to skip wriv & wmarsh for now; wriv in particular
+!     needs to make consistent with vflux
 
 
         do 8000 iext=1,isplit    ! Begin external (2-D) mode
-C
-C         write(6,3) iext,time
-C   3     format(' iext,time =',i5,f9.2)
-C
+!
+!         write(6,3) iext,time
+!   3     format(' iext,time =',i5,f9.2)
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad:Water depth can be solved by Smolarkiewicz to prevent oscil. !
@@ -1454,10 +1454,10 @@ C
      $                     *(dx(i,j)+dx(i,j-1))*va(i,j)
             end do
           end do
-C
-C     NOTE addition of surface freshwater flux, w(i,j,1)=vflux, compared
-C     with pom98.f. See also modifications to subroutine vertvl.
-C
+!
+!     NOTE addition of surface freshwater flux, w(i,j,1)=vflux, compared
+!     with pom98.f. See also modifications to subroutine vertvl.
+!
           do j=2,jmm1
             do i=2,imm1
               elf(i,j)=elb(i,j)
@@ -1470,7 +1470,7 @@ C
       endif
 !                                                                      !
 !----------------------------------------------------------------------!
-C
+!
       call bcond(1, bcond_idx)
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -1501,7 +1501,7 @@ C
 !----------------------------------------------------------------------!
 !                                                                      !
           if(mod(iext,ispadv).eq.0) call advave(tps)
-C
+!
           do j=2,jmm1
             do i=2,im
               uaf(i,j)=adx2d(i,j)+advua(i,j)
@@ -1518,7 +1518,7 @@ C
      $                  +drx2d(i,j)+aru(i,j)*(wusurf(i,j)-wubot(i,j))
             end do
           end do
-C
+!
           do j=2,jmm1
             do i=2,im
               uaf(i,j)=((h(i,j)+elb(i,j)+h(i-1,j)+elb(i-1,j))
@@ -1528,7 +1528,7 @@ C
      $                     *aru(i,j))
             end do
           end do
-C
+!
           do j=2,jm
             do i=2,imm1
               vaf(i,j)=ady2d(i,j)+advva(i,j)
@@ -1544,7 +1544,7 @@ C
      $                  +dry2d(i,j)+arv(i,j)*(wvsurf(i,j)-wvbot(i,j))
             end do
           end do
-C
+!
           do j=2,jm
             do i=2,imm1
               vaf(i,j)=((h(i,j)+elb(i,j)+h(i,j-1)+elb(i,j-1))
@@ -1554,32 +1554,32 @@ C
      $                     *arv(i,j))
             end do
           end do
-C
+!
           call bcond(2, bcond_idx)
-C
+!
           if(iext.eq.(isplit-2))then
             do j=1,jm
               do i=1,im
                 etf(i,j)=.25e0*smoth*elf(i,j)
               end do
             end do
-C
+!
           else if(iext.eq.(isplit-1)) then
-C
+!
             do j=1,jm
               do i=1,im
                 etf(i,j)=etf(i,j)+.5e0*(1.-.5e0*smoth)*elf(i,j)
               end do
             end do
-C
+!
           else if(iext.eq.isplit) then
-C
+!
             do j=1,jm
               do i=1,im
                 etf(i,j)=(etf(i,j)+.5e0*elf(i,j))*fsm(i,j)
               end do
             end do
-C
+!
           endif
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -1606,12 +1606,12 @@ C
       endif
 !                                                                      !
 !----------------------------------------------------------------------!
-C
-C     Stop if velocity condition violated (generally due to CFL
-C     criterion not being satisfied):
-C
+!
+!     Stop if velocity condition violated (generally due to CFL
+!     criterion not being satisfied):
+!
           vamax=0.e0
-C
+!
           do j=1,jm
             do i=1,im
               if(abs(vaf(i,j)).ge.vamax) then
@@ -1621,11 +1621,11 @@ C
               endif
             end do
           end do
-C
+!
           if(vamax.le.vmaxl) then
-C
-C     Apply filter to remove time split and reset time sequence:
-C
+!
+!     Apply filter to remove time split and reset time sequence:
+!
             do j=1,jm
               do i=1,im
                 ua(i,j)=ua(i,j)
@@ -1661,7 +1661,7 @@ C
 !----------------------------------------------------------------------!
 !
             if(iext.ne.isplit) then
-clyo:beg:changes by Tang et al.
+!lyo:beg:changes by Tang et al.
               do j=1,jm
                 do i=1,im
                   egf(i,j)=egf(i,j)+el(i,j)*ispi
@@ -1677,29 +1677,29 @@ clyo:beg:changes by Tang et al.
                   vtf(i,j)=vtf(i,j)+va(i,j)*(d(i,j)+d(i,j-1))*isp2i
                 end do
               end do
-clyo:end:
+!lyo:end:
             endif
-C
+!
           endif
-C
+!
  8000 continue        ! End of external (2-D) mode
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
         if(vamax.le.vmaxl) then
-C
-C     Continue with internal (3-D) mode calculation:
-C
+!
+!     Continue with internal (3-D) mode calculation:
+!
           if((iint.ne.1.or.time0.ne.0.e0).and.mode.ne.2) then
-C
-C     Adjust u(z) and v(z) such that depth average of (u,v) = (ua,va):
-C
+!
+!     Adjust u(z) and v(z) such that depth average of (u,v) = (ua,va):
+!
             do j=1,jm
               do i=1,im
                 tps(i,j)=0.e0
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1707,7 +1707,7 @@ C
                 end do
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=2,im
@@ -1716,13 +1716,13 @@ C
                 end do
               end do
             end do
-C
+!
             do j=1,jm
               do i=1,im
                 tps(i,j)=0.e0
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1730,7 +1730,7 @@ C
                 end do
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=2,jm
                 do i=1,im
@@ -1739,13 +1739,13 @@ C
                 end do
               end do
             end do
-C
-C     vertvl calculates w from u, v, dt (h+et), etf and etb:
-C
+!
+!     vertvl calculates w from u, v, dt (h+et), etf and etb:
+!
             call vertvl(a,c)
             call bcond(5, bcond_idx)
-C
-C
+!
+!
             do k=1,kb
               do j=1,jm
                 do i=1,im
@@ -1754,15 +1754,15 @@ C
                 end do
               end do
             end do
-C
-C     Calculate q2f and q2lf using uf, vf, a and c as temporary
-C     variables:
-C
+!
+!     Calculate q2f and q2lf using uf, vf, a and c as temporary
+!     variables:
+!
             call advq(q2b,q2,uf,a,c)
             call advq(q2lb,q2l,vf,a,c)
             call profq(a,c,tps,dtef)
             call bcond(6, bcond_idx)
-C
+!
             do k=1,kb
               do j=1,jm
                 do i=1,im
@@ -1779,9 +1779,9 @@ C
                 end do
               end do
             end do
-C
-C     Calculate tf and sf using uf, vf, a and c as temporary variables:
-C
+!
+!     Calculate tf and sf using uf, vf, a and c as temporary variables:
+!
             if(mode.ne.4) then
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -1797,26 +1797,26 @@ C
                enddo
             enddo
 !                                                                      !
-C
+!
               if(nadv.eq.1) then
-C
+!
                 call advt1(tb,t,tclim,uf,a,c)
                 call advt1(sb,s,sclim,vf,a,c)
-C
+!
               else if(nadv.eq.2) then
-C
+!
                 call advt2(tb,t,tclim,uf,a,c,nitera,sw)
                 call advt2(sb,s,sclim,vf,a,c,nitera,sw)
-C
+!
               else
-C
+!
                 write(6,9)
     9           format(/'Invalid value for nadv ..... ',
      $                 'program terminated'/)
                 stop
-C
+!
               endif
-C
+!
               call proft(uf,wtsurf,tsurf,nbct,tps)
               call proft(vf,wssurf,ssurf,nbcs,tps)
               call bcond(4, bcond_idx)
@@ -1835,7 +1835,7 @@ C
                  enddo; enddo; enddo
            endif
 !----------------------------------------------------------------------!
-C
+!
               do k=1,kb
                 do j=1,jm
                   do i=1,im
@@ -1852,13 +1852,13 @@ C
                   end do
                 end do
               end do
-C
+!
               call dens(s,t,rho)
-C
+!
             endif
-C
-C     Calculate uf and vf:
-C
+!
+!     Calculate uf and vf:
+!
             call advu
             call advv
             call profu
@@ -1879,13 +1879,13 @@ C
               enddo
            endif
 !----------------------------------------------------------------------!
-C
+!
             do j=1,jm
               do i=1,im
                 tps(i,j)=0.e0
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1894,7 +1894,7 @@ C
                 end do
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1904,13 +1904,13 @@ C
                 end do
               end do
             end do
-C
+!
             do j=1,jm
               do i=1,im
                 tps(i,j)=0.e0
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1919,7 +1919,7 @@ C
                 end do
               end do
             end do
-C
+!
             do k=1,kbm1
               do j=1,jm
                 do i=1,im
@@ -1929,7 +1929,7 @@ C
                 end do
               end do
             end do
-C
+!
             do k=1,kb
               do j=1,jm
                 do i=1,im
@@ -1940,9 +1940,9 @@ C
                 end do
               end do
             end do
-C
+!
           endif
-C
+!
           do j=1,jm
             do i=1,im
               egb(i,j)=egf(i,j)
@@ -1954,15 +1954,15 @@ C
               vfluxb(i,j)=vfluxf(i,j)
             end do
           end do
-C
+!
         endif
-C
-C-----------------------------------------------------------------------
-C
-C     Beginning of print section:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Beginning of print section:
+!
         if(iint.ge.iswtch) iprint=nint(prtd2*24.d0*3600.d0/dti)
-C
+!
 !     Target point output
         if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
 !          call ncTgtFlush(49)
@@ -1972,7 +1972,7 @@ C
         end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
-C
+!
 !     Stop timer
           call cpu_time(slice_e)
           write(6,4) time,iint,iext,iprint,(slice_e-slice_b)/60.
@@ -1982,11 +1982,11 @@ C
      $    '*************************'//
      $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//
      $    ' Time elapsed since prev. output: ',f9.4,' min')
-C
-C     Select print statements in printall as desired:
-C
+!
+!     Select print statements in printall as desired:
+!
 !          call printall
-C
+!
 !          call wadout  !lyo:!wad:
           
           if (int(iint/fprint)/=nccnt) then
@@ -2036,27 +2036,27 @@ C
 !          saver=saver/vtot
 !          eaver=eaver/atot
 !          tsalt=(saver+sbias)*vtot
-C
+!
           write(6,5) vtot,atot,eavg,tavg,stot,savg
     5     format('vtot = ',e16.7,'   atot = ',e16.7,
      $           '  eaver =',e16.7/'taver =',e16.7,
      $           '   saver =',e16.7,'  tsalt =',e16.7)
-C
-C     Write netCDF output:
-C
+!
+!     Write netCDF output:
+!
 !            if(netcdf_file.ne.'nonetcdf') then
 !          call write_netcdf(netcdf_file,2)                    ! *netCDF*
 !            endif
-C
+!
           if(vamax.gt.vmaxl) then
-C
+!
             write(6,4) time,iint,iext,iprint
-C
+!
 !            call printall
             call ncflush(ncid
      $                  ,int(modulo(float(iint)/float(iprint)
      $                            ,float(fprint)/float(iprint)))+2) ! Increment by one in order to not to overwrite the last output.
-C
+!
             write(6,6) vamax,imax,jmax
     6       format(///////////////////
      $             '************************************************'/
@@ -2064,15 +2064,15 @@ C
      $             '************* user terminated ******************'/
      $             '************************************************'/
      $             ' vamax =',e12.3,'   imax,jmax =',2i5)
-C
-C     Close netCDF file:
-C
+!
+!     Close netCDF file:
+!
 !              if(netcdf_file.ne.'nonetcdf') then
 !            call write_netcdf(netcdf_file,3)                  ! *netCDF*
 !              endif
-C
+!
             stop
-C
+!
           endif
 !     Reset timer
           call cpu_time(slice_b)
@@ -2093,15 +2093,15 @@ C
             close(71)
           end if
         end if
-C
-C     End of print section
-C
-C-----------------------------------------------------------------------
-C
+!
+!     End of print section
+!
+!-----------------------------------------------------------------------
+!
  9000 continue       !  End of internal (3-D) mode
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
 !   Finish target point output
 !      call ncTgtFlush(49)
       call ncclose(ncid)
@@ -2114,9 +2114,9 @@ C
 !
 !            call printall !lyo:_20080415:final printing
 !
-C
-C     Set levels for output:
-C
+!
+!     Set levels for output:
+!
 !      ko(1)=1
 !      ko(2)=2
 !      ko(3)=kb/2
@@ -2125,15 +2125,15 @@ C
 !C
 !      call prxyz('Vertical velocity, w                    ',
 !     $           time,w       ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
-C
-C     call prxyz('Turbulent kinetic energy x 2, q2        ',
-C    $           time,q2      ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
-C
-C     Save this data for a seamless restart:
-C
-clyo:
+!
+!     call prxyz('Turbulent kinetic energy x 2, q2        ',
+!    $           time,q2      ,im,iskp,jm,jskp,kb,ko,5,-1.e0)
+!
+!     Save this data for a seamless restart:
+!
+!lyo:
 !     call powsave
-c
+!
       write(*,*) "[ ] Writing restart file..."
       open(71,file=trim(pth_wrk)//trim(pth_bkp)
      $           //trim(title)//'.restart.bkp',
@@ -2186,29 +2186,29 @@ c
       end subroutine
 !
       subroutine advave(curv2d)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates horizontal advection and diffusion.      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates horizontal advection and diffusion.      *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision curv2d(im,jm)
       integer i,j
-C
-C     u-advection and diffusion:
-C
-C     Advective fluxes:
-C
+!
+!     u-advection and diffusion:
+!
+!     Advective fluxes:
+!
       do j=1,jm
         do i=1,im
           advua(i,j)=0.e0
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,imm1
           fluxua(i,j)=.125e0*((d(i+1,j)+d(i,j))*ua(i+1,j)
@@ -2216,7 +2216,7 @@ C
      $                      *(ua(i+1,j)+ua(i,j))
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,im
           fluxva(i,j)=.125e0*((d(i,j)+d(i,j-1))*va(i,j)
@@ -2224,9 +2224,9 @@ C
      $                      *(ua(i,j)+ua(i,j-1))
         end do
       end do
-C
-C     Add viscous fluxes:
-C
+!
+!     Add viscous fluxes:
+!
       do j=2,jm
         do i=2,imm1
           fluxua(i,j)=fluxua(i,j)
@@ -2234,7 +2234,7 @@ C
      $                   /dx(i,j)
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,im
           tps(i,j)=.25e0*(d(i,j)+d(i-1,j)+d(i,j-1)+d(i-1,j-1))
@@ -2249,24 +2249,24 @@ C
      $                 *(dx(i,j)+dx(i-1,j)+dx(i,j-1)+dx(i-1,j-1))
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           advua(i,j)=fluxua(i,j)-fluxua(i-1,j)
      $                +fluxva(i,j+1)-fluxva(i,j)
         end do
       end do
-C
-C     u-advection and diffusion:
-C
+!
+!     u-advection and diffusion:
+!
       do j=1,jm
         do i=1,im
           advva(i,j)=0.e0
         end do
       end do
-C
-C     Advective fluxes:
-C
+!
+!     Advective fluxes:
+!
       do j=2,jm
         do i=2,im
           fluxua(i,j)=.125e0*((d(i,j)+d(i-1,j))*ua(i,j)
@@ -2274,7 +2274,7 @@ C
      $                      *(va(i-1,j)+va(i,j))
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,im
           fluxva(i,j)=.125e0*((d(i,j+1)+d(i,j))*va(i,j+1)
@@ -2282,9 +2282,9 @@ C
      $                      *(va(i,j+1)+va(i,j))
         end do
       end do
-C
-C     Add viscous fluxes:
-C
+!
+!     Add viscous fluxes:
+!
       do j=2,jmm1
         do i=2,im
           fluxva(i,j)=fluxva(i,j)
@@ -2292,7 +2292,7 @@ C
      $                   /dy(i,j)
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,im
           fluxva(i,j)=fluxva(i,j)*dx(i,j)
@@ -2300,16 +2300,16 @@ C
      $                 *(dy(i,j)+dy(i-1,j)+dy(i,j-1)+dy(i-1,j-1))
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           advva(i,j)=fluxua(i+1,j)-fluxua(i,j)
      $                +fluxva(i,j)-fluxva(i,j-1)
         end do
       end do
-C
+!
       if(mode.eq.2) then
-C
+!
         do j=2,jmm1
           do i=2,imm1
             wubot(i,j)=-0.5e0*(cbc(i,j)+cbc(i-1,j))
@@ -2319,7 +2319,7 @@ C
      $                  *uab(i,j)
           end do
         end do
-C
+!
         do j=2,jmm1
           do i=2,imm1
             wvbot(i,j)=-0.5e0*(cbc(i,j)+cbc(i,j-1))
@@ -2329,7 +2329,7 @@ C
      $                  *vab(i,j)
           end do
         end do
-C
+!
         do j=2,jmm1
           do i=2,imm1
             curv2d(i,j)=.25e0
@@ -2338,7 +2338,7 @@ C
      $                   /(dx(i,j)*dy(i,j))
           end do
         end do
-C
+!
         do j=2,jmm1
           do i=3,imm1
             advua(i,j)=advua(i,j)-aru(i,j)*.25e0
@@ -2348,7 +2348,7 @@ C
      $                    *(va(i-1,j+1)+va(i-1,j)))
           end do
         end do
-C
+!
         do j=3,jmm1
           do i=2,imm1
             advva(i,j)=advva(i,j)+arv(i,j)*.25e0
@@ -2358,33 +2358,33 @@ C
      $                    *(ua(i+1,j-1)+ua(i,j-1)))
           end do
         end do
-C
+!
       endif
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advct(xflux,yflux,curv)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates the horizontal portions of momentum      *
-C *                advection well in advance of their use in advu and  *
-C *                advv so that their vertical integrals (created in   *
-C *                the main program) may be used in the external (2-D) *
-C *                mode calculation.                                   *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates the horizontal portions of momentum      *
+! *                advection well in advance of their use in advu and  *
+! *                advv so that their vertical integrals (created in   *
+! *                the main program) may be used in the external (2-D) *
+! *                mode calculation.                                   *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision xflux(im,jm,kb),yflux(im,jm,kb)
       double precision curv(im,jm,kb)
       double precision dtaam
       integer i,j,k
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2395,7 +2395,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2407,11 +2407,11 @@ C
           end do
         end do
       end do
-C
-C     Calculate x-component of velocity advection:
-C
-C     Calculate horizontal advective fluxes:
-C
+!
+!     Calculate x-component of velocity advection:
+!
+!     Calculate horizontal advective fluxes:
+!
       do k=1,kbm1
         do j=1,jm
           do i=2,imm1
@@ -2421,7 +2421,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2431,9 +2431,9 @@ C
           end do
         end do
       end do
-C
-C    Add horizontal diffusive fluxes:
-C
+!
+!    Add horizontal diffusive fluxes:
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,imm1
@@ -2450,16 +2450,16 @@ C
      $                            +(vb(i,j,k)-vb(i-1,j,k))
      $                            /(dx(i,j)+dx(i-1,j)
      $                              +dx(i,j-1)+dx(i-1,j-1)))
-C
+!
             xflux(i,j,k)=dy(i,j)*xflux(i,j,k)
             yflux(i,j,k)=.25e0*(dx(i,j)+dx(i-1,j)
      $                          +dx(i,j-1)+dx(i-1,j-1))*yflux(i,j,k)
           end do
         end do
       end do
-C
-C     Do horizontal advection:
-C
+!
+!     Do horizontal advection:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2468,7 +2468,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=3,imm1
@@ -2481,9 +2481,9 @@ C
           end do
         end do
       end do
-C
-C-----------------------------------------------------------------------
-C
+!
+!-----------------------------------------------------------------------
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2493,11 +2493,11 @@ C
           end do
         end do
       end do
-C
-C     Calculate y-component of velocity advection:
-C
-C     Calculate horizontal advective fluxes:
-C
+!
+!     Calculate y-component of velocity advection:
+!
+!     Calculate horizontal advective fluxes:
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2507,7 +2507,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=1,im
@@ -2517,9 +2517,9 @@ C
           end do
         end do
       end do
-C
-C    Add horizontal diffusive fluxes:
-C
+!
+!    Add horizontal diffusive fluxes:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,im
@@ -2536,16 +2536,16 @@ C
             yflux(i,j,k)=yflux(i,j,k)
      $                    -dt(i,j)*aam(i,j,k)*2.e0
      $                    *(vb(i,j+1,k)-vb(i,j,k))/dy(i,j)
-C
+!
             xflux(i,j,k)=.25e0*(dy(i,j)+dy(i-1,j)
      $                          +dy(i,j-1)+dy(i-1,j-1))*xflux(i,j,k)
             yflux(i,j,k)=dx(i,j)*yflux(i,j,k)
           end do
         end do
       end do
-C
-C     Do horizontal advection:
-C
+!
+!     Do horizontal advection:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2554,7 +2554,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=3,jmm1
           do i=2,imm1
@@ -2567,29 +2567,29 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advq(qb,q,qf,xflux,yflux)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates horizontal advection and diffusion, and  *
-C *                vertical advection for turbulent quantities.        *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates horizontal advection and diffusion, and  *
+! *                vertical advection for turbulent quantities.        *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision qb(im,jm,kb),q(im,jm,kb),qf(im,jm,kb)
       double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
-C
-C     Do horizontal advection:
-C
+!
+!     Do horizontal advection:
+!
       do k=2,kbm1
         do j=2,jm
           do i=2,im
@@ -2600,9 +2600,9 @@ C
           end do
         end do
       end do
-C
-C     Do horizontal diffusion:
-C
+!
+!     Do horizontal diffusion:
+!
       do k=2,kbm1
         do j=2,jm
           do i=2,im
@@ -2623,9 +2623,9 @@ C
           end do
         end do
       end do
-C
-C     Do vertical advection, add flux terms, then step forward in time:
-C
+!
+!     Do vertical advection, add flux terms, then step forward in time:
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2639,39 +2639,39 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advt1(fb,f,fclim,ff,xflux,yflux)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Integrates conservative scalar equations.           *
-C *                                                                    *
-C *                This is centred scheme, as originally provide in    *
-C *                POM (previously called advt).                       *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Integrates conservative scalar equations.           *
+! *                                                                    *
+! *                This is centred scheme, as originally provide in    *
+! *                POM (previously called advt).                       *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision
      $             fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
-C
+!
       do j=1,jm
         do i=1,im
            f(i,j,kb)=f(i,j,kbm1)
            fb(i,j,kb)=fb(i,j,kbm1)
         end do
       end do
-C
-C     Do advective fluxes:
-C
+!
+!     Do advective fluxes:
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2682,9 +2682,9 @@ C
           end do
         end do
       end do
-C
-C     Add diffusive fluxes:
-C
+!
+!     Add diffusive fluxes:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2692,7 +2692,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2711,7 +2711,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2719,16 +2719,16 @@ C
           end do
         end do
       end do
-C
-C     Do vertical advection:
-C
+!
+!     Do vertical advection:
+!
       do j=2,jmm1
         do i=2,imm1
           zflux(i,j,1)=f(i,j,1)*w(i,j,1)*art(i,j)
           zflux(i,j,kb)=0.e0
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2736,71 +2736,71 @@ C
           end do
         end do
       end do
-C
-C     Add net horizontal fluxes and then step forward in time:
-C
+!
+!     Add net horizontal fluxes and then step forward in time:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
             ff(i,j,k)=xflux(i+1,j,k)-xflux(i,j,k)
      $                 +yflux(i,j+1,k)-yflux(i,j,k)
      $                 +(zflux(i,j,k)-zflux(i,j,k+1))/dz(k)
-C
+!
             ff(i,j,k)=(fb(i,j,k)*(h(i,j)+etb(i,j))*art(i,j)
      $                 -dti2*ff(i,j,k))
      $                 /((h(i,j)+etf(i,j))*art(i,j))
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advt2(fb,f,fclim,ff,xflux,yflux,nitera,sw)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Integrates conservative scalar equations.           *
-C *                                                                    *
-C *                This is a first-order upstream scheme, which        *
-C *                reduces implicit diffusion using the Smolarkiewicz  *
-C *                iterative upstream scheme with an antidiffusive     *
-C *                velocity.                                           *
-C *                                                                    *
-C *                It is based on the subroutines of Gianmaria Sannino *
-C *                (Inter-university Computing Consortium, Rome, Italy)*
-C *                and Vincenzo Artale (Italian National Agency for    *
-C *                New Technology and Environment, Rome, Italy),       *
-C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
-C *                The calculations have been simplified by removing   *
-C *                the shock switch option. It should be noted that    *
-C *                this implementation does not include cross-terms    *
-C *                which are in the original formulation.              *
-C *                                                                    *
-C *                fb,f,fclim,ff . as used in subroutine advt1         *
-C *                xflux,yflux ... working arrays used to save memory  *
-C *                nitera ........ number of iterations. This should   *
-C *                                be in the range 1 - 4. 1 is         *
-C *                                standard upstream differencing;     *
-C *                                3 adds 50% CPU time to POM.         *
-C *                sw ............ smoothing parameter. This should    *
-C *                                preferably be 1, but 0 < sw < 1     *
-C *                                gives smoother solutions with less  *
-C *                                overshoot when nitera > 1.          *
-C *                                                                    *
-C *                Reference:                                          *
-C *                                                                    *
-C *                Smolarkiewicz, P.K.; A fully multidimensional       *
-C *                  positive definite advection transport algorithm   *
-C *                  with small implicit diffusion, Journal of         *
-C *                  Computational Physics, 54, 325-362, 1984.         *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Integrates conservative scalar equations.           *
+! *                                                                    *
+! *                This is a first-order upstream scheme, which        *
+! *                reduces implicit diffusion using the Smolarkiewicz  *
+! *                iterative upstream scheme with an antidiffusive     *
+! *                velocity.                                           *
+! *                                                                    *
+! *                It is based on the subroutines of Gianmaria Sannino *
+! *                (Inter-university Computing Consortium, Rome, Italy)*
+! *                and Vincenzo Artale (Italian National Agency for    *
+! *                New Technology and Environment, Rome, Italy),       *
+! *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+! *                The calculations have been simplified by removing   *
+! *                the shock switch option. It should be noted that    *
+! *                this implementation does not include cross-terms    *
+! *                which are in the original formulation.              *
+! *                                                                    *
+! *                fb,f,fclim,ff . as used in subroutine advt1         *
+! *                xflux,yflux ... working arrays used to save memory  *
+! *                nitera ........ number of iterations. This should   *
+! *                                be in the range 1 - 4. 1 is         *
+! *                                standard upstream differencing;     *
+! *                                3 adds 50% CPU time to POM.         *
+! *                sw ............ smoothing parameter. This should    *
+! *                                preferably be 1, but 0 < sw < 1     *
+! *                                gives smoother solutions with less  *
+! *                                overshoot when nitera > 1.          *
+! *                                                                    *
+! *                Reference:                                          *
+! *                                                                    *
+! *                Smolarkiewicz, P.K.; A fully multidimensional       *
+! *                  positive definite advection transport algorithm   *
+! *                  with small implicit diffusion, Journal of         *
+! *                  Computational Physics, 54, 325-362, 1984.         *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision
      $             fb(im,jm,kb),f(im,jm,kb),fclim(im,jm,kb),ff(im,jm,kb)
       double precision xflux(im,jm,kb),yflux(im,jm,kb)
@@ -2810,9 +2810,9 @@ C
       double precision
      $          xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
       integer i,j,k,itera
-C
-C     Calculate horizontal mass fluxes:
-C
+!
+!     Calculate horizontal mass fluxes:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2821,7 +2821,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,im
@@ -2829,7 +2829,7 @@ C
      $                             *(dt(i-1,j)+dt(i,j))*u(i,j,k)
           end do
         end do
-C
+!
         do j=2,jm
           do i=2,imm1
             ymassflux(i,j,k)=0.25e0*(dx(i,j-1)+dx(i,j))
@@ -2837,14 +2837,14 @@ C
           end do
         end do
       end do
-C
+!
       do j=1,jm
         do i=1,im
           fb(i,j,kb)=fb(i,j,kbm1)
           eta(i,j)=etb(i,j)
         end do
       end do
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2853,13 +2853,13 @@ C
           end do
         end do
       end do
-C
-C     Start Smolarkiewicz scheme:
-C
+!
+!     Start Smolarkiewicz scheme:
+!
       do itera=1,nitera
-C
-C     Upwind advection scheme:
-C
+!
+!     Upwind advection scheme:
+!
         do k=1,kbm1
           do j=2,jm
             do i=2,im
@@ -2868,7 +2868,7 @@ C
      $                        *fbmem(i-1,j,k)+
      $                        (xmassflux(i,j,k)-abs(xmassflux(i,j,k)))
      $                        *fbmem(i,j,k))
-C
+!
               yflux(i,j,k)=0.5e0
      $                      *((ymassflux(i,j,k)+abs(ymassflux(i,j,k)))
      $                        *fbmem(i,j-1,k)+
@@ -2877,7 +2877,7 @@ C
             end do
           end do
         end do
-C
+!
         do j=2,jmm1
           do i=2,imm1
             zflux(i,j,1)=0.e0
@@ -2885,7 +2885,7 @@ C
             zflux(i,j,kb)=0.e0
           end do
         end do
-C
+!
         do k=2,kbm1
           do j=2,jmm1
             do i=2,imm1
@@ -2898,9 +2898,9 @@ C
             end do
           end do
         end do
-C
-C     Add net advective fluxes and step forward in time:
-C
+!
+!     Add net advective fluxes and step forward in time:
+!
         do k=1,kbm1
           do j=2,jmm1
             do i=2,imm1
@@ -2912,11 +2912,11 @@ C
             end do
           end do
         end do
-C
-C     Calculate antidiffusion velocity:
-C
+!
+!     Calculate antidiffusion velocity:
+!
         call smol_adif(xmassflux,ymassflux,zwflux,ff,sw)
-C
+!
         do j=1,jm
           do i=1,im
             eta(i,j)=etf(i,j)
@@ -2925,13 +2925,13 @@ C
             end do
           end do
         end do
-C
-C     End of Smolarkiewicz scheme
-C
+!
+!     End of Smolarkiewicz scheme
+!
       end do
-C
-C     Add horizontal diffusive fluxes:
-C
+!
+!     Add horizontal diffusive fluxes:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2939,7 +2939,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2948,7 +2948,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -2961,7 +2961,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -2969,9 +2969,9 @@ C
           end do
         end do
       end do
-C
-C     Add net horizontal fluxes and step forward in time:
-C
+!
+!     Add net horizontal fluxes and step forward in time:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -2981,30 +2981,30 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advu
-C **********************************************************************
-C *                                                                    *
-C * ROUTINE NAME:  advu                                                *
-C *                                                                    *
-C * FUNCTION    :  Does horizontal and vertical advection of           *
-C *                u-momentum, and includes coriolis, surface slope    *
-C *                and baroclinic terms.                               *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * ROUTINE NAME:  advu                                                *
+! *                                                                    *
+! * FUNCTION    :  Does horizontal and vertical advection of           *
+! *                u-momentum, and includes coriolis, surface slope    *
+! *                and baroclinic terms.                               *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j,k
-C
-C     Do vertical advection:
-C
+!
+!     Do vertical advection:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -3012,7 +3012,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=2,im
@@ -3021,10 +3021,10 @@ C
           end do
         end do
       end do
-C
-C     Combine horizontal and vertical advection with coriolis, surface
-C     slope and baroclinic terms:
-C
+!
+!     Combine horizontal and vertical advection with coriolis, surface
+!     slope and baroclinic terms:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3043,9 +3043,9 @@ C
           end do
         end do
       end do
-C
-C     Step forward in time:
-C
+!
+!     Step forward in time:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3057,28 +3057,28 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine advv
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Does horizontal and vertical advection of           *
-C *                v-momentum, and includes coriolis, surface slope    *
-C *                and baroclinic terms.                               *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Does horizontal and vertical advection of           *
+! *                v-momentum, and includes coriolis, surface slope    *
+! *                and baroclinic terms.                               *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j,k
-C
-C     Do vertical advection:
-C
+!
+!     Do vertical advection:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -3086,7 +3086,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=2,jm
           do i=1,im
@@ -3095,10 +3095,10 @@ C
           end do
         end do
       end do
-C
-C     Combine horizontal and vertical advection with coriolis, surface
-C     slope and baroclinic terms:
-C
+!
+!     Combine horizontal and vertical advection with coriolis, surface
+!     slope and baroclinic terms:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3117,9 +3117,9 @@ C
           end do
         end do
       end do
-C
-C     Step forward in time:
-C
+!
+!     Step forward in time:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3131,53 +3131,53 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine areas_masks
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates areas and masks.                         *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates areas and masks.                         *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j
-C
-C     Calculate areas of "t" and "s" cells:
-C
+!
+!     Calculate areas of "t" and "s" cells:
+!
       do j=1,jm
         do i=1,im
           art(i,j)=dx(i,j)*dy(i,j)
         end do
       end do
-C
-C     Calculate areas of "u" and "v" cells:
-C
+!
+!     Calculate areas of "u" and "v" cells:
+!
       do j=2,jm
         do i=2,im
           aru(i,j)=.25e0*(dx(i,j)+dx(i-1,j))*(dy(i,j)+dy(i-1,j))
           arv(i,j)=.25e0*(dx(i,j)+dx(i,j-1))*(dy(i,j)+dy(i,j-1))
         end do
       end do
-C
+!
       do j=1,jm
         aru(1,j)=aru(2,j)
         arv(1,j)=arv(2,j)
       end do
-C
+!
       do i=1,im
         aru(i,1)=aru(i,2)
         arv(i,1)=arv(i,2)
       end do
-C
-C     Initialise and set up free surface mask if no WAD: !lyo:!wad:
-C
+!
+!     Initialise and set up free surface mask if no WAD: !lyo:!wad:
+!
       if (nwad.eq.0) then !lyo:!wad:
 !
 !     do j=1,jm
@@ -3188,9 +3188,9 @@ C
 !         if(h(i,j).gt.1.e0) fsm(i,j)=1.e0
 !       end do
 !     end do
-C
-C     Set up velocity masks:
-C
+!
+!     Set up velocity masks:
+!
 !     do j=2,jm
 !       do i=2,im
 !         dum(i,j)=fsm(i,j)*fsm(i-1,j)
@@ -3214,24 +3214,24 @@ C
       enddo; enddo
 !
       endif   !if (nwad.eq.0) then       !lyo:!wad:
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine baropg
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates  baroclinic pressure gradient.           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates  baroclinic pressure gradient.           *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j,k
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -3239,16 +3239,16 @@ C
           end do
         end do
       end do
-C
-C     Calculate x-component of baroclinic pressure gradient:
-C
+!
+!     Calculate x-component of baroclinic pressure gradient:
+!
       do j=2,jmm1
         do i=2,imm1
           drhox(i,j,1)=.5e0*grav*(-zz(1))*(dt(i,j)+dt(i-1,j))
      $                  *(rho(i,j,1)-rho(i-1,j,1))
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3264,7 +3264,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3274,16 +3274,16 @@ C
           end do
         end do
       end do
-C
-C     Calculate y-component of baroclinic pressure gradient:
-C
+!
+!     Calculate y-component of baroclinic pressure gradient:
+!
       do j=2,jmm1
         do i=2,imm1
           drhoy(i,j,1)=.5e0*grav*(-zz(1))*(dt(i,j)+dt(i,j-1))
      $                  *(rho(i,j,1)-rho(i,j-1,1))
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3299,7 +3299,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -3309,7 +3309,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kb
         do j=2,jmm1
           do i=2,imm1
@@ -3318,7 +3318,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -3326,11 +3326,11 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
 !_______________________________________________________________________
       subroutine baropg_mcc
 ! calculate  baroclinic pressure gradient
@@ -3544,144 +3544,144 @@ C
       end subroutine bcond
 
       subroutine bcond_orig(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Applies open boundary conditions.                   *
-C *                                                                    *
-C *                Closed boundary conditions are automatically        *
-C *                enabled through specification of the masks, dum,    *
-C *                dvm and fsm, in which case the open boundary        *
-C *                conditions, included below, will be overwritten.    *
-C *                                                                    *
-C *                                The C-Grid                          *
-C *                                **********                          *
-C *                                                                    *
-C *                The diagram below and some of the text was provided *
-C *                by D.-S. Ko. It is for the case where u and v are   *
-C *                the primary boundary conditions together with t and *
-C *                s (co-located with e). e = el itself is rather      *
-C *                unimportant and is substituted from an adjacent     *
-C *                interior point.                                     *
-C *                                                                    *
-C *                The dotted line (.......) bounds the interior       *
-C *                (non-boundary) grid points. In general, only those  *
-C *                variables in the interior are computed and          *
-C *                variables at open boundary have to be specified.    *
-C *                All interpolations are centered in space except     *
-C *                those at lateral open boundary where an upstream    *
-C *                scheme is usually used. "BU" indictates a line of   *
-C *                points where the boundary conditions should be      *
-C *                specified.                                          *
-C *                                                                    *
-C *                Horizontal locations of e(el), t and s (etc.) are   *
-C *                coincident. Unused points are indicated by "NU" and *
-C *                "*". However, for attractive output, adjacent       *
-C *                interior values may be filled in at these points.   *
-C *                                                                    *
-C *                People not acquainted with sigma coordinates have   *
-C *                often asked what kind of boundary condition is      *
-C *                applied along closed horizontal boundaries.         *
-C *                Although the issue is not as important as it might  *
-C *                be  for z-level grids, a direct answer is "half-    *
-C *                slip" which, of course, is between free slip and    *
-C *                non-slip.                                           *
-C *                                                                    **********
-C-------------------------------------------------------------------------------*
-C     |                               N O R T H                                 *
-C     |                                                                         *
-C     |    1     2     3           i-1   i    i+1         im-2  im-1   im       *
-C-----+-------------------------------------------------------------------------*
-C     |   NU BC BC                                                    BC BC     *
-C     |    v  v  v                                                     v  v     *
-C     |                                                                         *
-C     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
-C     |    |     |     |           |     |     |           |     |     |        *
-C  jm |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
-C     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
-C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C jm-1|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C jm-2|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
-C     |            :                                                 :          *
-C W   |       .  . :.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .: .  .    E*
-C E   |            :                    INTERIOR                     :         A*
-C S   |       .    :.     .     .     .     .     .     .     .     .:    .    S*
-C T   |            :                                                 :         T*
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C   3 |    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
-C     |    |     | :   |           |     |     |           |     |   : |        *
-C     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
-C     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
-C   2 |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
-C     |    |     |     |           |     |     |           |     |     |        *
-C     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
-C     |    |     |     |           |     |     |           |     |     |      --*
-C   1 |NU> +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v* <NU*
-C     |                                                                         *
-C     |    ^  ^  ^                                                     ^  ^     *
-C     |   NU BC BC                                                    BC BC     *
-C-----+-------------------------------------------------------------------------*
-C     |    1     2     3           i-1   i     i+1         im-2  im-1  im       *
-C     |                                                                         *
-C     |                                S O U T H                                *
-C-------------------------------------------------------------------------------*
-C                                                                               *
-C *******************************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Applies open boundary conditions.                   *
+! *                                                                    *
+! *                Closed boundary conditions are automatically        *
+! *                enabled through specification of the masks, dum,    *
+! *                dvm and fsm, in which case the open boundary        *
+! *                conditions, included below, will be overwritten.    *
+! *                                                                    *
+! *                                The C-Grid                          *
+! *                                **********                          *
+! *                                                                    *
+! *                The diagram below and some of the text was provided *
+! *                by D.-S. Ko. It is for the case where u and v are   *
+! *                the primary boundary conditions together with t and *
+! *                s (co-located with e). e = el itself is rather      *
+! *                unimportant and is substituted from an adjacent     *
+! *                interior point.                                     *
+! *                                                                    *
+! *                The dotted line (.......) bounds the interior       *
+! *                (non-boundary) grid points. In general, only those  *
+! *                variables in the interior are computed and          *
+! *                variables at open boundary have to be specified.    *
+! *                All interpolations are centered in space except     *
+! *                those at lateral open boundary where an upstream    *
+! *                scheme is usually used. "BU" indictates a line of   *
+! *                points where the boundary conditions should be      *
+! *                specified.                                          *
+! *                                                                    *
+! *                Horizontal locations of e(el), t and s (etc.) are   *
+! *                coincident. Unused points are indicated by "NU" and *
+! *                "*". However, for attractive output, adjacent       *
+! *                interior values may be filled in at these points.   *
+! *                                                                    *
+! *                People not acquainted with sigma coordinates have   *
+! *                often asked what kind of boundary condition is      *
+! *                applied along closed horizontal boundaries.         *
+! *                Although the issue is not as important as it might  *
+! *                be  for z-level grids, a direct answer is "half-    *
+! *                slip" which, of course, is between free slip and    *
+! *                non-slip.                                           *
+! *                                                                    **********
+!-------------------------------------------------------------------------------*
+!     |                               N O R T H                                 *
+!     |                                                                         *
+!     |    1     2     3           i-1   i    i+1         im-2  im-1   im       *
+!-----+-------------------------------------------------------------------------*
+!     |   NU BC BC                                                    BC BC     *
+!     |    v  v  v                                                     v  v     *
+!     |                                                                         *
+!     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
+!     |    |     |     |           |     |     |           |     |     |        *
+!  jm |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
+!     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
+!     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+!     |    |     | :   |           |     |     |           |     |   : |        *
+! jm-1|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+!     |    |     | :   |           |     |     |           |     |   : |        *
+!     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+!     |    |     | :   |           |     |     |           |     |   : |        *
+! jm-2|    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+!     |            :                                                 :          *
+! W   |       .  . :.  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .: .  .    E*
+! E   |            :                    INTERIOR                     :         A*
+! S   |       .    :.     .     .     .     .     .     .     .     .:    .    S*
+! T   |            :                                                 :         T*
+!     |    |     | :   |           |     |     |           |     |   : |        *
+!     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+!     |    |     | :   |           |     |     |           |     |   : |        *
+!   3 |    +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v-    *
+!     |    |     | :   |           |     |     |           |     |   : |        *
+!     |    u* e  u :e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e: u  e     *
+!     |    |     | ....|...........|.....|.....|...........|.....|.... |        *
+!   2 |BC> +--v--+--v--+--v--   .  +--v--+--v--+--v--   .  +--v--+--v--+--v- <BC*
+!     |    |     |     |           |     |     |           |     |     |        *
+!     |BC> u* e  u  e  u  e  .  .  u  e  u  e  u  e  .  .  u  e  u  e  u  e  <BC*
+!     |    |     |     |           |     |     |           |     |     |      --*
+!   1 |NU> +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v*-   .  +--v*-+--v*-+--v* <NU*
+!     |                                                                         *
+!     |    ^  ^  ^                                                     ^  ^     *
+!     |   NU BC BC                                                    BC BC     *
+!-----+-------------------------------------------------------------------------*
+!     |    1     2     3           i-1   i     i+1         im-2  im-1  im       *
+!     |                                                                         *
+!     |                                S O U T H                                *
+!-------------------------------------------------------------------------------*
+!                                                                               *
+! *******************************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer idx
       double precision ga,u1,wm,etide  !lyo:!wad:add etide
       integer i,j,k
-C
+!
       if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-C     In this example, the governing boundary conditions are a radiation
-C     condition on uaf in the east and in the west, and vaf in the north
-C     and south. The tangential velocities are set to zero on both
-C     boundaries. These are only one set of possibilities and may not
-C     represent a choice which yields the most physically double precisionistic
-C     result.
-C
-C     Elevation (in this application, elevation is not a primary
-C     boundary condition):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     External (2-D) boundary conditions:
+!
+!     In this example, the governing boundary conditions are a radiation
+!     condition on uaf in the east and in the west, and vaf in the north
+!     and south. The tangential velocities are set to zero on both
+!     boundaries. These are only one set of possibilities and may not
+!     represent a choice which yields the most physically double precisionistic
+!     result.
+!
+!     Elevation (in this application, elevation is not a primary
+!     boundary condition):
+!
         do j=1,jm
           elf(1,j)=elf(2,j)
           elf(im,j)=elf(imm1,j)
         end do
-C
+!
         do i=1,im
           elf(i,1)=elf(i,2)
           elf(i,jm)=elf(i,jmm1)
         end do
-C
+!
         do j=1,jm
           do i=1,im
             elf(i,j)=elf(i,j)*fsm(i,j)
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-C
+!
+!     External (2-D) velocity:
+!
 !tne:!wad:
-C Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
-C      note that ELW already include hhi (see SEAMOUNT)
+! Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
+!      note that ELW already include hhi (see SEAMOUNT)
 !lyo:!wad:Specify time-dependent tidal tidal amplitude w/period=1day,
 !         & amplitude=9m; note that tide is to be added to the geostro-
 !         phically balanced ELW below.  So ETIDE is referenced wrt MSL:
@@ -3690,18 +3690,18 @@ C      note that ELW already include hhi (see SEAMOUNT)
          etide=-tidamp*sin(2.e0*pi*time/1.e0) !minus so ebb near time=0
 !
         do j=2,jmm1
-C
-C     East:
-C
+!
+!     East:
+!
 !tne:!wad:- for wad replace H with D
           uaf(im,j)=uabe(j)
      $               +rfe*sqrt(grav/d(imm1,j))
      $                         *(el(imm1,j)-ele(j))
           uaf(im,j)=ramp*uaf(im,j)
           vaf(im,j)=0.e0
-C
-C     West:
-C
+!
+!     West:
+!
 !tne:!wad:- for wad replace H with D add tide
           uaf(2,j)=uabw(j)
      $              -rfw*sqrt(grav/d(2,j))
@@ -3709,22 +3709,22 @@ C
           uaf(2,j)=ramp*uaf(2,j)
           uaf(1,j)=uaf(2,j)
           vaf(1,j)=0.e0
-C
+!
         end do
-C
+!
         do i=2,imm1
-C
-C     North:
-C
+!
+!     North:
+!
 !tne:!wad:- for wad replace H with D
           vaf(i,jm)=vabn(i)
      $               +rfn*sqrt(grav/d(i,jmm1))
      $                         *(el(i,jmm1)-eln(i))
           vaf(i,jm)=ramp*vaf(i,jm)
           uaf(i,jm)=0.e0
-C
-C     South:
-C
+!
+!     South:
+!
 !tne:!wad:- for wad replace H with D
           vaf(i,2)=vabs(i)
      $              -rfs*sqrt(grav/d(i,2))
@@ -3732,41 +3732,41 @@ C
           vaf(i,2)=ramp*vaf(i,2)
           vaf(i,1)=vaf(i,2)
           uaf(i,1)=0.e0
-C
+!
         end do
-C
+!
         do j=1,jm
           do i=1,im
             uaf(i,j)=uaf(i,j)*dum(i,j)
             vaf(i,j)=vaf(i,j)*dvm(i,j)
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-C
-C     Velocity (radiation conditions; smoothing is used in the direction
-C     tangential to the boundaries):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Internal (3-D) boundary conditions:
+!
+!     Velocity (radiation conditions; smoothing is used in the direction
+!     tangential to the boundaries):
+!
         do k=1,kbm1
           do j=2,jmm1
-C
-C     East:
-C
+!
+!     East:
+!
             ga=sqrt(d(im,j)/hmax)  !lyo:!wad:replace h w/d
             uf(im,j,k)=ga*(.25e0*u(imm1,j-1,k)+.5e0*u(imm1,j,k)
      $                     +.25e0*u(imm1,j+1,k))
      $                  +(1.e0-ga)*(.25e0*u(im,j-1,k)+.5e0*u(im,j,k)
      $                    +.25e0*u(im,j+1,k))
             vf(im,j,k)=0.e0
-C
-C     West:
-C
+!
+!     West:
+!
             ga=sqrt(d(1,j)/hmax)  !lyo:!wad:replace h w/d
             uf(2,j,k)=ga*(.25e0*u(3,j-1,k)+.5e0*u(3,j,k)
      $                    +.25e0*u(3,j+1,k))
@@ -3776,21 +3776,21 @@ C
             vf(1,j,k)=0.e0
           end do
         end do
-C
+!
         do k=1,kbm1
           do i=2,imm1
-C
-C     North:
-C
+!
+!     North:
+!
             ga=sqrt(d(i,jm)/hmax)  !lyo:!wad:replace h w/d
             vf(i,jm,k)=ga*(.25e0*v(i-1,jmm1,k)+.5e0*v(i,jmm1,k)
      $                     +.25e0*v(i+1,jmm1,k))
      $                  +(1.e0-ga)*(.25e0*v(i-1,jm,k)+.5e0*v(i,jm,k)
      $                    +.25e0*v(i+1,jm,k))
             uf(i,jm,k)=0.e0
-C
-C     South:
-C
+!
+!     South:
+!
             ga=sqrt(d(i,1)/hmax)  !lyo:!wad:replace h w/d
             vf(i,2,k)=ga*(.25e0*v(i-1,3,k)+.5e0*v(i,3,k)
      $                    +.25e0*v(i+1,3,k))
@@ -3800,7 +3800,7 @@ C
             uf(i,1,k)=0.e0
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -3809,19 +3809,19 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.4) then
-C
-C     Temperature and salinity boundary conditions (using uf and vf,
-C     respectively):
-C
+!
+!     Temperature and salinity boundary conditions (using uf and vf,
+!     respectively):
+!
         do k=1,kbm1
           do j=1,jm
-C
-C     East:
-C
+!
+!     East:
+!
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
             if(u1.le.0.e0) then
               uf(im,j,k)=t(im,j,k)-u1*(tbe(j,k)-t(im,j,k))
@@ -3836,9 +3836,9 @@ C
                 vf(im,j,k)=vf(im,j,k)-wm*(s(imm1,j,k-1)-s(imm1,j,k+1))
               endif
             endif
-C
-C     West:
-C
+!
+!     West:
+!
             u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
             if(u1.ge.0.e0) then
               uf(1,j,k)=t(1,j,k)-u1*(t(1,j,k)-tbw(j,k))
@@ -3855,12 +3855,12 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kbm1
           do i=1,im
-C
-C     North:
-C
+!
+!     North:
+!
             u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
             if(u1.le.0.e0) then
               uf(i,jm,k)=t(i,jm,k)-u1*(tbn(i,k)-t(i,jm,k))
@@ -3875,9 +3875,9 @@ C
                 vf(i,jm,k)=vf(i,jm,k)-wm*(s(i,jmm1,k-1)-s(i,jmm1,k+1))
               endif
             endif
-C
-C     South:
-C
+!
+!     South:
+!
             u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
             if(u1.ge.0.e0) then
               uf(i,1,k)=t(i,1,k)-u1*(t(i,1,k)-tbs(i,k))
@@ -3894,7 +3894,7 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -3903,13 +3903,13 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
+!
+!     Vertical velocity boundary conditions:
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -3917,18 +3917,18 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
+!
+!     q2 and q2l boundary conditions:
+!
         do k=1,kb
           do j=1,jm
-C
-C     East:
-C
+!
+!     East:
+!
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
             if(u1.le.0.e0) then
               uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
@@ -3937,9 +3937,9 @@ C
               uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
               vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
             endif
-C
-C     West:
-C
+!
+!     West:
+!
             u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
             if(u1.ge.0.e0) then
               uf(1,j,k)=q2(1,j,k)-u1*(q2(1,j,k)-small)
@@ -3950,12 +3950,12 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kb
           do i=1,im
-C
-C     North:
-C
+!
+!     North:
+!
             u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
             if(u1.le.0.e0) then
               uf(i,jm,k)=q2(i,jm,k)-u1*(small-q2(i,jm,k))
@@ -3964,9 +3964,9 @@ C
               uf(i,jm,k)=q2(i,jm,k)-u1*(q2(i,jm,k)-q2(i,jmm1,k))
               vf(i,jm,k)=q2l(i,jm,k)-u1*(q2l(i,jm,k)-q2l(i,jmm1,k))
             endif
-C
-C     South:
-C
+!
+!     South:
+!
             u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
             if(u1.ge.0.e0) then
               uf(i,1,k)=q2(i,1,k)-u1*(q2(i,1,k)-small)
@@ -3977,7 +3977,7 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kb
           do j=1,jm
             do i=1,im
@@ -3986,33 +3986,33 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       endif
-C
+!
       end
       
       subroutine bcond_rwnd(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Applies open boundary conditions.                   *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Applies open boundary conditions.                   *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer idx
       double precision ga,u1,wm,etide  !lyo:!wad:add etide
       integer i,j,k
-C
+!
       if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
+!
+!-----------------------------------------------------------------------
+!
+!     External (2-D) boundary conditions:
 !
 !     Elevation (Clamped):
 !
@@ -4026,12 +4026,12 @@ C     External (2-D) boundary conditions:
         return
 !     -------------------------
       else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-C
+!
+!     External (2-D) velocity:
+!
 !tne:!wad:
-C Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
-C      note that ELW already include hhi (see SEAMOUNT)
+! Very large (9m) tide-like BC (imposed by tidal inflow vel. not elev.)
+!      note that ELW already include hhi (see SEAMOUNT)
 !lyo:!wad:Specify time-dependent tidal tidal amplitude w/period=1day,
 !         & amplitude=9m; note that tide is to be added to the geostro-
 !         phically balanced ELW below.  So ETIDE is referenced wrt MSL:
@@ -4040,18 +4040,18 @@ C      note that ELW already include hhi (see SEAMOUNT)
          etide=-tidamp*sin(2.e0*pi*time/1.e0) !minus so ebb near time=0
 !
         do j=2,jmm1
-C
-C     East:
-C
+!
+!     East:
+!
 !tne:!wad:- for wad replace H with D
           uaf(im,j)=uabe(j)
      $               +rfe*sqrt(grav/d(imm1,j))
      $                         *(el(imm1,j)-ele(j))
           uaf(im,j)=ramp*uaf(im,j)
           vaf(im,j)=0.e0
-C
-C     West:
-C
+!
+!     West:
+!
 !tne:!wad:- for wad replace H with D add tide
           uaf(2,j)=uabw(j)
      $              -rfw*sqrt(grav/d(2,j))
@@ -4059,22 +4059,22 @@ C
           uaf(2,j)=ramp*uaf(2,j)
           uaf(1,j)=uaf(2,j)
           vaf(1,j)=0.e0
-C
+!
         end do
-C
+!
         do i=2,imm1
-C
-C     North:
-C
+!
+!     North:
+!
 !tne:!wad:- for wad replace H with D
           vaf(i,jm)=vabn(i)
      $               +rfn*sqrt(grav/d(i,jmm1))
      $                         *(el(i,jmm1)-eln(i))
           vaf(i,jm)=ramp*vaf(i,jm)
           uaf(i,jm)=0.e0
-C
-C     South:
-C
+!
+!     South:
+!
 !tne:!wad:- for wad replace H with D
           vaf(i,2)=vabs(i)
      $              -rfs*sqrt(grav/d(i,2))
@@ -4082,41 +4082,41 @@ C
           vaf(i,2)=ramp*vaf(i,2)
           vaf(i,1)=vaf(i,2)
           uaf(i,1)=0.e0
-C
+!
         end do
-C
+!
         do j=1,jm
           do i=1,im
             uaf(i,j)=uaf(i,j)*dum(i,j)
             vaf(i,j)=vaf(i,j)*dvm(i,j)
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-C
-C     Velocity (radiation conditions; smoothing is used in the direction
-C     tangential to the boundaries):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Internal (3-D) boundary conditions:
+!
+!     Velocity (radiation conditions; smoothing is used in the direction
+!     tangential to the boundaries):
+!
         do k=1,kbm1
           do j=2,jmm1
-C
-C     East:
-C
+!
+!     East:
+!
             ga=sqrt(d(im,j)/hmax)  !lyo:!wad:replace h w/d
             uf(im,j,k)=ga*(.25e0*u(imm1,j-1,k)+.5e0*u(imm1,j,k)
      $                     +.25e0*u(imm1,j+1,k))
      $                  +(1.e0-ga)*(.25e0*ube(j-1,k)+.5e0*ube(j,k)
      $                    +.25e0*ube(j+1,k))
             vf(im,j,k)=0.e0
-C
-C     West:
-C
+!
+!     West:
+!
             ga=sqrt(d(1,j)/hmax)  !lyo:!wad:replace h w/d
             uf(2,j,k)=ga*(.25e0*u(3,j-1,k)+.5e0*u(3,j,k)
      $                    +.25e0*u(3,j+1,k))
@@ -4126,21 +4126,21 @@ C
             vf(1,j,k)=0.e0
           end do
         end do
-C
+!
         do k=1,kbm1
           do i=2,imm1
-C
-C     North:
-C
+!
+!     North:
+!
             ga=sqrt(d(i,jm)/hmax)  !lyo:!wad:replace h w/d
             vf(i,jm,k)=ga*(.25e0*v(i-1,jmm1,k)+.5e0*v(i,jmm1,k)
      $                     +.25e0*v(i+1,jmm1,k))
      $                  +(1.e0-ga)*(.25e0*vbn(i-1,k)+.5e0*vbn(i,k)
      $                    +.25e0*vbn(i+1,k))
             uf(i,jm,k)=0.e0
-C
-C     South:
-C
+!
+!     South:
+!
             ga=sqrt(d(i,1)/hmax)  !lyo:!wad:replace h w/d
             vf(i,2,k)=ga*(.25e0*v(i-1,3,k)+.5e0*v(i,3,k)
      $                    +.25e0*v(i+1,3,k))
@@ -4150,7 +4150,7 @@ C
             uf(i,1,k)=0.e0
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4159,19 +4159,19 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.4) then
-C
-C     Temperature and salinity boundary conditions (using uf and vf,
-C     respectively):
-C
+!
+!     Temperature and salinity boundary conditions (using uf and vf,
+!     respectively):
+!
         do k=1,kbm1
           do j=1,jm
-C
-C     East:
-C
+!
+!     East:
+!
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
             if(u1.le.0.e0) then
               uf(im,j,k)=t(im,j,k)-u1*(tbe(j,k)-t(im,j,k))
@@ -4186,9 +4186,9 @@ C
                 vf(im,j,k)=vf(im,j,k)-wm*(s(imm1,j,k-1)-s(imm1,j,k+1))
               endif
             endif
-C
-C     West:
-C
+!
+!     West:
+!
             u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
             if(u1.ge.0.e0) then
               uf(1,j,k)=t(1,j,k)-u1*(t(1,j,k)-tbw(j,k))
@@ -4205,12 +4205,12 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kbm1
           do i=1,im
-C
-C     North:
-C
+!
+!     North:
+!
             u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
             if(u1.le.0.e0) then
               uf(i,jm,k)=t(i,jm,k)-u1*(tbn(i,k)-t(i,jm,k))
@@ -4225,9 +4225,9 @@ C
                 vf(i,jm,k)=vf(i,jm,k)-wm*(s(i,jmm1,k-1)-s(i,jmm1,k+1))
               endif
             endif
-C
-C     South:
-C
+!
+!     South:
+!
             u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
             if(u1.ge.0.e0) then
               uf(i,1,k)=t(i,1,k)-u1*(t(i,1,k)-tbs(i,k))
@@ -4244,7 +4244,7 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4253,13 +4253,13 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
+!
+!     Vertical velocity boundary conditions:
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4267,18 +4267,18 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
+!
+!     q2 and q2l boundary conditions:
+!
         do k=1,kb
           do j=1,jm
-C
-C     East:
-C
+!
+!     East:
+!
             u1=2.e0*u(im,j,k)*dti/(dx(im,j)+dx(imm1,j))
             if(u1.le.0.e0) then
               uf(im,j,k)=q2(im,j,k)-u1*(small-q2(im,j,k))
@@ -4287,9 +4287,9 @@ C
               uf(im,j,k)=q2(im,j,k)-u1*(q2(im,j,k)-q2(imm1,j,k))
               vf(im,j,k)=q2l(im,j,k)-u1*(q2l(im,j,k)-q2l(imm1,j,k))
             endif
-C
-C     West:
-C
+!
+!     West:
+!
             u1=2.e0*u(2,j,k)*dti/(dx(1,j)+dx(2,j))
             if(u1.ge.0.e0) then
               uf(1,j,k)=q2(1,j,k)-u1*(q2(1,j,k)-small)
@@ -4300,12 +4300,12 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kb
           do i=1,im
-C
-C     North:
-C
+!
+!     North:
+!
             u1=2.e0*v(i,jm,k)*dti/(dy(i,jm)+dy(i,jmm1))
             if(u1.le.0.e0) then
               uf(i,jm,k)=q2(i,jm,k)-u1*(small-q2(i,jm,k))
@@ -4314,9 +4314,9 @@ C
               uf(i,jm,k)=q2(i,jm,k)-u1*(q2(i,jm,k)-q2(i,jmm1,k))
               vf(i,jm,k)=q2l(i,jm,k)-u1*(q2l(i,jm,k)-q2l(i,jmm1,k))
             endif
-C
-C     South:
-C
+!
+!     South:
+!
             u1=2.e0*v(i,2,k)*dti/(dy(i,1)+dy(i,2))
             if(u1.ge.0.e0) then
               uf(i,1,k)=q2(i,1,k)-u1*(q2(i,1,k)-small)
@@ -4327,7 +4327,7 @@ C
             endif
           end do
         end do
-C
+!
         do k=1,kb
           do j=1,jm
             do i=1,im
@@ -4336,111 +4336,111 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       endif
-C
+!
       end subroutine bcond_rwnd
-C
+!
       subroutine bcondorl(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  This is an optional subroutine replacing  bcond and *
-C *                using Orlanski's scheme (J. Comp. Phys. 21, 251-269,*
-C *                1976), specialized for the seamount problem. To     *
-C *                make it work for the seamount problem, I (G.M.)     *
-C *                have had to add an extra condition on an "if"       *
-C *                statement in the t and s open boundary conditions,  *
-C *                which involves the sign of the normal velocity.     *
-C *                Thus:                                               *
-C *                                                                    *
-C *            if(cl.eq.0.e0.and.ubw(j,k).ge.0.e0) uf(1,j,k)=tbw(j,k), *
-C *                                                                    *
-C *                plus 3 others of the same kind.                     *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  This is an optional subroutine replacing  bcond and *
+! *                using Orlanski's scheme (J. Comp. Phys. 21, 251-269,*
+! *                1976), specialized for the seamount problem. To     *
+! *                make it work for the seamount problem, I (G.M.)     *
+! *                have had to add an extra condition on an "if"       *
+! *                statement in the t and s open boundary conditions,  *
+! *                which involves the sign of the normal velocity.     *
+! *                Thus:                                               *
+! *                                                                    *
+! *            if(cl.eq.0.e0.and.ubw(j,k).ge.0.e0) uf(1,j,k)=tbw(j,k), *
+! *                                                                    *
+! *                plus 3 others of the same kind.                     *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer idx
       double precision cl,denom
       integer i,j,k
-C
+!
       if(idx.eq.1) then
-C
-C-----------------------------------------------------------------------
-C
-C     External (2-D) boundary conditions:
-C
-C     In this example the governing boundary conditions are a radiation
-C     condition on uaf(im,j) in the east and an inflow uaf(2,j) in the
-C     west. The tangential velocities are set to zero on both
-C     boundaries. These are only one set of possibilities and may not
-C     represent a choice which yields the most physically double precisionistic
-C     result.
-C
-C     Elevation (in this application, elevation is not a primary
-C     boundary condition):
-C
+!
+!-----------------------------------------------------------------------
+!
+!     External (2-D) boundary conditions:
+!
+!     In this example the governing boundary conditions are a radiation
+!     condition on uaf(im,j) in the east and an inflow uaf(2,j) in the
+!     west. The tangential velocities are set to zero on both
+!     boundaries. These are only one set of possibilities and may not
+!     represent a choice which yields the most physically double precisionistic
+!     result.
+!
+!     Elevation (in this application, elevation is not a primary
+!     boundary condition):
+!
         do  j=1,jm
           elf(1,j)=elf(2,j)
           elf(im,j)=elf(imm1,j)
         end do
-C
+!
         do j=1,jm
           do i=1,im
             elf(i,j)=elf(i,j)*fsm(i,j)
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.2) then
-C
-C     External (2-D) velocity:
-C
+!
+!     External (2-D) velocity:
+!
         do j=2,jmm1
-C
-C     West:
-C
+!
+!     West:
+!
           uaf(2,j)=ramp*uabw(j)-sqrt(grav/h(2,j))*(el(2,j)-elw(j))
           uaf(1,j)=uaf(2,j)
           vaf(1,j)=0.e0
-C
-C     East:
-C
+!
+!     East:
+!
           uaf(im,j)=ramp*uabe(j)
      $               +sqrt(grav/h(imm1,j))*(el(imm1,j)-ele(j))
           vaf(im,j)=0.e0
-C
+!
         end do
-C
+!
         do j=1,jm
           do i=1,im
             uaf(i,j)=uaf(i,j)*dum(i,j)
             vaf(i,j)=vaf(i,j)*dvm(i,j)
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.3) then
-C
-C-----------------------------------------------------------------------
-C
-C     Internal (3-D) boundary conditions:
-C
-C     Eastern and western radiation boundary conditions according to
-C     Orlanski's explicit scheme:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Internal (3-D) boundary conditions:
+!
+!     Eastern and western radiation boundary conditions according to
+!     Orlanski's explicit scheme:
+!
         do k=1,kbm1
           do j=2,jmm1
-C
-C     West:
-C
+!
+!     West:
+!
             denom=(uf(3,j,k)+ub(3,j,k)-2.e0*u(4,j,k))
             if(denom.eq.0.e0)denom=0.01e0
             cl=(ub(3,j,k)-uf(3,j,k))/denom
@@ -4450,9 +4450,9 @@ C
      $                 /(1.e0+cl)
             uf(1,j,k)=uf(2,j,k)
             vf(1,j,k)=0.e0
-C
-C     East:
-C
+!
+!     East:
+!
             denom=(uf(im-1,j,k)+ub(im-1,j,k)-2.e0*u(im-2,j,k))
             if(denom.eq.0.e0)denom=0.01e0
             cl=(ub(im-1,j,k)-uf(im-1,j,k))/denom
@@ -4463,7 +4463,7 @@ C
             vf(im,j,k)=0.e0
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4472,19 +4472,19 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.4) then
-C
-C     Temperature and salinity boundary conditions (using uf and vf,
-C     respectively):
-C
+!
+!     Temperature and salinity boundary conditions (using uf and vf,
+!     respectively):
+!
         do k=1,kbm1
           do j=1,jm
-C
-C     West:
-C
+!
+!     West:
+!
             ubw(j,k)=ub(2,j,k)
             denom=(uf(2,j,k)+tb(2,j,k)-2.e0*t(3,j,k))
             if(denom.eq.0.e0) denom=0.01e0
@@ -4493,7 +4493,7 @@ C
             if(cl.lt.0.e0) cl=0.e0
             uf(1,j,k)=(tb(1,j,k)*(1.e0-cl)+2.e0*cl*t(2,j,k))/(1.e0+cl)
             if(cl.eq.0.e0.and.ubw(j,k).ge.0.e0) uf(1,j,k)=tbw(j,k)
-C
+!
             denom=(vf(2,j,k)+sb(2,j,k)-2.e0*s(3,j,k))
             if(denom.eq.0.e0) denom=0.01e0
             cl=(sb(2,j,k)-vf(2,j,k))/denom
@@ -4501,9 +4501,9 @@ C
             if(cl.lt.0.e0) cl=0.e0
             vf(1,j,k)=(sb(1,j,k)*(1.e0-cl)+2.e0*cl*s(2,j,k))/(1.e0+cl)
             if(cl.eq.0.e0.and.ubw(j,k).ge.0.e0) vf(1,j,k)=sbw(j,k)
-C
-C     East:
-C
+!
+!     East:
+!
             ube(j,k)=ub(im,j,k)
             denom=(uf(im-1,j,k)+tb(im-1,j,k)-2.e0*t(im-2,j,k))
             if(denom.eq.0.e0) denom=0.01e0
@@ -4513,7 +4513,7 @@ C
             uf(im,j,k)=(tb(im,j,k)*(1.e0-cl)+2.e0*cl*t(im-1,j,k))
      $                  /(1.e0+cl)
             if(cl.eq.0.e0.and.ube(j,k).le.0.e0) uf(im,j,k)=tbe(j,k)
-C
+!
             denom=(vf(im-1,j,k)+sb(im-1,j,k)-2.e0*s(im-2,j,k))
             if(denom.eq.0.e0) denom=0.01e0
             cl=(sb(im-1,j,k)-vf(im-1,j,k))/denom
@@ -4522,10 +4522,10 @@ C
             vf(im,j,k)=(sb(im,j,k)*(1.e0-cl)+2.e0*cl*s(im-1,j,k))
      $                  /(1.e0+cl)
             if(cl.eq.0.e0.and.ube(j,k).le.0.e0) vf(im,j,k)=sbe(j,k)
-C
+!
           end do
         end do
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4534,13 +4534,13 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.5) then
-C
-C     Vertical velocity boundary conditions:
-C
+!
+!     Vertical velocity boundary conditions:
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -4548,22 +4548,22 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       else if(idx.eq.6) then
-C
-C     q2 and q2l boundary conditions:
-C
+!
+!     q2 and q2l boundary conditions:
+!
         do k=1,kb
-C
+!
           do j=1,jm
             uf(im,j,k)=1.e-10
             vf(im,j,k)=1.e-10
             uf(1,j,k)=1.e-10
             vf(1,j,k)=1.e-10
           end do
-C
+!
           do j=1,jm
             do i=1,im
               uf(i,j,k)=uf(i,j,k)*fsm(i,j)
@@ -4571,133 +4571,133 @@ C
             end do
           end do
         end do
-C
+!
         return
-C
+!
       endif
-C
+!
       end
-C
+!
       subroutine box
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up conservation box problem.                   *
-C *                                                                    *
-C *                This basin uses the same grid as the seamount       *
-C *                problem, but it has a flat bottom, is surrounded by *
-C *                walls and is initialised with uniform salinity and  *
-C *                temperature. It is forced by a surface input of     *
-C *                water of the same temperature and salinity as the   *
-C *                water in the basin. Therefore, the temperature and  *
-C *                salinity in the basin should not change, and the    *
-C *                free surface should fall at a rate vflux. It is also*
-C *                forced by a steady atmospheric pressure field which *
-C *                depresses the southwestern half of the model by 1 m *
-C *                and elevates the northeastern half of the model by  *
-C *                1 m.                                                *
-C *                                                                    *
-C *                Since this problem defines its own fixed e_atmos,   *
-C *                tatm, satm and e_atmos, comment out corresponding   *
-C *                declarations after the do 9000 statement in main    *
-C *                program.                                            *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up conservation box problem.                   *
+! *                                                                    *
+! *                This basin uses the same grid as the seamount       *
+! *                problem, but it has a flat bottom, is surrounded by *
+! *                walls and is initialised with uniform salinity and  *
+! *                temperature. It is forced by a surface input of     *
+! *                water of the same temperature and salinity as the   *
+! *                water in the basin. Therefore, the temperature and  *
+! *                salinity in the basin should not change, and the    *
+! *                free surface should fall at a rate vflux. It is also*
+! *                forced by a steady atmospheric pressure field which *
+! *                depresses the southwestern half of the model by 1 m *
+! *                and elevates the northeastern half of the model by  *
+! *                1 m.                                                *
+! *                                                                    *
+! *                Since this problem defines its own fixed e_atmos,   *
+! *                tatm, satm and e_atmos, comment out corresponding   *
+! *                declarations after the do 9000 statement in main    *
+! *                program.                                            *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision depth,delx,tatm,satm
       integer i,j,k
-C
-C     Water depth:
-C
+!
+!     Water depth:
+!
       depth=4500.e0
-C
-C     Grid size:
-C
+!
+!     Grid size:
+!
       delx=8000.e0
-C
-C     Set up grid dimensions, areas of free surface cells, and
-C     Coriolis parameter:
-C
+!
+!     Set up grid dimensions, areas of free surface cells, and
+!     Coriolis parameter:
+!
       do j=1,jm
         do i=1,im
-C
-C     For constant grid size:
-C
-C         dx(i,j)=delx
-C         dy(i,j)=delx
-C
-C     For variable grid size:
-C
+!
+!     For constant grid size:
+!
+!         dx(i,j)=delx
+!         dy(i,j)=delx
+!
+!     For variable grid size:
+!
           dx(i,j)=delx-delx*sin(pi*float(i)/float(im))/2.e0
           dy(i,j)=delx-delx*sin(pi*float(j)/float(jm))/2.e0
-C
+!
           cor(i,j)=1.e-4
-C
+!
         end do
       end do
-C
-C     Calculate horizontal coordinates of grid points and rotation
-C     angle.
-C
-C     NOTE that this is introduced solely for the benefit of any post-
-C     processing software, and in order to conform with the requirements
-C     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
-C
-C     There are four horizontal coordinate systems, denoted by the
-C     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
-C     "e" is an elevation point and "c" is a cell corner), as shown
-C     below. In addition, "east_*" is an easting and "north_*" is a
-C     northing. Hence the coordinates of the "u" points are given by
-C     (east_u,north_u).
-C
-C     Also, if the centre point of the cell shown below is at
-C     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
-C     the coordinates of the western of the two "u" points,
-C     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
-C     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
-C     coordinates of the southwestern corner point of the cell. The
-C     southwest corner of the entire grid is at
-C     (east_c(1,1),north_c(1,1)).
-C
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                      u      e       u
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C
-C
-C     NOTE that the following calculation of east_c and north_c only
-C     works properly for a rectangular grid with east and north aligned
-C     with i and j, respectively:
-C
+!
+!     Calculate horizontal coordinates of grid points and rotation
+!     angle.
+!
+!     NOTE that this is introduced solely for the benefit of any post-
+!     processing software, and in order to conform with the requirements
+!     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
+!
+!     There are four horizontal coordinate systems, denoted by the
+!     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
+!     "e" is an elevation point and "c" is a cell corner), as shown
+!     below. In addition, "east_*" is an easting and "north_*" is a
+!     northing. Hence the coordinates of the "u" points are given by
+!     (east_u,north_u).
+!
+!     Also, if the centre point of the cell shown below is at
+!     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
+!     the coordinates of the western of the two "u" points,
+!     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
+!     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
+!     coordinates of the southwestern corner point of the cell. The
+!     southwest corner of the entire grid is at
+!     (east_c(1,1),north_c(1,1)).
+!
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                      u      e       u
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!
+!
+!     NOTE that the following calculation of east_c and north_c only
+!     works properly for a rectangular grid with east and north aligned
+!     with i and j, respectively:
+!
       do j=1,jm
         east_c(1,j)=0.e0
         do i=2,im
           east_c(i,j)=east_c(i-1,j)+dx(i-1,j)
         end do
       end do
-C
+!
       do i=1,im
         north_c(i,1)=0.e0
         do j=2,jm
           north_c(i,j)=north_c(i,j-1)+dy(i,j-1)
         end do
       end do
-C
-C     The following works properly for any grid:
-C
-C     Elevation points:
-C
+!
+!     The following works properly for any grid:
+!
+!     Elevation points:
+!
       do j=1,jm-1
         do i=1,im-1
           east_e(i,j)=(east_c(i,j)+east_c(i+1,j)
@@ -4706,9 +4706,9 @@ C
      $                   +north_c(i,j+1)+north_c(i+1,j+1))/4.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im-1
         east_e(i,jm)
      $    =((east_c(i,jm)+east_c(i+1,jm))*3.e0
@@ -4717,7 +4717,7 @@ C
      $    =((north_c(i,jm)+north_c(i+1,jm))*3.e0
      $       -north_c(i,jm-1)-north_c(i+1,jm-1))/4.e0
       end do
-C
+!
       do j=1,jm-1
         east_e(im,j)
      $    =((east_c(im,j)+east_c(im,j+1))*3.e0
@@ -4726,98 +4726,98 @@ C
      $    =((north_c(im,j)+north_c(im,j+1))*3.e0
      $       -north_c(im-1,j)-north_c(im-1,j+1))/4.e0
       end do
-C
+!
       east_e(im,jm)=east_e(im-1,jm)+east_e(im,jm-1)
      $               -(east_e(im-2,jm)+east_e(im,jm-2))/2.e0
       north_e(im,jm)=north_e(im-1,jm)+north_e(im,jm-1)
      $               -(north_e(im-2,jm)+north_e(im,jm-2))/2.e0
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre:
-C
-C     (NOTE that the following calculation of rot only works properly
-C     for this particular rectangular grid)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre:
+!
+!     (NOTE that the following calculation of rot only works properly
+!     for this particular rectangular grid)
+!
       do j=1,jm
         do i=1,im
           rot(i,j)=0.e0
         end do
       end do
-C
-C     Define depth:
-C
+!
+!     Define depth:
+!
       do i=1,im
         do j=1,jm
           h(i,j)=depth
         end do
       end do
-C
-C     Close the north and south boundaries:
-C
+!
+!     Close the north and south boundaries:
+!
       do i=1,im
         h(i,1)=1.e0
         h(i,jm)=1.e0
       end do
-C
-C     Close the east and west boundaries:
-C
+!
+!     Close the east and west boundaries:
+!
       do j=1,jm
         h(1,j)=1.e0
         h(im,j)=1.e0
       end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       call areas_masks
-C
-C     Adjust bottom topography so that cell to cell variations
-C     in h do not exceed parameter slmax:
-C
+!
+!     Adjust bottom topography so that cell to cell variations
+!     in h do not exceed parameter slmax:
+!
       if(slmax.lt.1.e0) call slpmax
-C
-C     Set tbias and sbias here for test (tbias and sbias would
-C     normally only be set in the main program):
-C
+!
+!     Set tbias and sbias here for test (tbias and sbias would
+!     normally only be set in the main program):
+!
       tbias=10.e0
       sbias=20.e0
       write(6,1) tbias,sbias
     1 format(/' tbias and sbias changed in subroutine box to:'/
      $         2f10.3//)
-C
-C     Set initial conditions:
-C
+!
+!     Set initial conditions:
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -4828,24 +4828,24 @@ C
           end do
         end do
       end do
-C
-C     Initialise uab and vab as necessary
-C     (NOTE that these have already been initialised to zero in the
-C     main program):
-C
+!
+!     Initialise uab and vab as necessary
+!     (NOTE that these have already been initialised to zero in the
+!     main program):
+!
       do j=1,jm
         do i=1,im
-C     No conditions necessary for this problem
+!     No conditions necessary for this problem
         end do
       end do
-C
-C     Set surface boundary conditions, e_atmos, vflux, wusurf,
-C     wvsurf, wtsurf, wssurf and swrad, as necessary
-C     (NOTE:
-C      1. These have all been initialised to zero in the main program.
-C      2. The temperature and salinity of inflowing water must be
-C         defined relative to tbias and sbias.):
-C
+!
+!     Set surface boundary conditions, e_atmos, vflux, wusurf,
+!     wvsurf, wtsurf, wssurf and swrad, as necessary
+!     (NOTE:
+!      1. These have all been initialised to zero in the main program.
+!      2. The temperature and salinity of inflowing water must be
+!         defined relative to tbias and sbias.):
+!
       do j=1,jm
         do i=1,im
 !
@@ -4858,24 +4858,24 @@ C
           else
             e_atmos(i,j)=-1.e0
           endif
-C
-C     Ensure atmospheric pressure cannot make water depth go negative:
-C
+!
+!     Ensure atmospheric pressure cannot make water depth go negative:
+!
           e_atmos(i,j)=min(e_atmos(i,j),h(i,j))
-C
+!
           vfluxf(i,j)=-0.0001e0
-C
-C     See main program, just after "Begin numerical integration", for
-C     an explanation of these terms:
-C
+!
+!     See main program, just after "Begin numerical integration", for
+!     an explanation of these terms:
+!
           tatm=20.e0
           satm=35.e0
-C
+!
         end do
       end do
-C
-C     Initialise elb, etb, dt and aam2d:
-C
+!
+!     Initialise elb, etb, dt and aam2d:
+!
       do j=1,jm
         do i=1,im
           elb(i,j)=-e_atmos(i,j)
@@ -4884,7 +4884,7 @@ C
           aam2d(i,j)=aam(i,j,1)
         end do
       end do
-C
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
@@ -4895,13 +4895,13 @@ C
       call dens(sb,tb,rho)
 !                                                                      !
 !----------------------------------------------------------------------!
-C
-C     Generated horizontally averaged density field (in this
-C     application, the initial condition for density is a function
-C     of z (the vertical cartesian coordinate) -- when this is not
-C     so, make sure that rmean has been area averaged BEFORE transfer
-C     to sigma coordinates):
-C
+!
+!     Generated horizontally averaged density field (in this
+!     application, the initial condition for density is a function
+!     of z (the vertical cartesian coordinate) -- when this is not
+!     so, make sure that rmean has been area averaged BEFORE transfer
+!     to sigma coordinates):
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -4909,84 +4909,84 @@ C
           end do
         end do
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     (in this problem, all lateral boundaries are closed through
-C     the specification of the masks fsm, dum and dvm):
-C
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     (in this problem, all lateral boundaries are closed through
+!     the specification of the masks fsm, dum and dvm):
+!
       rfe=1.e0
       rfw=1.e0
       rfn=1.e0
       rfs=1.e0
-C
-C     Set thermodynamic boundary conditions (for the seamount
-C     problem, and other possible applications, lateral thermodynamic
-C     boundary conditions are set equal to the initial conditions and
-C     are held constant thereafter - users may, of course, create
-C     variable boundary conditions):
-C
+!
+!     Set thermodynamic boundary conditions (for the seamount
+!     problem, and other possible applications, lateral thermodynamic
+!     boundary conditions are set equal to the initial conditions and
+!     are held constant thereafter - users may, of course, create
+!     variable boundary conditions):
+!
       do k=1,kbm1
-C
+!
         do j=1,jm
           tbe(j,k)=tb(im,j,k)
           tbw(j,k)=tb(1,j,k)
           sbe(j,k)=sb(im,j,k)
           sbw(j,k)=sb(1,j,k)
         end do
-C
+!
         do i=1,im
           tbn(i,k)=tb(i,jm,k)
           tbs(i,k)=tb(i,1,k)
           sbn(i,k)=sb(i,jm,k)
           sbs(i,k)=sb(i,1,k)
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine dens(si,ti,rhoo)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates (density-1000.)/rhoref.                  *
-C *                                                                    *
-C *                (see: Mellor, G.L., 1991, J. Atmos. Oceanic Tech.,  *
-C *                609-611.)                                           *
-C *                                                                    *
-C *                ti is potential temperature                         *
-C *                                                                    *
-C *                If using 32 bit precision, it is recommended that   *
-C *                cr,p,rhor,sr,tr,tr2,tr3 and tr4 be made double      *
-C *                precision, and the "e"s in the constants be changed *
-C *                to "d"s.                                            *
-C *                                                                    *
-C * NOTE: if pressure is not used in dens, buoyancy term (boygr)       *
-C *       in profq must be changed (see note in profq)                 *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates (density-1000.)/rhoref.                  *
+! *                                                                    *
+! *                (see: Mellor, G.L., 1991, J. Atmos. Oceanic Tech.,  *
+! *                609-611.)                                           *
+! *                                                                    *
+! *                ti is potential temperature                         *
+! *                                                                    *
+! *                If using 32 bit precision, it is recommended that   *
+! *                cr,p,rhor,sr,tr,tr2,tr3 and tr4 be made double      *
+! *                precision, and the "e"s in the constants be changed *
+! *                to "d"s.                                            *
+! *                                                                    *
+! * NOTE: if pressure is not used in dens, buoyancy term (boygr)       *
+! *       in profq must be changed (see note in profq)                 *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision si(im,jm,kb),ti(im,jm,kb),rhoo(im,jm,kb)
       double precision cr,p,rhor,sr,tr,tr2,tr3,tr4  !,hij !lyo:!wad:define hij
       integer i,j,k
-C
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
-C
+!
             tr=ti(i,j,k)+tbias
             sr=si(i,j,k)+sbias
             tr2=tr*tr
             tr3=tr2*tr
             tr4=tr3*tr
-C
-C     Approximate pressure in units of bars:
-C
+!
+!     Approximate pressure in units of bars:
+!
 !
 !lyo:!wad:Keep "p" defined as in original pom w/o hhi (i.e. "h" defined
 !         wrt MSL), but set p=0 for cells where input "h" indicates
@@ -4994,133 +4994,133 @@ C
 !
             p=pdens(i,j,k)
 !           p=grav*rhoref*(-zz(k)* h(i,j))*1.e-5
-C
+!
             rhor=-0.157406e0+6.793952e-2*tr
      $            -9.095290e-3*tr2+1.001685e-4*tr3
      $            -1.120083e-6*tr4+6.536332e-9*tr4*tr
-C
+!
             rhor=rhor+(0.824493e0-4.0899e-3*tr
      $            +7.6438e-5*tr2-8.2467e-7*tr3
      $            +5.3875e-9*tr4)*sr
      $            +(-5.72466e-3+1.0227e-4*tr
      $            -1.6546e-6*tr2)*abs(sr)**1.5
      $            +4.8314e-4*sr*sr
-C
+!
             cr=1449.1e0+.0821e0*p+4.55e0*tr-.045e0*tr2
      $          +1.34e0*(sr-35.e0)
             rhor=rhor+1.e5*p/(cr*cr)*(1.e0-2.e0*p/(cr*cr))
-C
+!
             rhoo(i,j,k)=rhor/rhoref*fsm(i,j)
-C
+!
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine depth
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Establishes the vertical sigma grid with log        *
-C *                distributions at the top and bottom and a linear    *
-C *                distribution in between. The number of layers of    *
-C *                reduced thickness are kl1-2 at the surface and      *
-C *                kb-kl2-1 at the bottom. kl1 and kl2 are defined in  *
-C *                the main program. For no log portions, set kl1=2    *
-C *                and kl2=kb-1.                                       *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Establishes the vertical sigma grid with log        *
+! *                distributions at the top and bottom and a linear    *
+! *                distribution in between. The number of layers of    *
+! *                reduced thickness are kl1-2 at the surface and      *
+! *                kb-kl2-1 at the bottom. kl1 and kl2 are defined in  *
+! *                the main program. For no log portions, set kl1=2    *
+! *                and kl2=kb-1.                                       *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision delz
       integer kdz(12)
       integer k
-C
+!
       data kdz/1,1,2,4,8,16,32,64,128,256,512,1024/
-C
+!
       z(1)=0.e0
-C
+!
       do k=2,kl1
         z(k)=z(k-1)+kdz(k-1)
       end do
-C
+!
       delz=z(kl1)-z(kl1-1)
-C
+!
       do k=kl1+1,kl2
         z(k)=z(k-1)+delz
       end do
-C
+!
       do k=kl2+1,kb
         dz(k)=float(kdz(kb-k+1))*delz/float(kdz(kb-kl2))
         z(k)=z(k-1)+dz(k)
       end do
-C
+!
       do k=1,kb
         z(k)=-z(k)/z(kb)
       end do
-C
+!
       do k=1,kb-1
         zz(k)=0.5e0*(z(k)+z(k+1))
       end do
-C
+!
       zz(kb)=2.e0*zz(kb-1)-zz(kb-2)
-C
+!
       do k=1,kb-1
         dz(k)=z(k)-z(k+1)
         dzz(k)=zz(k)-zz(k+1)
       end do
-C
+!
       dz(kb)=0.e0
       dzz(kb)=0.e0
-C
+!
       write(6,1)
     1 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
-C
+!
       do k=1,kb
         write(6,2) k,z(k),zz(k),dz(k),dzz(k)
     2   format((' ',i5,4f10.3))
       end do
-C
+!
       write(6,3)
     3 format(//)
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine findpsi
-C **********************************************************************
-C *                                                                    *
-C * ROUTINE NAME:  findpsi                                             *
-C *                                                                    *
-C * FUNCTION    :  Calculates the stream function, first assuming      *
-C *                zero on the southern boundary and then, using the   *
-C *                values on the western boundary, the stream function *
-C *                is calculated again. If the elevation field is near *
-C *                steady state, the two calculations should agree;    *
-C *                otherwise not.                                      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * ROUTINE NAME:  findpsi                                             *
+! *                                                                    *
+! * FUNCTION    :  Calculates the stream function, first assuming      *
+! *                zero on the southern boundary and then, using the   *
+! *                values on the western boundary, the stream function *
+! *                is calculated again. If the elevation field is near *
+! *                steady state, the two calculations should agree;    *
+! *                otherwise not.                                      *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j
-C
+!
       do j=1,jm
         do i=1,im
           psi(i,j)=0.e0
         end do
       end do
-C
-C     Sweep northward:
-C
+!
+!     Sweep northward:
+!
       do j=2,jmm1
         do i=2,im
           psi(i,j+1)=psi(i,j)
@@ -5128,12 +5128,12 @@ C
      $                  *(dy(i,j)+dy(i-1,j))
         end do
       end do
-C
+!
       call prxy('Streamfunction, psi from u              ',
      $          time,psi,im,iskp,jm,jskp,0.d0)
-C
-C    Sweep eastward:
-C
+!
+!    Sweep eastward:
+!
       do j=2,jm
         do i=2,imm1
           psi(i+1,j)=psi(i,j)
@@ -5141,43 +5141,43 @@ C
      $                  *(dx(i,j)+dx(i,j-1))
         end do
       end do
-C
+!
       call prxy('Streamfunction, psi from v              ',
      $          time,psi,im,iskp,jm,jskp,0.d0)
-C
+!
       return
-C
+!
       end
-C
+!
 !----------------------------------------------------------------------!
 !lyo:_20080415:This version (of file2ic) is basically still the old one!
 !     from pom2k - I have not converted it to setup for double precisionistic      !
 !     WAD runs - but see subr. wadseamount for an example of how-to.   !
 !----------------------------------------------------------------------!
       subroutine file2ic
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up my own problem.                             *
-C *                                                                    *
-C * This example read IC from IC.dat file, generated by GRID.f in      *
-C * GRID-DATA directory. Only minimal number of fields are read,       *
-C * while others are calculated here.                                  *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up my own problem.                             *
+! *                                                                    *
+! * This example read IC from IC.dat file, generated by GRID.f in      *
+! * GRID-DATA directory. Only minimal number of fields are read,       *
+! * while others are calculated here.                                  *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision rad,re,dlat,dlon,cff
       integer i,j,k,m
       character*5 field
       rad=0.01745329
       re=6371.E3
-C
+!
       write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
+!
+!--- 1D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') z
@@ -5190,7 +5190,7 @@ C--- 1D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') dzz
-C--- 2D ---
+!--- 2D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') east_e
@@ -5200,7 +5200,7 @@ C--- 2D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') h  !lyo:!wad:note:read +- topography
-C--- 3D ---
+!--- 3D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') t
@@ -5210,17 +5210,17 @@ C--- 3D ---
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') rmean
-C--- Constant wind stress read here
-C (for time dep. read in loop 9000 & interpolate in time)
+!--- Constant wind stress read here
+! (for time dep. read in loop 9000 & interpolate in time)
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') wusurf
       read(40,'(a5)') field
       write(6,'(a5)') field
        read(40,'(8E12.5)') wvsurf
-C
-C --- print vertical grid distribution
-C
+!
+! --- print vertical grid distribution
+!
       write(6,2)
     2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
       write(6,'(''  '',/)')
@@ -5233,9 +5233,9 @@ C
 !lyo:_20080415:Move "calc. Coriolis etc" through "call areas_masks"
 !     from below (after call dens) to here; otherwise, fsm will not
 !     be defined but is used in subroutine dens. (This is a pom2k_bug).
-C
-C --- calc. Coriolis Parameter
-C
+!
+! --- calc. Coriolis Parameter
+!
         do j=1,jm
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
@@ -5245,7 +5245,7 @@ C
             dt(i,j)=h(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
@@ -5254,7 +5254,7 @@ C
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
         end do
-C
+!
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
@@ -5263,13 +5263,13 @@ C
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
         end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       call areas_masks
-C
-C --- calc. surface & lateral BC from climatology
-C
+!
+! --- calc. surface & lateral BC from climatology
+!
         do j=1,jm
           do i=1,im
              tsurf(i,j)=t(i,j,1)
@@ -5280,12 +5280,12 @@ C
             end do
           end do
         end do
-C
-C                    --- EAST & WEST BCs ---
+!
+!                    --- EAST & WEST BCs ---
         do j=1,jm
               ele(j)=0.
               elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
+! --- other vel. BCs (fixed in time) can be specified here
               uabe(j)=0.
               uabw(j)=0.
             do k=1,kb
@@ -5297,7 +5297,7 @@ C --- other vel. BCs (fixed in time) can be specified here
               sbe(j,k)=sclim(im,j,k)
             end do
         end do
-C                    --- NORTH & SOUTH BCs ---
+!                    --- NORTH & SOUTH BCs ---
         do i=1,im
               els(i)=0.
               eln(i)=0.
@@ -5312,9 +5312,9 @@ C                    --- NORTH & SOUTH BCs ---
               sbn(i,k)=sclim(i,jm,k)
             end do
         end do
-C
-C     Set initial conditions:
-C
+!
+!     Set initial conditions:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -5325,7 +5325,7 @@ C
           end do
         end do
       end do
-C
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
@@ -5336,11 +5336,11 @@ C
       call dens(sb,tb,rho)
 !                                                                      !
 !----------------------------------------------------------------------!
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
+!
+! --- the following grids are needed only for netcdf plotting
+!
+!     Corner of cell points:
+!
       do j=2,jm
         do i=2,im
           east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
@@ -5349,57 +5349,57 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-C
-C
-C     Extrapolate ends (approx.):
-C
+!
+!
+!     Extrapolate ends (approx.):
+!
       do i=2,im
         east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
         north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
       end do
         east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
+!
       do j=2,jm
         east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
         north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
       end do
         north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre: (only needed for CDF plotting)
+!
       do j=1,jm
         do i=1,im-1
           rot(i,j)=0.
@@ -5409,224 +5409,224 @@ C
         end do
        rot(im,j)=rot(im-1,j)
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     set all=0 for closed BCs.
+!     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
       rfs=0.e0
-C
+!
       return
       end
-C
+!
       subroutine printall
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  printall                                            *
-C *                                                                    *
-C * FUNCTION    :  Prints a set of outputs to device 6                 *
-C *                                                                    *
-C *                Edit as approriate.                                 *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! *                         POM2K SOURCE CODE                          *
+! *                                                                    *
+! * ROUTINE NAME:  printall                                            *
+! *                                                                    *
+! * FUNCTION    :  Prints a set of outputs to device 6                 *
+! *                                                                    *
+! *                Edit as approriate.                                 *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       integer io(100),jo(100),ko(100)
-C
+!
       include 'pomNW.c'
-C
-C     2-D horizontal fields:
-C
+!
+!     2-D horizontal fields:
+!
           call prxy('Depth-averaged u, uab                   ',
      $              time,uab,im,iskp,jm,jskp,0.d0)
-C
+!
           call prxy('Depth-averaged v, vab                   ',
      $              time,vab,im,iskp,jm,jskp,0.d0)
-C
+!
           call prxy('Surface elevation, elb                  ',
      $              time,elb,im,iskp,jm,jskp,0.d0)
-C
-C     Calculate and print streamfunction:
-C
+!
+!     Calculate and print streamfunction:
+!
           call findpsi
-C
+!
           if(mode.ne.2) then
-C
-C     2-D horizontal sections of 3-D fields:
-C
-C     Set levels for output:
-C
+!
+!     2-D horizontal sections of 3-D fields:
+!
+!     Set levels for output:
+!
             ko(1)=1
             ko(2)=kb/2
             ko(3)=kb-1
-C
+!
             call prxyz('x-velocity, u                           ',
      $                 time,u    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
+!
             call prxyz('y-velocity, v                           ',
      $                 time,v    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
+!
             ko(1)=2
             call prxyz('z-velocity, w                           ',
      $                 time,w    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
             ko(1)=1
-C
+!
             call prxyz('Potential temperature, t                ',
      $                 time,t    ,im,iskp,jm,jskp,kb,ko,3,1.d-2)
-C
+!
             call prxyz('Salinity, s                              ',
      $                 time,s    ,im,iskp,jm,jskp,kb,ko,3,1.d-2)
-C
+!
             call prxyz('(density-1000)/rhoref, rho              ',
      $                 time,rho  ,im,iskp,jm,jskp,kb,ko,3,1.d-5)
-C
-c           call prxyz('Turbulent kinetic energy x 2, q2        ',
-c    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
-c           call prxyz('Turbulent length scale, l               ',
-c    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
+!
+!           call prxyz('Turbulent kinetic energy x 2, q2        ',
+!    $                 time,q2   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
+!
+!           call prxyz('Turbulent length scale, l               ',
+!    $                 time,l    ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
+!
             call prxyz('Horizontal kinematic viscosity, aam     ',
      $                 time,aam  ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
+!
             call prxyz('Vertical kinematic viscosity, km        ',
      $                 time,km   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
-c           call prxyz('Vertical kinematic diffusivity, kh      ',
-c    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
-C
-C     Vertical sections of 3-D fields, normal to j-axis:
-C
-C     Set sections for output:
-C
+!
+!           call prxyz('Vertical kinematic diffusivity, kh      ',
+!    $                 time,kh   ,im,iskp,jm,jskp,kb,ko,3,0.d0 )
+!
+!     Vertical sections of 3-D fields, normal to j-axis:
+!
+!     Set sections for output:
+!
             jo(1)=1
             jo(2)=jm/2
             jo(3)=jm-1
-C
+!
             call prxz('x-velocity, u                           ',
      $                time,u    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
-C
+!
             call prxz('y-velocity, v                           ',
      $                time,v    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
-C
+!
             call prxz('z-velocity, w                           ',
      $                time,w    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
-C
+!
             call prxz('Potential temperature, t                ',
      $                time,t    ,im,iskp,jm,kb,jo,3,1.d-2,dt,zz)
-C
+!
             call prxz('Salinity, s                             ',
      $                time,s    ,im,iskp,jm,kb,jo,3,1.d-2,dt,zz)
-C
+!
             call prxz('(density-1000)/rhoref, rho              ',
      $                time,rho  ,im,iskp,jm,kb,jo,3,1.d-5,dt,zz)
-C
-c           call prxz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
-C
-c           call prxz('Turbulent length scale, l               ',
-c    $                time,l    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
-C
-c           call prxz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
-C
-c           call prxz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
-C
-c           call prxz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
-C
-C     Vertical sections of 3-D fields, normal to i-axis:
-C
-C     Set sections for output:
-C
+!
+!           call prxz('Turbulent kinetic energy x 2, q2        ',
+!    $                time,q2   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
+!
+!           call prxz('Turbulent length scale, l               ',
+!    $                time,l    ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
+!
+!           call prxz('Horizontal kinematic viscosity, aam     ',
+!    $                time,aam  ,im,iskp,jm,kb,jo,3,0.d0 ,dt,zz)
+!
+!           call prxz('Vertical kinematic viscosity, km        ',
+!    $                time,km   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
+!
+!           call prxz('Vertical kinematic diffusivity, kh      ',
+!    $                time,kh   ,im,iskp,jm,kb,jo,3,0.d0 ,dt,z )
+!
+!     Vertical sections of 3-D fields, normal to i-axis:
+!
+!     Set sections for output:
+!
             io(1)=1
             io(2)=im/2
             io(3)=im-1
-C
+!
             call pryz('x-velocity, u                           ',
      $                time,u    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
-C
+!
             call pryz('y-velocity, v                           ',
      $                time,v    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
-C
+!
             call pryz('z-velocity, w                           ',
      $                time,w    ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
-C
+!
             call pryz('Potential temperature, t                ',
      $                time,t    ,im,jm,jskp,kb,io,3,1.d-2,dt,zz)
-C
-c           call pryz('Salinity x rho / rhoref, s              ',
-c    $                time,s    ,im,jm,jskp,kb,io,3,1.d-2,dt,zz)
-C
-c           call pryz('(density-1000)/rhoref, rho              ',
-c    $                time,rho  ,im,jm,jskp,kb,io,3,1.d-5,dt,zz)
-C
-c           call pryz('Turbulent kinetic energy x 2, q2        ',
-c    $                time,q2   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
-C
-c           call pryz('Turbulent length scale, l               ',
-c    $                time,l    ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
-C
-c           call pryz('Horizontal kinematic viscosity, aam     ',
-c    $                time,aam  ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
-C
-c           call pryz('Vertical kinematic viscosity, km        ',
-c    $                time,km   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
-C
-c           call pryz('Vertical kinematic diffusivity, kh      ',
-c    $                time,kh   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
-C
+!
+!           call pryz('Salinity x rho / rhoref, s              ',
+!    $                time,s    ,im,jm,jskp,kb,io,3,1.d-2,dt,zz)
+!
+!           call pryz('(density-1000)/rhoref, rho              ',
+!    $                time,rho  ,im,jm,jskp,kb,io,3,1.d-5,dt,zz)
+!
+!           call pryz('Turbulent kinetic energy x 2, q2        ',
+!    $                time,q2   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
+!
+!           call pryz('Turbulent length scale, l               ',
+!    $                time,l    ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
+!
+!           call pryz('Horizontal kinematic viscosity, aam     ',
+!    $                time,aam  ,im,jm,jskp,kb,io,3,0.d0 ,dt,zz)
+!
+!           call pryz('Vertical kinematic viscosity, km        ',
+!    $                time,km   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
+!
+!           call pryz('Vertical kinematic diffusivity, kh      ',
+!    $                time,kh   ,im,jm,jskp,kb,io,3,0.d0 ,dt,z )
+!
           endif
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine profq(sm,sh,dh,cc) !lyo:_20080415:see notes at beg.
-C **********************************************************************
-C *                                        Updated: Sep. 24, 2003      *
-C * FUNCTION    :  Solves for q2 (twice the turbulent kinetic energy), *
-C *                q2l (q2 x turbulent length scale), km (vertical     *
-C *                kinematic viscosity) and kh (vertical kinematic     *
-C *                diffusivity), using a simplified version of the     *
-C *                level 2 1/2 model of Mellor and Yamada (1982).      *
-C * In this version, the Craig-Banner sub-model whereby breaking wave  *
-C * tke is injected into the surface is included. However, we use an   *
-C * analytical solution to the near surface tke equation to solve for  *
-C * q2 at the surface giving the same result as C-B diffusion. The new *
-C * scheme is simpler and more robust than the latter scheme.          *
-C *                                                                    *
-C * References                                                         *
-C *   Craig, P. D. and M. L. Banner, Modeling wave-enhanced turbulence *
-C *     in the ocean surface layer. J. Phys. Oceanogr., 24, 2546-2559, *
-C *     1994.                                                          *
-C *   Ezer, T., On the seasonal mixed-layer simulated by a basin-scale *
-C *     ocean model and the Mellor-Yamada turbulence scheme,           *
-C *     J. Geophys. Res., 105(C7), 16,843-16,855, 2000.                *
-C *   Mellor, G.L. and T. Yamada, Development of a turbulence          *
-C *     closure model for geophysical fluid fluid problems,            *
-C *     Rev. Geophys. Space Phys., 20, 851-875, 1982.                  *
-C *   Mellor, G. L., One-dimensional, ocean surface layer modeling,    *
-C *     a problem and a solution. J. Phys. Oceanogr., 31(3), 790-809,  *
-C *     2001.                                                          *
-C *   Mellor, G.L. and A. Blumberg, Wave breaking and ocean surface    *
-C *     thermal response, J. Phys. Oceanogr., 2003.                    *
-C *   Stacey, M. W., Simulations of the wind-forced near-surface       *
-C *     circulation in Knight Inlet: a parameterization of the         *
-C *     roughness length. J. Phys. Oceanogr., 29, 1363-1367, 1999.     *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                        Updated: Sep. 24, 2003      *
+! * FUNCTION    :  Solves for q2 (twice the turbulent kinetic energy), *
+! *                q2l (q2 x turbulent length scale), km (vertical     *
+! *                kinematic viscosity) and kh (vertical kinematic     *
+! *                diffusivity), using a simplified version of the     *
+! *                level 2 1/2 model of Mellor and Yamada (1982).      *
+! * In this version, the Craig-Banner sub-model whereby breaking wave  *
+! * tke is injected into the surface is included. However, we use an   *
+! * analytical solution to the near surface tke equation to solve for  *
+! * q2 at the surface giving the same result as C-B diffusion. The new *
+! * scheme is simpler and more robust than the latter scheme.          *
+! *                                                                    *
+! * References                                                         *
+! *   Craig, P. D. and M. L. Banner, Modeling wave-enhanced turbulence *
+! *     in the ocean surface layer. J. Phys. Oceanogr., 24, 2546-2559, *
+! *     1994.                                                          *
+! *   Ezer, T., On the seasonal mixed-layer simulated by a basin-scale *
+! *     ocean model and the Mellor-Yamada turbulence scheme,           *
+! *     J. Geophys. Res., 105(C7), 16,843-16,855, 2000.                *
+! *   Mellor, G.L. and T. Yamada, Development of a turbulence          *
+! *     closure model for geophysical fluid fluid problems,            *
+! *     Rev. Geophys. Space Phys., 20, 851-875, 1982.                  *
+! *   Mellor, G. L., One-dimensional, ocean surface layer modeling,    *
+! *     a problem and a solution. J. Phys. Oceanogr., 31(3), 790-809,  *
+! *     2001.                                                          *
+! *   Mellor, G.L. and A. Blumberg, Wave breaking and ocean surface    *
+! *     thermal response, J. Phys. Oceanogr., 2003.                    *
+! *   Stacey, M. W., Simulations of the wind-forced near-surface       *
+! *     circulation in Knight Inlet: a parameterization of the         *
+! *     roughness length. J. Phys. Oceanogr., 29, 1363-1367, 1999.     *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision sm(im,jm,kb),sh(im,jm,kb),cc(im,jm,kb)
       double precision gh(im,jm,kb),boygr(im,jm,kb),dh(im,jm)
      $                ,stf(im,jm,kb)
@@ -5638,22 +5638,22 @@ C
       double precision l0(im,jm)
       double precision cbcnst,surfl,shiw
       double precision utau2, df0,df1,df2
-C
+!
       integer i,j,k,ki
-C
+!
       equivalence (prod,kn)
-C
+!
       data a1,b1,a2,b2,c1/0.92e0,16.6e0,0.74e0,10.1e0,0.08e0/
       data e1/1.8e0/,e2/1.33e0/
       data sef/1.e0/
       data cbcnst/100./surfl/2.e5/shiw/0.0/
-C
+!
       do j=1,jm
         do i=1,im
           dh(i,j)=h(i,j)+etf(i,j)
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -5664,19 +5664,19 @@ C
           end do
         end do
       end do
-C
-C-----------------------------------------------------------------------
-C
-C     The following section solves the equation:
-C
-C       dti2*(kq*q2')' - q2*(2.*dti2*dtef+1.) = -q2b
-C
-C     Surface and bottom boundary conditions:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     The following section solves the equation:
+!
+!       dti2*(kq*q2')' - q2*(2.*dti2*dtef+1.) = -q2b
+!
+!     Surface and bottom boundary conditions:
+!
       const1=(16.6e0**(2.e0/3.e0))*sef
-C
-C initialize fields that are not calculated on all boundaries
-C but are later used there
+!
+! initialize fields that are not calculated on all boundaries
+! but are later used there
       do i=1,im
         ee(i,jm,1)=0.
         gg(i,jm,1)=0.
@@ -5694,33 +5694,33 @@ C but are later used there
        end do
       end do
       end do
-C
+!
       do j=1,jmm1
         do i=1,imm1
           utau2=sqrt((.5e0*(wusurf(i,j)+wusurf(i+1,j)))**2
      $                  +(.5e0*(wvsurf(i,j)+wvsurf(i,j+1)))**2)
-C Wave breaking energy- a variant of Craig & Banner (1994)
-C see Mellor and Blumberg, 2003.
+! Wave breaking energy- a variant of Craig & Banner (1994)
+! see Mellor and Blumberg, 2003.
           ee(i,j,1)=0.e0
           gg(i,j,1)=(15.8*cbcnst)**(2./3.)*utau2
-C Surface length scale following Stacey (1999).
+! Surface length scale following Stacey (1999).
           l0(i,j)=surfl*utau2/grav
-C
+!
           uf(i,j,kb)=sqrt((.5e0*(wubot(i,j)+wubot(i+1,j)))**2
      $                   +(.5e0*(wvbot(i,j)+wvbot(i,j+1)))**2)*const1
         end do
       end do
-C
-C    Calculate speed of sound squared:
-C
+!
+!    Calculate speed of sound squared:
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
             tp=t(i,j,k)+tbias
             sp=s(i,j,k)+sbias
-C
-C     Calculate pressure in units of decibars:
-C
+!
+!     Calculate pressure in units of decibars:
+!
 !
 !lyo:!wad:Keep "p" defined as in original pom w/o hhi (i.e. "h" defined
 !         wrt MSL), but set p=0 for cells where input "h" indicates
@@ -5736,10 +5736,10 @@ C
           end do
         end do
       end do
-C
-C     Calculate buoyancy gradient:
-C
-C
+!
+!     Calculate buoyancy gradient:
+!
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -5751,12 +5751,12 @@ C
 !         so use "h+et" here:
 !    $                    /(dzz(k-1)* h(i,j))
      $                    /(dzz(k-1)* (h(i,j)+et(i,j)))
-C *** NOTE: comment out next line if dens does not include pressure
+! *** NOTE: comment out next line if dens does not include pressure
      $      +(grav**2)*2.e0/(cc(i,j,k-1)**2+cc(i,j,k)**2)
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -5767,7 +5767,7 @@ C
           end do
         end do
       end do
-C
+!
       do j=1,jm
         do i=1,im
           l(i,j,1)=kappa*l0(i,j)
@@ -5776,9 +5776,9 @@ C
           gh(i,j,kb)=0.e0
         end do
       end do
-C
-C    Calculate production of turbulent kinetic energy:
-C
+!
+!    Calculate production of turbulent kinetic energy:
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -5788,30 +5788,30 @@ C
      $                     +(v(i,j,k)-v(i,j,k-1)
      $                      +v(i,j+1,k)-v(i,j+1,k-1))**2)
      $                   /(dzz(k-1)*dh(i,j))**2
-C   Add shear due to internal wave field
+!   Add shear due to internal wave field
      $             -shiw*km(i,j,k)*boygr(i,j,k)
             prod(i,j,k)=prod(i,j,k)+kh(i,j,k)*boygr(i,j,k)
           end do
         end do
       end do
-C
-C  NOTE: Richardson # dep. dissipation correction (Mellor, 2001; Ezer, 2000),
-C  depends on ghc the critical number (empirical -6 to -2) to increase mixing.
+!
+!  NOTE: Richardson # dep. dissipation correction (Mellor, 2001; Ezer, 2000),
+!  depends on ghc the critical number (empirical -6 to -2) to increase mixing.
       ghc=-6.0e0
       do k=1,kb
         do j=1,jm
           do i=1,im
             stf(i,j,k)=1.e0
-C It is unclear yet if diss. corr. is needed when surf. waves are included.
-c           if(gh(i,j,k).lt.0.e0)
-c    $        stf(i,j,k)=1.0e0-0.9e0*(gh(i,j,k)/ghc)**1.5e0
-c           if(gh(i,j,k).lt.ghc) stf(i,j,k)=0.1e0
+! It is unclear yet if diss. corr. is needed when surf. waves are included.
+!           if(gh(i,j,k).lt.0.e0)
+!    $        stf(i,j,k)=1.0e0-0.9e0*(gh(i,j,k)/ghc)**1.5e0
+!           if(gh(i,j,k).lt.ghc) stf(i,j,k)=0.1e0
             dtef(i,j,k)=sqrt(abs(q2b(i,j,k)))*stf(i,j,k)
      $                   /(b1*l(i,j,k)+small)
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -5823,7 +5823,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         ki=kb-k
         do j=1,jm
@@ -5832,13 +5832,13 @@ C
           end do
         end do
       end do
-C
-C-----------------------------------------------------------------------
-C
-C     The following section solves the equation:
-C
-C       dti2(kq*q2l')' - q2l*(dti2*dtef+1.) = -q2lb
-C
+!
+!-----------------------------------------------------------------------
+!
+!     The following section solves the equation:
+!
+!       dti2(kq*q2l')' - q2l*(dti2*dtef+1.) = -q2lb
+!
       do j=1,jm
         do i=1,im
           vf(i,j,1)=0.
@@ -5869,7 +5869,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kb-2
         ki=kb-k
         do j=1,jm
@@ -5878,30 +5878,30 @@ C
           end do
         end do
       end do
-C The following is to counter the problem of the ratio of two
-C small numbers (l = q2l/q2). Two options are included below.
+! The following is to counter the problem of the ratio of two
+! small numbers (l = q2l/q2). Two options are included below.
       do k=2,kbm1
         do j=1,jm
           do i=1,im
-c           if(uf(i,j,k).le.small.or.vf(i,j,k).le.small) then
-c             uf(i,j,k)=small
-c             vf(i,j,k)=0.1*dt(i,j)*small
-c           endif
+!           if(uf(i,j,k).le.small.or.vf(i,j,k).le.small) then
+!             uf(i,j,k)=small
+!             vf(i,j,k)=0.1*dt(i,j)*small
+!           endif
           uf(i,j,k)=abs(uf(i,j,k))
           vf(i,j,k)=abs(vf(i,j,k))
           end do
         end do
       end do
-C
-C-----------------------------------------------------------------------
-c
-C     The following section solves for km and kh:
-C
+!
+!-----------------------------------------------------------------------
+!
+!     The following section solves for km and kh:
+!
       coef4=18.e0*a1*a1+9.e0*a1*a2
       coef5=9.e0*a1*a2
-C
-C     Note that sm and sh limit to infinity when gh approaches 0.0288:
-C
+!
+!     Note that sm and sh limit to infinity when gh approaches 0.0288:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -5914,14 +5914,14 @@ C
           end do
         end do
       end do
-C
-C  There are 2 options for kq which, unlike km and kh, was
-C  was not derived by Mellor and Yamada but was purely
-C  empirical based on neutral boundary layer data.
-C  The choice is whether or not it should be subject to
-C  the stability factor, sh. Generally, there is not a great
-C  difference in output.
-C
+!
+!  There are 2 options for kq which, unlike km and kh, was
+!  was not derived by Mellor and Yamada but was purely
+!  empirical based on neutral boundary layer data.
+!  The choice is whether or not it should be subject to
+!  the stability factor, sh. Generally, there is not a great
+!  difference in output.
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -5941,8 +5941,8 @@ C
           end do
         end do
       end do
-C cosmetics: make boundr. values as interior
-C (even if not used, printout otherwise may show strange values)
+! cosmetics: make boundr. values as interior
+! (even if not used, printout otherwise may show strange values)
       do k=1,kb
         do i=1,im
            km(i,jm,k)=km(i,jmm1,k)*fsm(i,jm)
@@ -5957,90 +5957,90 @@ C (even if not used, printout otherwise may show strange values)
            kh(1,j,k)=kh(2,j,k)*fsm(1,j)
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
-c ---------------------------------------------------------------------
-C
+!
+! ---------------------------------------------------------------------
+!
       subroutine proft(f,wfsurf,fsurf,nbc,dh)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Solves for vertical diffusion of temperature and    *
-C *                salinity using method described by Richmeyer and    *
-C *                Morton.                                             *
-C *                                                                    *
-C *                Irradiance parameters are from Paulson and Simpson. *
-C *                                                                    *
-C *                See:                                                *
-C *                                                                    *
-C *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
-C *                  Methods for Initial-Value Problems, 2nd edition,  *
-C *                  Interscience, New York, 198-201.                  *
-C *                                                                    *
-C *                Paulson, C. A., and J. Simpson, 1977: Irradiance    *
-C *                  measurements in the upper ocean, J. Phys.         *
-C *                  Oceanogr., 7, 952-956.                            *
-C *                                                                    *
-C *                NOTES:                                              *
-C *                                                                    *
-C *                (1) wfsurf and swrad are negative values when water *
-C *                    column is warming or salt is being added.       *
-C *                                                                    *
-C *                (2) nbc may only be 1 and 3 for salinity.           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Solves for vertical diffusion of temperature and    *
+! *                salinity using method described by Richmeyer and    *
+! *                Morton.                                             *
+! *                                                                    *
+! *                Irradiance parameters are from Paulson and Simpson. *
+! *                                                                    *
+! *                See:                                                *
+! *                                                                    *
+! *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
+! *                  Methods for Initial-Value Problems, 2nd edition,  *
+! *                  Interscience, New York, 198-201.                  *
+! *                                                                    *
+! *                Paulson, C. A., and J. Simpson, 1977: Irradiance    *
+! *                  measurements in the upper ocean, J. Phys.         *
+! *                  Oceanogr., 7, 952-956.                            *
+! *                                                                    *
+! *                NOTES:                                              *
+! *                                                                    *
+! *                (1) wfsurf and swrad are negative values when water *
+! *                    column is warming or salt is being added.       *
+! *                                                                    *
+! *                (2) nbc may only be 1 and 3 for salinity.           *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision f(im,jm,kb),wfsurf(im,jm)
       double precision fsurf(im,jm),dh(im,jm)
       integer nbc
       double precision rad(im,jm,kb),r(5),ad1(5),ad2(5)
       integer i,j,k,ki
-C
-C-----------------------------------------------------------------------
-C
-C     Irradiance parameters after Paulson and Simpson:
-C
-C       ntp               1      2       3       4       5
-C   Jerlov type           i      ia      ib      ii     iii
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Irradiance parameters after Paulson and Simpson:
+!
+!       ntp               1      2       3       4       5
+!   Jerlov type           i      ia      ib      ii     iii
+!
       data r   /       .58e0,  .62e0,  .67e0,  .77e0,  .78e0 /
       data ad1 /       .35e0,  .60e0,  1.0e0,  1.5e0,  1.4e0 /
       data ad2 /       23.e0,  20.e0,  17.e0,  14.e0,  7.9e0 /
-C
-C-----------------------------------------------------------------------
-C
-C     Surface boundary condition:
-C
-C       nbc   prescribed    prescribed   short wave
-C             temperature      flux      penetration
-C             or salinity               (temperature
-C                                           only)
-C
-C        1        no           yes           no
-C        2        no           yes           yes
-C        3        yes          no            no
-C        4        yes          no            yes
-C
-C     NOTE that only 1 and 3 are allowed for salinity.
-C
-C-----------------------------------------------------------------------
-C
-C     The following section solves the equation:
-C
-C       dti2*(kh*f')'-f=-fb
-C
+!
+!-----------------------------------------------------------------------
+!
+!     Surface boundary condition:
+!
+!       nbc   prescribed    prescribed   short wave
+!             temperature      flux      penetration
+!             or salinity               (temperature
+!                                           only)
+!
+!        1        no           yes           no
+!        2        no           yes           yes
+!        3        yes          no            no
+!        4        yes          no            yes
+!
+!     NOTE that only 1 and 3 are allowed for salinity.
+!
+!-----------------------------------------------------------------------
+!
+!     The following section solves the equation:
+!
+!       dti2*(kh*f')'-f=-fb
+!
       do j=1,jm
         do i=1,im
           dh(i,j)=h(i,j)+etf(i,j)
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -6051,10 +6051,10 @@ C
           end do
         end do
       end do
-C
-C     Calculate penetrative radiation. At the bottom any unattenuated
-C     radiation is deposited in the bottom layer:
-C
+!
+!     Calculate penetrative radiation. At the bottom any unattenuated
+!     radiation is deposited in the bottom layer:
+!
       do k=1,kb
         do j=1,jm
           do i=1,im
@@ -6062,9 +6062,9 @@ C
           end do
         end do
       end do
-C
+!
       if(nbc.eq.2.or.nbc.eq.4) then
-C
+!
         do k=1,kbm1
           do j=1,jm
             do i=1,im
@@ -6074,11 +6074,11 @@ C
             end do
           end do
         end do
-C
+!
       endif
-C
+!
       if(nbc.eq.1) then
-C
+!
         do j=1,jm
           do i=1,im
             ee(i,j,1)=a(i,j,1)/(a(i,j,1)-1.e0)
@@ -6086,9 +6086,9 @@ C
             gg(i,j,1)=gg(i,j,1)/(a(i,j,1)-1.e0)
           end do
         end do
-C
+!
       else if(nbc.eq.2) then
-C
+!
         do j=1,jm
           do i=1,im
             ee(i,j,1)=a(i,j,1)/(a(i,j,1)-1.e0)
@@ -6098,18 +6098,18 @@ C
             gg(i,j,1)=gg(i,j,1)/(a(i,j,1)-1.e0)
           end do
         end do
-C
+!
       else if(nbc.eq.3.or.nbc.eq.4) then
-C
+!
         do j=1,jm
           do i=1,im
             ee(i,j,1)=0.e0
             gg(i,j,1)=fsurf(i,j)
           end do
         end do
-C
+!
       endif
-C
+!
       do k=2,kbm2
         do j=1,jm
           do i=1,im
@@ -6122,9 +6122,9 @@ C
           end do
         end do
       end do
-C
-C     Bottom adiabatic boundary condition:
-C
+!
+!     Bottom adiabatic boundary condition:
+!
       do j=1,jm
         do i=1,im
           f(i,j,kbm1)=(c(i,j,kbm1)*gg(i,j,kbm2)-f(i,j,kbm1)
@@ -6133,7 +6133,7 @@ C
      $                 /(c(i,j,kbm1)*(1.e0-ee(i,j,kbm2))-1.e0)
         end do
       end do
-C
+!
       do k=2,kbm1
         ki=kb-k
         do j=1,jm
@@ -6142,50 +6142,50 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine profu
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Solves for vertical diffusion of x-momentum using   *
-C *                method described by Richmeyer and Morton.           *
-C *                                                                    *
-C *                See:                                                *
-C *                                                                    *
-C *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
-C *                  Methods for Initial-Value Problems, 2nd edition,  *
-C *                  Interscience, New York, 198-201.                  *
-C *                                                                    *
-C *                NOTE that wusurf has the opposite sign to the wind  *
-C *                speed.                                              *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Solves for vertical diffusion of x-momentum using   *
+! *                method described by Richmeyer and Morton.           *
+! *                                                                    *
+! *                See:                                                *
+! *                                                                    *
+! *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
+! *                  Methods for Initial-Value Problems, 2nd edition,  *
+! *                  Interscience, New York, 198-201.                  *
+! *                                                                    *
+! *                NOTE that wusurf has the opposite sign to the wind  *
+! *                speed.                                              *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
       double precision dh(im,jm)
       integer i,j,k,ki
-C
-C     The following section solves the equation:
-C
-C       dti2*(km*u')'-u=-ub
-C
+!
+!     The following section solves the equation:
+!
+!       dti2*(km*u')'-u=-ub
+!
       do j=1,jm
         do i=1,im
           dh(i,j)=1.e0
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,im
           dh(i,j)=(h(i,j)+etf(i,j)+h(i-1,j)+etf(i-1,j))*.5e0
         end do
       end do
-C
+!
       do k=1,kb
         do j=2,jm
           do i=2,im
@@ -6193,7 +6193,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -6204,7 +6204,7 @@ C
           end do
         end do
       end do
-C
+!
       do j=1,jm
         do i=1,im
           ee(i,j,1)=a(i,j,1)/(a(i,j,1)-1.e0)
@@ -6213,7 +6213,7 @@ C
      $               /(a(i,j,1)-1.e0)
         end do
       end do
-C
+!
       do k=2,kbm2
         do j=1,jm
           do i=1,im
@@ -6223,7 +6223,7 @@ C
           end do
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           tps(i,j)=0.5e0*(cbc(i,j)+cbc(i-1,j))
@@ -6236,7 +6236,7 @@ C
           uf(i,j,kbm1)=uf(i,j,kbm1)*dum(i,j)
         end do
       end do
-C
+!
 
       do k=2,kbm1
         ki=kb-k
@@ -6246,56 +6246,56 @@ C
           end do
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           wubot(i,j)=-tps(i,j)*uf(i,j,kbm1)
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine profv
-C **********************************************************************
-C                                                                      *
-C * FUNCTION    :  Solves for vertical diffusion of y-momentum using   *
-C *                method described by Richmeyer and Morton.           *
-C *                                                                    *
-C *                See:                                                *
-C *                                                                    *
-C *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
-C *                  Methods for Initial-Value Problems, 2nd edition,  *
-C *                  Interscience, New York, 198-201.                  *
-C *                                                                    *
-C *                NOTE that wvsurf has the opposite sign to the wind  *
-C *                speed.                                              *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+!                                                                      *
+! * FUNCTION    :  Solves for vertical diffusion of y-momentum using   *
+! *                method described by Richmeyer and Morton.           *
+! *                                                                    *
+! *                See:                                                *
+! *                                                                    *
+! *                Richtmeyer R.D., and K.W. Morton, 1967. Difference  *
+! *                  Methods for Initial-Value Problems, 2nd edition,  *
+! *                  Interscience, New York, 198-201.                  *
+! *                                                                    *
+! *                NOTE that wvsurf has the opposite sign to the wind  *
+! *                speed.                                              *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
       double precision dh(im,jm)
       integer i,j,k,ki
-C
-C     The following section solves the equation:
-C
-C       dti2*(km*u')'-u=-ub
-C
+!
+!     The following section solves the equation:
+!
+!       dti2*(km*u')'-u=-ub
+!
       do j=1,jm
         do i=1,im
           dh(i,j)=1.e0
         end do
       end do
-C
+!
       do j=2,jm
         do i=2,im
           dh(i,j)=.5e0*(h(i,j)+etf(i,j)+h(i,j-1)+etf(i,j-1))
         end do
       end do
-C
+!
       do k=1,kb
         do j=2,jm
           do i=2,im
@@ -6303,7 +6303,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=1,jm
           do i=1,im
@@ -6314,7 +6314,7 @@ C
           end do
         end do
       end do
-C
+!
       do j=1,jm
         do i=1,im
           ee(i,j,1)=a(i,j,1)/(a(i,j,1)-1.e0)
@@ -6322,7 +6322,7 @@ C
      $               /(a(i,j,1)-1.e0)
         end do
       end do
-C
+!
       do k=2,kbm2
         do j=1,jm
           do i=1,im
@@ -6332,7 +6332,7 @@ C
           end do
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           tps(i,j)=0.5e0*(cbc(i,j)+cbc(i,j-1))
@@ -6345,7 +6345,7 @@ C
           vf(i,j,kbm1)=vf(i,j,kbm1)*dvm(i,j)
         end do
       end do
-C
+!
       do k=2,kbm1
         ki=kb-k
         do j=2,jmm1
@@ -6354,37 +6354,37 @@ C
           end do
         end do
       end do
-C
+!
       do j=2,jmm1
         do i=2,imm1
           wvbot(i,j)=-tps(i,j)*vf(i,j,kbm1)
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine prxy(label,time,a,im,iskp,jm,jskp,scala)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes a horizontal 2-D field.                      *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jskp ........ skipping interval for j               *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Writes a horizontal 2-D field.                      *
+! *                                                                    *
+! *                label ....... label for output                      *
+! *                time ........ time (days)                           *
+! *                a(im,jm,kb).. array to be printed                   *
+! *                iskp ........ skipping interval for i               *
+! *                jskp ........ skipping interval for j               *
+! *                scala ....... < 0 for floating point numbers output *
+! *                              0 for integer output, divisor for a   *
+! *                                based on magnitudes of |a| values   *
+! *                              > 0 for integer output, divisor for a *
+! *                                given by scala                      *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       integer im,jm
       double precision a(im,jm)
       double precision time,scala
@@ -6392,13 +6392,13 @@ C
       character label*(*)
       double precision amx,scale
       integer i,ib,ie,j,jwr,cols
-C
+!
       if(scala.ge.0.e0) then
         cols=24
       else
         cols=12
       endif
-C
+!
       if (scala.lt.0.e0) scale = 1.e0
       if (scala.eq.0.e0) then
         amx=1.e-12
@@ -6410,17 +6410,17 @@ C
           scale=10.e0**(int(log10(amx)+100.e0)-103)
         endif
       if(scala.gt.0.e0) scale=scala
-C
+!
       write(6,1) label
     1 format(1x,a40/)
       write(6,2) time,scale
     2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
+!
       do ib=1,im,cols*iskp
-C
+!
         ie=ib+(cols-1)*iskp
         if(ie.gt.im) ie=im
-C
+!
         if(scala.ge.0.e0) then
           write(6,3) (i,i=ib,ie,iskp)
     3     format(/,2x,24i5,/)
@@ -6428,7 +6428,7 @@ C
           write(6,4) (i,i=ib,ie,iskp)
     4     format(/,12i10,/)
         endif
-C
+!
         do j=1,jm,jskp
           jwr=jm+1-j
           if(scala.ge.0.e0) then
@@ -6439,42 +6439,42 @@ C
     6       format(1x,i2,12(e10.2))
           endif
         end do
-C
+!
         write(6,7)
     7   format(//)
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine prxyz(label,time,a,im,iskp,jm,jskp,kb,ko,nko,scala)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes horizontal layers of a 3-D field with        *
-C *                integers or floating point numbers.                 *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jskp ........ skipping interval for j               *
-C *                ko .......... 1-D array of k-indices for output     *
-C *                nko ......... number of elements in ko              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                                                                    *
-C *                (NOTE that this combines functions of old prxyz and *
-C *                 eprxyz)                                            *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Writes horizontal layers of a 3-D field with        *
+! *                integers or floating point numbers.                 *
+! *                                                                    *
+! *                label ....... label for output                      *
+! *                time ........ time (days)                           *
+! *                a(im,jm,kb).. array to be printed                   *
+! *                iskp ........ skipping interval for i               *
+! *                jskp ........ skipping interval for j               *
+! *                ko .......... 1-D array of k-indices for output     *
+! *                nko ......... number of elements in ko              *
+! *                scala ....... < 0 for floating point numbers output *
+! *                              0 for integer output, divisor for a   *
+! *                                based on magnitudes of |a| values   *
+! *                              > 0 for integer output, divisor for a *
+! *                                given by scala                      *
+! *                                                                    *
+! *                (NOTE that this combines functions of old prxyz and *
+! *                 eprxyz)                                            *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       integer im,jm,kb
       double precision a(im,jm,kb)
       double precision time,scala
@@ -6483,13 +6483,13 @@ C
       character label*(*)
       double precision amx,scale
       integer i,ib,ie,j,jwr,k,iko,cols
-C
+!
       if(scala.ge.0.e0) then
         cols=24
       else
         cols=12
       endif
-C
+!
       if (scala.lt.0.e0) scale = 1.e0
       if (scala.eq.0.e0) then
         amx=1.e-12
@@ -6504,24 +6504,24 @@ C
           scale=10.e0**(int(log10(amx)+100.e0)-103)
         endif
       if(scala.gt.0.e0) scale=scala
-C
+!
       write(6,1) label
     1 format(1x,a40/)
       write(6,2) time,scale
     2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
+!
       do iko=1,nko
-C
+!
         k=ko(iko)
-C
+!
         write(6,3) k
     3   format(3x,/' Layer k = ',i2)
-C
+!
         do ib=1,im,cols*iskp
-C
+!
           ie=ib+(cols-1)*iskp
           if(ie.gt.im) ie=im
-C
+!
           if(scala.ge.0.e0) then
             write(6,4) (i,i=ib,ie,iskp)
     4       format(/,2x,24i5,/)
@@ -6529,7 +6529,7 @@ C
             write(6,5) (i,i=ib,ie,iskp)
     5       format(/,12i10,/)
           endif
-C
+!
           do j=1,jm,jskp
             jwr=jm+1-j
             if(scala.ge.0.e0) then
@@ -6540,42 +6540,42 @@ C
     7         format(1x,i2,12(e10.2))
             endif
           end do
-C
+!
           write(6,8)
     8     format(//)
-C
+!
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine prxz(label,time,a,im,iskp,jm,kb,jo,njo,scala,dt,zz)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
-C *                x- or i-direction .                                 *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                iskp ........ skipping interval for i               *
-C *                jo .......... 1-D array of j-indices for output     *
-C *                njo ......... number of elements in jo              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                dt(im,jm) ... total depth                           *
-C *                zz(kb) ...... sigma coordinate                      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
+! *                x- or i-direction .                                 *
+! *                                                                    *
+! *                label ....... label for output                      *
+! *                time ........ time (days)                           *
+! *                a(im,jm,kb).. array to be printed                   *
+! *                iskp ........ skipping interval for i               *
+! *                jo .......... 1-D array of j-indices for output     *
+! *                njo ......... number of elements in jo              *
+! *                scala ....... < 0 for floating point numbers output *
+! *                              0 for integer output, divisor for a   *
+! *                                based on magnitudes of |a| values   *
+! *                              > 0 for integer output, divisor for a *
+! *                                given by scala                      *
+! *                dt(im,jm) ... total depth                           *
+! *                zz(kb) ...... sigma coordinate                      *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       integer im,jm,kb
       double precision a(im,jm,kb),dt(im,jm),zz(kb)
       double precision time,scala
@@ -6584,13 +6584,13 @@ C
       character label*(*)
       double precision amx,scale
       integer i,ib,ie,j,k,ijo,cols
-C
+!
       if(scala.ge.0.e0) then
         cols=24
       else
         cols=12
       endif
-C
+!
       if (scala.lt.0.e0) scale = 1.e0
       if (scala.eq.0.e0) then
         amx=1.e-12
@@ -6605,24 +6605,24 @@ C
           scale=10.e0**(int(log10(amx)+100.e0)-103)
         endif
       if(scala.gt.0.e0) scale=scala
-C
+!
       write(6,1) label
     1 format(1x,a40/)
       write(6,2) time,scale
     2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
+!
       do ijo=1,njo
-C
+!
         j=jo(ijo)
-C
+!
         write(6,3) j
     3   format(3x,/' Section j =',i3)
-C
+!
         do ib=1,im,cols*iskp
-C
+!
           ie=ib+(cols-1)*iskp
           if(ie.gt.im) ie=im
-C
+!
           if(scala.ge.0.e0) then
             write(6,4) (i,i=ib,ie,iskp)
     4       format(/,'    i =  ',24i5,/)
@@ -6630,10 +6630,10 @@ C
             write(6,5) (i,i=ib,ie,iskp)
     5       format(/,'    i =  ',12i10,/)
           endif
-C
+!
           write(6,6) (nint(dt(i,j)),i=ib,ie,iskp)
     6     format(8x,'d =',24i5.0,/,'     z or zz')
-C
+!
           do k=1,kb
             if(scala.ge.0.e0) then
               write(6,7) k,zz(k),(nint(a(i,j,k)/scale),i=ib,ie,iskp)
@@ -6643,40 +6643,40 @@ C
     8         format(1x,i2,2x,f6.3,12(e10.2))
             endif
           end do
-C
+!
           write(6,9)
     9     format(//)
-C
+!
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine pryz(label,time,a,im,jm,jskp,kb,io,nio,scala,dt,zz)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
-C *                y- or j-direction.                                  *
-C *                                                                    *
-C *                label ....... label for output                      *
-C *                time ........ time (days)                           *
-C *                a(im,jm,kb).. array to be printed                   *
-C *                jskp ........ skipping interval for j               *
-C *                io .......... 1-D array of i-indices for output     *
-C *                nio ......... number of elements in io              *
-C *                scala ....... < 0 for floating point numbers output *
-C *                              0 for integer output, divisor for a   *
-C *                                based on magnitudes of |a| values   *
-C *                              > 0 for integer output, divisor for a *
-C *                                given by scala                      *
-C *                dt(im,jm) ... total depth                           *
-C *                zz(kb) ...... sigma coordinate                      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Writes vertical section of a 3-D field, in the      *
+! *                y- or j-direction.                                  *
+! *                                                                    *
+! *                label ....... label for output                      *
+! *                time ........ time (days)                           *
+! *                a(im,jm,kb).. array to be printed                   *
+! *                jskp ........ skipping interval for j               *
+! *                io .......... 1-D array of i-indices for output     *
+! *                nio ......... number of elements in io              *
+! *                scala ....... < 0 for floating point numbers output *
+! *                              0 for integer output, divisor for a   *
+! *                                based on magnitudes of |a| values   *
+! *                              > 0 for integer output, divisor for a *
+! *                                given by scala                      *
+! *                dt(im,jm) ... total depth                           *
+! *                zz(kb) ...... sigma coordinate                      *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
       integer im,jm,kb
       double precision a(im,jm,kb),dt(im,jm),zz(kb)
@@ -6686,13 +6686,13 @@ C
       character label*(*)
       double precision amx,scale
       integer i,j,jb,je,k,iio,cols
-C
+!
       if(scala.ge.0.e0) then
         cols=24
       else
         cols=12
       endif
-C
+!
       if (scala.lt.0.e0) scale = 1.e0
       if (scala.eq.0.e0) then
         amx=1.e-12
@@ -6707,24 +6707,24 @@ C
           scale=10.e0**(int(log10(amx)+100.e0)-103)
         endif
       if(scala.gt.0.e0) scale=scala
-C
+!
       write(6,1) label
     1 format(1x,a40/)
       write(6,2) time,scale
     2 format(' Time = ',f9.4,' days    multiply all values by ',1pe8.2)
-C
+!
       do iio=1,nio
-C
+!
         i=io(iio)
-C
+!
         write(6,3) i
     3   format(3x,/' Section i =',i3)
-C
+!
         do jb=1,jm,cols*jskp
-C
+!
           je=jb+(cols-1)*jskp
           if(je.gt.jm) je=jm
-C
+!
           if(scala.ge.0.e0) then
             write(6,4) (j,j=jb,je,jskp)
     4       format(/,'    j =  ',24i5,/)
@@ -6732,10 +6732,10 @@ C
             write(6,5) (j,j=jb,je,jskp)
     5       format(/,'    j =  ',12i10,/)
           endif
-C
+!
           write(6,6) (nint(dt(i,j)),j=jb,je,jskp)
     6     format(8x,'d =',24i5.0,/,'     z or zz')
-C
+!
           do k=1,kb
             if(scala.ge.0.e0) then
               write(6,7) k,zz(k),(nint(a(i,j,k)/scale),j=jb,je,jskp)
@@ -6745,129 +6745,129 @@ C
     8         format(1x,i2,2x,f6.3,12(e10.2))
             endif
           end do
-C
+!
           write(6,9)
     9     format(//)
-C
+!
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine seamount
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up for seamount problem.                       *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up for seamount problem.                       *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision delh,delx,elejmid,elwjmid,ra,vel
       integer i,j,k
-C
-C     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
-C
+!
+!     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
+!
       delh=0.9e0
-C
-C     Grid size:
-C
+!
+!     Grid size:
+!
       delx=8000.e0
-C
-C     Radius island or seamount:
-C
+!
+!     Radius island or seamount:
+!
       ra=25000.e0
-C
-C     Current velocity:
-C
+!
+!     Current velocity:
+!
       vel=0.2e0
-C
-C     Set up grid dimensions, areas of free surface cells, and
-C     Coriolis parameter:
-C
+!
+!     Set up grid dimensions, areas of free surface cells, and
+!     Coriolis parameter:
+!
       do j=1,jm
         do i=1,im
-C
-C     For constant grid size:
-C
-C         dx(i,j)=delx
-C         dy(i,j)=delx
-C
-C     For variable grid size:
-C
+!
+!     For constant grid size:
+!
+!         dx(i,j)=delx
+!         dy(i,j)=delx
+!
+!     For variable grid size:
+!
           dx(i,j)=delx-delx*sin(pi*float(i)/float(im))/2.e0
           dy(i,j)=delx-delx*sin(pi*float(j)/float(jm))/2.e0
-C
+!
           cor(i,j)=1.e-4
-C
+!
         end do
       end do
-C
-C     Calculate horizontal coordinates of grid points and rotation
-C     angle.
-C
-C     NOTE that this is introduced solely for the benefit of any post-
-C     processing software, and in order to conform with the requirements
-C     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
-C
-C     There are four horizontal coordinate systems, denoted by the
-C     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
-C     "e" is an elevation point and "c" is a cell corner), as shown
-C     below. In addition, "east_*" is an easting and "north_*" is a
-C     northing. Hence the coordinates of the "u" points are given by
-C     (east_u,north_u).
-C
-C     Also, if the centre point of the cell shown below is at
-C     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
-C     the coordinates of the western of the two "u" points,
-C     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
-C     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
-C     coordinates of the southwestern corner point of the cell. The
-C     southwest corner of the entire grid is at
-C     (east_c(1,1),north_c(1,1)).
-C
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                      u      e       u
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C
-C
-C     NOTE that the following calculation of east_c and north_c only
-C     works properly for a rectangular grid with east and north aligned
-C     with i and j, respectively:
-C
+!
+!     Calculate horizontal coordinates of grid points and rotation
+!     angle.
+!
+!     NOTE that this is introduced solely for the benefit of any post-
+!     processing software, and in order to conform with the requirements
+!     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
+!
+!     There are four horizontal coordinate systems, denoted by the
+!     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
+!     "e" is an elevation point and "c" is a cell corner), as shown
+!     below. In addition, "east_*" is an easting and "north_*" is a
+!     northing. Hence the coordinates of the "u" points are given by
+!     (east_u,north_u).
+!
+!     Also, if the centre point of the cell shown below is at
+!     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
+!     the coordinates of the western of the two "u" points,
+!     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
+!     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
+!     coordinates of the southwestern corner point of the cell. The
+!     southwest corner of the entire grid is at
+!     (east_c(1,1),north_c(1,1)).
+!
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                      u      e       u
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!
+!
+!     NOTE that the following calculation of east_c and north_c only
+!     works properly for a rectangular grid with east and north aligned
+!     with i and j, respectively:
+!
       do j=1,jm
         east_c(1,j)=0.e0
         do i=2,im
           east_c(i,j)=east_c(i-1,j)+dx(i-1,j)
         end do
       end do
-C
+!
       do i=1,im
         north_c(i,1)=0.e0
         do j=2,jm
           north_c(i,j)=north_c(i,j-1)+dy(i,j-1)
         end do
       end do
-C
-C     The following works properly for any grid:
-C
-C     Elevation points:
-C
+!
+!     The following works properly for any grid:
+!
+!     Elevation points:
+!
       do j=1,jm-1
         do i=1,im-1
           east_e(i,j)=(east_c(i,j)+east_c(i+1,j)
@@ -6876,9 +6876,9 @@ C
      $                   +north_c(i,j+1)+north_c(i+1,j+1))/4.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im-1
         east_e(i,jm)
      $    =((east_c(i,jm)+east_c(i+1,jm))*3.e0
@@ -6887,7 +6887,7 @@ C
      $    =((north_c(i,jm)+north_c(i+1,jm))*3.e0
      $       -north_c(i,jm-1)-north_c(i+1,jm-1))/4.e0
       end do
-C
+!
       do j=1,jm-1
         east_e(im,j)
      $    =((east_c(im,j)+east_c(im,j+1))*3.e0
@@ -6896,62 +6896,62 @@ C
      $    =((north_c(im,j)+north_c(im,j+1))*3.e0
      $       -north_c(im-1,j)-north_c(im-1,j+1))/4.e0
       end do
-C
+!
       east_e(im,jm)=east_e(im-1,jm)+east_e(im,jm-1)
      $               -(east_e(im-2,jm)+east_e(im,jm-2))/2.e0
       north_e(im,jm)=north_e(im-1,jm)+north_e(im,jm-1)
      $               -(north_e(im-2,jm)+north_e(im,jm-2))/2.e0
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre:
-C
-C     (NOTE that the following calculation of rot only works properly
-C     for this particular rectangular grid)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre:
+!
+!     (NOTE that the following calculation of rot only works properly
+!     for this particular rectangular grid)
+!
       do j=1,jm
         do i=1,im
           rot(i,j)=0.e0
         end do
       end do
-C
-C     Define depth:
-C
+!
+!     Define depth:
+!
       hmax=4500.e0   !tne:!wad: deep open ocean (orig val - not wad-related)
       do i=1,im
         do j=1,jm
-C
+!
           h(i,j)=hmax*(1.e0-delh
      $                          *exp(-((east_c(i,j)
      $                                   -east_c((im+1)/2,j))**2
@@ -6959,28 +6959,28 @@ C
      $                                   -north_c(i,(jm+1)/2))**2)
      $                                /ra**2))
           if(h(i,j).lt.1.e0) h(i,j)=1.e0
-C
+!
         end do
       end do
-C
-C     Close the north and south boundaries to form a channel:
-C
+!
+!     Close the north and south boundaries to form a channel:
+!
       do i=1,im
         h(i,1)=1.e0
         h(i,jm)=1.e0
       end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       call areas_masks
-C
-C     Adjust bottom topography so that cell to cell variations
-C     in h do not exceed parameter slmax:
-C
+!
+!     Adjust bottom topography so that cell to cell variations
+!     in h do not exceed parameter slmax:
+!
       if(slmax.lt.1.e0) call slpmax
-C
-C     Set initial conditions:
-C
+!
+!     Set initial conditions:
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -6992,27 +6992,27 @@ C
           end do
         end do
       end do
-C
-C     Initialise uab and vab as necessary
-C     (NOTE that these have already been initialised to zero in the
-C     main program):
-C
+!
+!     Initialise uab and vab as necessary
+!     (NOTE that these have already been initialised to zero in the
+!     main program):
+!
       do j=1,jm
         do i=1,im
           uab(i,j)=vel*dum(i,j)
         end do
       end do
-C
-C     Set surface boundary conditions, e_atmos, vflux, wusurf,
-C     wvsurf, wtsurf, wssurf and swrad, as necessary
-C     (NOTE:
-C      1. These have all been initialised to zero in the main program.
-C      2. The temperature and salinity of inflowing water must be
-C         defined relative to tbias and sbias.):
-C
+!
+!     Set surface boundary conditions, e_atmos, vflux, wusurf,
+!     wvsurf, wtsurf, wssurf and swrad, as necessary
+!     (NOTE:
+!      1. These have all been initialised to zero in the main program.
+!      2. The temperature and salinity of inflowing water must be
+!         defined relative to tbias and sbias.):
+!
       do j=1,jm
         do i=1,im
-C     No conditions necessary for this problem
+!     No conditions necessary for this problem
 !
 !lyo:!wad:!pom2k_bug:tsurf and ssurf were never defined, but should be:
              tsurf(i,j)=tb(i,j,1)
@@ -7020,9 +7020,9 @@ C     No conditions necessary for this problem
 !
         end do
       end do
-C
-C     Initialise elb, etb, dt and aam2d:
-C
+!
+!     Initialise elb, etb, dt and aam2d:
+!
       do j=1,jm
         do i=1,im
           elb(i,j)=-e_atmos(i,j)
@@ -7031,7 +7031,7 @@ C
           aam2d(i,j)=aam(i,j,1)
         end do
       end do
-C
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !lyo:!wad: Set up pdens before 1st call dens; used also in profq:      !
@@ -7042,13 +7042,13 @@ C
       call dens(sb,tb,rho)
 !                                                                      !
 !----------------------------------------------------------------------!
-C
-C     Generated horizontally averaged density field (in this
-C     application, the initial condition for density is a function
-C     of z (the vertical cartesian coordinate) -- when this is not
-C     so, make sure that rmean has been area averaged BEFORE transfer
-C     to sigma coordinates):
-C
+!
+!     Generated horizontally averaged density field (in this
+!     application, the initial condition for density is a function
+!     of z (the vertical cartesian coordinate) -- when this is not
+!     so, make sure that rmean has been area averaged BEFORE transfer
+!     to sigma coordinates):
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -7056,90 +7056,90 @@ C
           end do
         end do
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     (in the seamount problem, the east and west boundaries are open,
-C     while the south and north boundaries are closed through the
-C     specification of the masks fsm, dum and dvm):
-C
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     (in the seamount problem, the east and west boundaries are open,
+!     while the south and north boundaries are closed through the
+!     specification of the masks fsm, dum and dvm):
+!
       rfe=1.e0
       rfw=1.e0
       rfn=1.e0
       rfs=1.e0
-C
+!
       do j=2,jmm1
         uabw(j)=uab(2,j)
         uabe(j)=uab(imm1,j)
-C
-C     Set geostrophically conditioned elevations at the boundaries:
-C
+!
+!     Set geostrophically conditioned elevations at the boundaries:
+!
         ele(j)=ele(j-1)-cor(imm1,j)*uab(imm1,j)/grav*dy(imm1,j-1)
         elw(j)=elw(j-1)-cor(2,j)*uab(2,j)/grav*dy(2,j-1)
       end do
-C
-C     Adjust boundary elevations so that they are zero in the middle
-C     of the channel:
-C
+!
+!     Adjust boundary elevations so that they are zero in the middle
+!     of the channel:
+!
       elejmid=ele(jmm1/2)
       elwjmid=elw(jmm1/2)
       do j=2,jmm1
         ele(j)=(ele(j)-elejmid)*fsm(im,j)
         elw(j)=(elw(j)-elwjmid)*fsm(2,j)
       end do
-C
-C     Set thermodynamic boundary conditions (for the seamount
-C     problem, and other possible applications, lateral thermodynamic
-C     boundary conditions are set equal to the initial conditions and
-C     are held constant thereafter - users may, of course, create
-C     variable boundary conditions):
-C
+!
+!     Set thermodynamic boundary conditions (for the seamount
+!     problem, and other possible applications, lateral thermodynamic
+!     boundary conditions are set equal to the initial conditions and
+!     are held constant thereafter - users may, of course, create
+!     variable boundary conditions):
+!
       do k=1,kbm1
-C
+!
         do j=1,jm
           tbe(j,k)=tb(im,j,k)
           tbw(j,k)=tb(1,j,k)
           sbe(j,k)=sb(im,j,k)
           sbw(j,k)=sb(1,j,k)
         end do
-C
+!
         do i=1,im
           tbn(i,k)=tb(i,jm,k)
           tbs(i,k)=tb(i,1,k)
           sbn(i,k)=sb(i,jm,k)
           sbs(i,k)=sb(i,1,k)
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine slpmax
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Limits the maximum of:                              *
-C *                                                                    *
-C *                  <difference of depths>/<sum of depths>            *
-C *                                                                    *
-C *                for two adjacent cells. The maximum possible value  *
-C *                is unity.                                           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Limits the maximum of:                              *
+! *                                                                    *
+! *                  <difference of depths>/<sum of depths>            *
+! *                                                                    *
+! *                for two adjacent cells. The maximum possible value  *
+! *                is unity.                                           *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision mean,del
       integer i,j,loop
-C
+!
       do loop=1,10
-C
-C     Sweep right:
-C
+!
+!     Sweep right:
+!
         do j=2,jm-1
-C
+!
           do i=2,im-1
             if(fsm(i,j).ne.0.e0.and.fsm(i+1,j).ne.0.e0) then
               if(abs(h(i+1,j)-h(i,j))/(h(i,j)+h(i+1,j)).ge.slmax) then
@@ -7150,9 +7150,9 @@ C
               endif
             endif
           end do
-C
-C    Sweep left:
-C
+!
+!    Sweep left:
+!
           do i=im-1,2,-1
             if(fsm(i,j).ne.0.e0.and.fsm(i+1,j).ne.0.e0) then
               if(abs(h(i+1,j)-h(i,j))/(h(i,j)+h(i+1,j)).ge.slmax) then
@@ -7163,13 +7163,13 @@ C
               endif
             endif
           end do
-C
+!
         end do
-C
-C   Sweep up:
-C
+!
+!   Sweep up:
+!
         do i=2,im-1
-C
+!
           do j=2,jm-1
             if(fsm(i,j).ne.0.e0.and.fsm(i,j+1).ne.0.e0) then
               if(abs(h(i,j+1)-h(i,j))/(h(i,j)+h(i,j+1)).ge.slmax) then
@@ -7180,9 +7180,9 @@ C
               endif
             endif
           end do
-C
-C   Sweep down:
-C
+!
+!   Sweep down:
+!
           do j=jm-1,2,-1
             if(fsm(i,j).ne.0.e0.and.fsm(i,j+1).ne.0.e0) then
               if(abs(h(i,j+1)-h(i,j))/(h(i,j)+h(i,j+1)).ge.slmax) then
@@ -7193,36 +7193,36 @@ C
               endif
             endif
           end do
-C
+!
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine smol_adif(xmassflux,ymassflux,zwflux,ff,sw)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates the antidiffusive velocity used to       *
-C *                reduce the numerical diffusion associated with the  *
-C *                upstream differencing scheme.                       *
-C *                                                                    *
-C *                This is based on a subroutine of Gianmaria Sannino  *
-C *                (Inter-university Computing Consortium, Rome, Italy)*
-C *                and Vincenzo Artale (Italian National Agency for    *
-C *                New Technology and Environment, Rome, Italy),       *
-C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
-C *                The calculations have been simplified by removing   *
-C *                the shock switch option.                            *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates the antidiffusive velocity used to       *
+! *                reduce the numerical diffusion associated with the  *
+! *                upstream differencing scheme.                       *
+! *                                                                    *
+! *                This is based on a subroutine of Gianmaria Sannino  *
+! *                (Inter-university Computing Consortium, Rome, Italy)*
+! *                and Vincenzo Artale (Italian National Agency for    *
+! *                New Technology and Environment, Rome, Italy),       *
+! *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+! *                The calculations have been simplified by removing   *
+! *                the shock switch option.                            *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision ff(im,jm,kb)
       double precision
      $          xmassflux(im,jm,kb),ymassflux(im,jm,kb),zwflux(im,jm,kb)
@@ -7231,11 +7231,11 @@ C
       double precision value_min,epsilon
       double precision udx,u2dt,vdy,v2dt,wdz,w2dt
       integer i,j,k
-C
+!
       parameter (value_min=1.e-9,epsilon=1.0e-14)
-C
-C     Apply temperature and salinity mask:
-C
+!
+!     Apply temperature and salinity mask:
+!
       do k=1,kb
         do i=1,im
           do j=1,jm
@@ -7243,9 +7243,9 @@ C
           end do
         end do
       end do
-C
-C     Recalculate mass fluxes with antidiffusion velocity:
-C
+!
+!     Recalculate mass fluxes with antidiffusion velocity:
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,im
@@ -7266,7 +7266,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,imm1
@@ -7287,7 +7287,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=2,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -7307,27 +7307,27 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-C
+!
       subroutine vertvl(xflux,yflux)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates vertical velocity.                       *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates vertical velocity.                       *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision xflux(im,jm,kb),yflux(im,jm,kb)
       integer i,j,k
-C
-C     Reestablish boundary conditions:
-C
+!
+!     Reestablish boundary conditions:
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -7336,7 +7336,7 @@ C
           end do
         end do
       end do
-C
+!
       do k=1,kbm1
         do j=2,jm
           do i=2,im
@@ -7345,18 +7345,18 @@ C
           end do
         end do
       end do
-C
-C     NOTE that, if one wishes to include freshwater flux, the
-C     surface velocity should be set to vflux(i,j). See also
-C     change made to 2-D volume conservation equation which
-C     calculates elf.
-C
+!
+!     NOTE that, if one wishes to include freshwater flux, the
+!     surface velocity should be set to vflux(i,j). See also
+!     change made to 2-D volume conservation equation which
+!     calculates elf.
+!
         do j=2,jmm1
           do i=2,imm1
             w(i,j,1)=0.5*(vfluxb(i,j)+vfluxf(i,j))
           end do
         end do
-C
+!
       do k=1,kbm1
         do j=2,jmm1
           do i=2,imm1
@@ -7368,11 +7368,11 @@ C
           end do
         end do
       end do
-C
+!
       return
-C
+!
       end
-c
+!
 !lyo:!wad:                                                             !
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -7395,102 +7395,102 @@ c
 !                                                                      !
 !     d(D)/dt + d(UD)/dx + d(VD)/dy = Diffusion_of_(D)                 !
 !                                                                      !
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Integrates conservative scalar equations.           *
-C *                                                                    *
-C *                This is a first-order upstream scheme, which        *
-C *                reduces implicit diffusion using the Smolarkiewicz  *
-C *                iterative upstream scheme with an antidiffusive     *
-C *                velocity.                                           *
-C *                                                                    *
-C *                It is based on the subroutines of Gianmaria Sannino *
-C *                (Inter-university Computing Consortium, Rome, Italy)*
-C *                and Vincenzo Artale (Italian National Agency for    *
-C *                New Technology and Environment, Rome, Italy),       *
-C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
-C *                The calculations have been simplified by removing   *
-C *                the shock switch option. It should be noted that    *
-C *                this implementation does not include cross-terms    *
-C *                which are in the original formulation.              *
-C *                                                                    *
-C *                fb,f,fclim,ff . as used in subroutine advt1         *
-C *                xflux,yflux ... working arrays used to save memory  *
-C *                nitera ........ number of iterations. This should   *
-C *                                be in the range 1 - 4. 1 is         *
-C *                                standard upstream differencing;     *
-C *                                3 adds 50% CPU time to POM.         *
-C *                sw ............ smoothing parameter. This should    *
-C *                                preferably be 1, but 0 < sw < 1     *
-C *                                gives smoother solutions with less  *
-C *                                overshoot when nitera > 1.          *
-C *                                                                    *
-C *                Reference:                                          *
-C *                                                                    *
-C *                Smolarkiewicz, P.K.; A fully multidimensional       *
-C *                  positive definite advection transport algorithm   *
-C *                  with small implicit diffusion, Journal of         *
-C *                  Computational Physics, 54, 325-362, 1984.         *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Integrates conservative scalar equations.           *
+! *                                                                    *
+! *                This is a first-order upstream scheme, which        *
+! *                reduces implicit diffusion using the Smolarkiewicz  *
+! *                iterative upstream scheme with an antidiffusive     *
+! *                velocity.                                           *
+! *                                                                    *
+! *                It is based on the subroutines of Gianmaria Sannino *
+! *                (Inter-university Computing Consortium, Rome, Italy)*
+! *                and Vincenzo Artale (Italian National Agency for    *
+! *                New Technology and Environment, Rome, Italy),       *
+! *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+! *                The calculations have been simplified by removing   *
+! *                the shock switch option. It should be noted that    *
+! *                this implementation does not include cross-terms    *
+! *                which are in the original formulation.              *
+! *                                                                    *
+! *                fb,f,fclim,ff . as used in subroutine advt1         *
+! *                xflux,yflux ... working arrays used to save memory  *
+! *                nitera ........ number of iterations. This should   *
+! *                                be in the range 1 - 4. 1 is         *
+! *                                standard upstream differencing;     *
+! *                                3 adds 50% CPU time to POM.         *
+! *                sw ............ smoothing parameter. This should    *
+! *                                preferably be 1, but 0 < sw < 1     *
+! *                                gives smoother solutions with less  *
+! *                                overshoot when nitera > 1.          *
+! *                                                                    *
+! *                Reference:                                          *
+! *                                                                    *
+! *                Smolarkiewicz, P.K.; A fully multidimensional       *
+! *                  positive definite advection transport algorithm   *
+! *                  with small implicit diffusion, Journal of         *
+! *                  Computational Physics, 54, 325-362, 1984.         *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       double precision sw,dti2
       integer nitera,im,jm,kb  !lyo:!wad:kb not required but defined
                                !         in "grid" below
-c
+!
 !     PARAMETER (IM=65,JM=49)
 !     PARAMETER (IM=131,JM=99)
       include 'grid'
-c
+!
       double precision fb(im,jm),f(im,jm),ff(im,jm)
       double precision dx(im,jm),dy(im,jm),u(im,jm),v(im,jm),aam(im,jm)
       double precision fsm(im,jm),dum(im,jm),dvm(im,jm)
       double precision art(im,jm),aru(im,jm),arv(im,jm)
 
-c     integer ix,jx
-c     PARAMETER (IX=62,JX=18)
+!     integer ix,jx
+!     PARAMETER (IX=62,JX=18)
       double precision xflux(im,jm),yflux(im,jm)
       double precision fbmem(im,jm)
       double precision xmassflux(im,jm),ymassflux(im,jm)
       integer i,j,k,itera,imm1,jmm1
-C
-C     Calculate horizontal mass fluxes:
-C
+!
+!     Calculate horizontal mass fluxes:
+!
       imm1=im-1; jmm1=jm-1
-c
+!
         do j=1,jm
           do i=1,im
             xmassflux(i,j)=0.e0
             ymassflux(i,j)=0.e0
           end do
         end do
-C
+!
         do j=2,jmm1
           do i=2,im
             xmassflux(i,j)=0.5e0*(dy(i-1,j)+dy(i,j))*u(i,j)
           end do
         end do
-C
+!
         do j=2,jm
           do i=2,imm1
             ymassflux(i,j)=0.5e0*(dx(i,j-1)+dx(i,j))*v(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=1,im
             fbmem(i,j)=fb(i,j)
           end do
         end do
-C
-C     Start Smolarkiewicz scheme:
-C
+!
+!     Start Smolarkiewicz scheme:
+!
       do itera=1,nitera
-C
-C     Upwind advection scheme:
-C
+!
+!     Upwind advection scheme:
+!
           do j=2,jm
             do i=2,im
               xflux(i,j)=0.5e0
@@ -7498,7 +7498,7 @@ C
      $                        *fbmem(i-1,j)+
      $                        (xmassflux(i,j)-abs(xmassflux(i,j)))
      $                        *fbmem(i,j))
-C
+!
               yflux(i,j)=0.5e0
      $                      *((ymassflux(i,j)+abs(ymassflux(i,j)))
      $                        *fbmem(i,j-1)+
@@ -7506,9 +7506,9 @@ C
      $                        *fbmem(i,j))
             end do
           end do
-C
-C     Add net advective fluxes and step forward in time:
-C
+!
+!     Add net advective fluxes and step forward in time:
+!
           do j=2,jmm1
             do i=2,imm1
               ff(i,j)=xflux(i+1,j)-xflux(i,j)
@@ -7517,32 +7517,32 @@ C
      $                   -dti2*ff(i,j))/(art(i,j))
             end do
           end do
-C
-C     Calculate antidiffusion velocity:
-C
+!
+!     Calculate antidiffusion velocity:
+!
       call wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2)
-c     call wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2,im,jm)
-C
+!     call wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2,im,jm)
+!
         do j=1,jm
           do i=1,im
               fbmem(i,j)=ff(i,j)
           end do
 
         end do
-C
-C     End of Smolarkiewicz scheme
-C
+!
+!     End of Smolarkiewicz scheme
+!
       end do
-C
-C     Add horizontal diffusive fluxes:
-C
+!
+!     Add horizontal diffusive fluxes:
+!
         do j=2,jm
           do i=2,im
             xmassflux(i,j)=0.5e0*(aam(i,j)+aam(i-1,j))
             ymassflux(i,j)=0.5e0*(aam(i,j)+aam(i,j-1))
           end do
         end do
-C
+!
         do j=2,jm
           do i=2,im
            xflux(i,j)=-xmassflux(i,j)
@@ -7553,9 +7553,9 @@ C
      $                   *(dx(i,j)+dx(i,j-1))/(dy(i,j)+dy(i,j-1))
           end do
         end do
-C
-C     Add net horizontal fluxes and step forward in time:
-C
+!
+!     Add net horizontal fluxes and step forward in time:
+!
         do j=2,jmm1
           do i=2,imm1
             ff(i,j)=ff(i,j)-dti2*(xflux(i+1,j)-xflux(i,j)
@@ -7563,11 +7563,11 @@ C
      $                           /(art(i,j))
           end do
         end do
-C
+!
       return
-C
+!
       end
-C
+!
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
@@ -7578,46 +7578,46 @@ C
 ! * FUNCTION    :  WAD Outputs (temporary subroutine to be merged with *
 ! *                the rest of the code later)                         *
 ! *                                                                    *
-C *                Edit as approriate.                                 *
-C *                                                                    *
+! *                Edit as approriate.                                 *
+! *                                                                    *
 ! **********************************************************************
 !                                                                      !
       implicit none
-C
+!
       integer i,j,k
-C
+!
       include 'pomNW.c'
-C
-C     2-D horizontal fields:
-C
+!
+!     2-D horizontal fields:
+!
           call prxy('wetmask; =0 are land or dry, =1 are wet ',
      $              time,wetmask,im,iskp,jm,jskp,1.d0)
-C
+!
           do j=1,jm; do i=1,im
              tps(i,j)=fsm(i,j)-wetmask(i,j)
              enddo; enddo
           call prxy('fsm-wetmask; WAD: =1 are dry cells      ',
      $              time,tps,im,iskp,jm,jskp,1.d0)
-C
+!
           do j=1,jm; do i=1,im
              tps(i,j)=(elb(i,j)+hhi)*wetmask(i,j)
              enddo; enddo
           call prxy('elb+hhi (m; w.r.t MSL)                  ',
      $              time,tps,im,iskp,jm,jskp,0.d0)
-c
+!
           do j=1,jm; do i=1,im
              tps(i,j)=d(i,j)*fsm(i,j)
              enddo; enddo
           call prxy('Total Water Depth (m)                   ',
      $              time,tps,im,iskp,jm,jskp,0.d0)
-c
-ctne: -------------- save for matlab plot
-c
+!
+!tne: -------------- save for matlab plot
+!
        write(88,'(2i5,4f8.3)')im-2,jm-2,time*24.,99.9,99.9,99.9
       do j=2,jm-1; do i=2,im-1
        write(88,'(2i5,4f8.3)')i,j,tps(i,j),uab(i,j),vab(i,j),d(i,j)
       enddo; enddo
-c
+!
       return
       end
 !                                                                      !
@@ -7818,123 +7818,123 @@ c
 !----------------------------------------------------------------------!
 !                                                                      !
       subroutine wadseamount
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up for seamount problem w/wad.                 *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up for seamount problem w/wad.                 *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision delh,delx,elejmid,elwjmid,ra,vel,hland  !lyo:!wad:define hland
       integer nvar                                 !lyo:!wad:define nvar
       integer i,j,k
-C
-C     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
-C
+!
+!     Set delh > 1.0 for an island or delh < 1.0 for a seamount:
+!
       delh=1.15e0   !tne:!wad: island (for wad) =0.9e0 for orig.seamount
-C
-C     Grid size:
-C
+!
+!     Grid size:
+!
       delx=8000.e0
-c
+!
 !lyo:!wad:Define variable or uniform grid option:
       nvar=1  !=1 for variable grid; =0 otherwise
 !lyo:!wad:Special test case for smaller delx=4km:
       if ((nvar.eq.0).or.(im.eq.131.and.jm.eq.99)) delx=delx*0.5
-C
-C     Radius island or seamount:
-C
+!
+!     Radius island or seamount:
+!
       ra=50000.e0   !tne:!wad:
-C
-C     Current velocity:
-C
+!
+!     Current velocity:
+!
       vel=0.2e0
-C
-C     Set up grid dimensions, areas of free surface cells, and
-C     Coriolis parameter:
-C
+!
+!     Set up grid dimensions, areas of free surface cells, and
+!     Coriolis parameter:
+!
       do j=1,jm
         do i=1,im
-C
-C     For constant grid size:
-C
-C         dx(i,j)=delx
-C         dy(i,j)=delx
-C
-C     For variable grid size:
-C
+!
+!     For constant grid size:
+!
+!         dx(i,j)=delx
+!         dy(i,j)=delx
+!
+!     For variable grid size:
+!
 !lyo:!wad:variable or uniform grid--
           dx(i,j)=delx-float(nvar)*delx*sin(pi*float(i)/float(im))/2.e0
           dy(i,j)=delx-float(nvar)*delx*sin(pi*float(j)/float(jm))/2.e0
-C
+!
           cor(i,j)=1.e-4
-C
+!
         end do
       end do
-C
-C     Calculate horizontal coordinates of grid points and rotation
-C     angle.
-C
-C     NOTE that this is introduced solely for the benefit of any post-
-C     processing software, and in order to conform with the requirements
-C     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
-C
-C     There are four horizontal coordinate systems, denoted by the
-C     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
-C     "e" is an elevation point and "c" is a cell corner), as shown
-C     below. In addition, "east_*" is an easting and "north_*" is a
-C     northing. Hence the coordinates of the "u" points are given by
-C     (east_u,north_u).
-C
-C     Also, if the centre point of the cell shown below is at
-C     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
-C     the coordinates of the western of the two "u" points,
-C     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
-C     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
-C     coordinates of the southwestern corner point of the cell. The
-C     southwest corner of the entire grid is at
-C     (east_c(1,1),north_c(1,1)).
-C
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                      u      e       u
-C                      |              |
-C                      |              |
-C                      |              |
-C                      |              |
-C                    --c------v-------c--
-C                      |              |
-C
-C
-C     NOTE that the following calculation of east_c and north_c only
-C     works properly for a rectangular grid with east and north aligned
-C     with i and j, respectively:
-C
+!
+!     Calculate horizontal coordinates of grid points and rotation
+!     angle.
+!
+!     NOTE that this is introduced solely for the benefit of any post-
+!     processing software, and in order to conform with the requirements
+!     of the NetCDF Climate and Forecast (CF) Metadata Conventions.
+!
+!     There are four horizontal coordinate systems, denoted by the
+!     subscripts u, v, e and c ("u" is a u-point, "v" is a v-point,
+!     "e" is an elevation point and "c" is a cell corner), as shown
+!     below. In addition, "east_*" is an easting and "north_*" is a
+!     northing. Hence the coordinates of the "u" points are given by
+!     (east_u,north_u).
+!
+!     Also, if the centre point of the cell shown below is at
+!     (east_e(i,j),north_e(i,j)), then (east_u(i,j),north_u(i,j)) are
+!     the coordinates of the western of the two "u" points,
+!     (east_v(i,j),north_v(i,j)) are the coordinates of the southern of
+!     the two "v" points, and (east_c(i,j),north_c(i,j)) are the
+!     coordinates of the southwestern corner point of the cell. The
+!     southwest corner of the entire grid is at
+!     (east_c(1,1),north_c(1,1)).
+!
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                      u      e       u
+!                      |              |
+!                      |              |
+!                      |              |
+!                      |              |
+!                    --c------v-------c--
+!                      |              |
+!
+!
+!     NOTE that the following calculation of east_c and north_c only
+!     works properly for a rectangular grid with east and north aligned
+!     with i and j, respectively:
+!
       do j=1,jm
         east_c(1,j)=0.e0
         do i=2,im
           east_c(i,j)=east_c(i-1,j)+dx(i-1,j)
         end do
       end do
-C
+!
       do i=1,im
         north_c(i,1)=0.e0
         do j=2,jm
           north_c(i,j)=north_c(i,j-1)+dy(i,j-1)
         end do
       end do
-C
-C     The following works properly for any grid:
-C
-C     Elevation points:
-C
+!
+!     The following works properly for any grid:
+!
+!     Elevation points:
+!
       do j=1,jm-1
         do i=1,im-1
           east_e(i,j)=(east_c(i,j)+east_c(i+1,j)
@@ -7943,9 +7943,9 @@ C
      $                   +north_c(i,j+1)+north_c(i+1,j+1))/4.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im-1
         east_e(i,jm)
      $    =((east_c(i,jm)+east_c(i+1,jm))*3.e0
@@ -7954,7 +7954,7 @@ C
      $    =((north_c(i,jm)+north_c(i+1,jm))*3.e0
      $       -north_c(i,jm-1)-north_c(i+1,jm-1))/4.e0
       end do
-C
+!
       do j=1,jm-1
         east_e(im,j)
      $    =((east_c(im,j)+east_c(im,j+1))*3.e0
@@ -7963,58 +7963,58 @@ C
      $    =((north_c(im,j)+north_c(im,j+1))*3.e0
      $       -north_c(im-1,j)-north_c(im-1,j+1))/4.e0
       end do
-C
+!
       east_e(im,jm)=east_e(im-1,jm)+east_e(im,jm-1)
      $               -(east_e(im-2,jm)+east_e(im,jm-2))/2.e0
       north_e(im,jm)=north_e(im-1,jm)+north_e(im,jm-1)
      $               -(north_e(im-2,jm)+north_e(im,jm-2))/2.e0
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre:
-C
-C     (NOTE that the following calculation of rot only works properly
-C     for this particular rectangular grid)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre:
+!
+!     (NOTE that the following calculation of rot only works properly
+!     for this particular rectangular grid)
+!
       do j=1,jm
         do i=1,im
           rot(i,j)=0.e0
         end do
       end do
-C
-C     Define depth:
-C
+!
+!     Define depth:
+!
 !tne:!wad:!lyo:!wad:
 !     Note that unlike original seamount, h<0 is now water below MSL, and
 !     h>0 is above the MSL and is either land (if h>hland, see below)
@@ -8026,7 +8026,7 @@ C
 !
       do i=1,im
         do j=1,jm
-C
+!
           h(i,j)=-hmax*(1.e0-delh
      $                          *exp(-((east_c(i,j)
      $                                   -east_c((im+1)/2,j))**2
@@ -8035,31 +8035,31 @@ C
      $                                /ra**2))
 !lyo:!wad:Make region near top of seamount absolute land region:
           if(h(i,j).gt.hland) h(i,j)=hhi+1.e0
-C
+!
         end do
       end do
-C
-C     Close the north and south boundaries to form a channel:
-C
+!
+!     Close the north and south boundaries to form a channel:
+!
       do i=1,im
         h(i,1)=hhi+1.e0  !tne:!wad:
         h(i,jm)=hhi+1.e0 !tne:!wad:
       end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
 !lyo:!wad:Define "h" consistent with WAD and calculate wetmask, cell areas
 !         and fsm etc.
 !     call areas_masks
       call wadh
-C
-C     Adjust bottom topography so that cell to cell variations
-C     in h do not exceed parameter slmax:
-C
+!
+!     Adjust bottom topography so that cell to cell variations
+!     in h do not exceed parameter slmax:
+!
 !     if(slmax.lt.1.e0) call slpmax  !lyo:wad:now done in wadh above
-C
-C     Set initial conditions:
-C
+!
+!     Set initial conditions:
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -8079,27 +8079,27 @@ C
           end do
         end do
       end do
-C
-C     Initialise uab and vab as necessary
-C     (NOTE that these have already been initialised to zero in the
-C     main program):
-C
+!
+!     Initialise uab and vab as necessary
+!     (NOTE that these have already been initialised to zero in the
+!     main program):
+!
       do j=1,jm
         do i=1,im
           uab(i,j)=vel*dum(i,j)
         end do
       end do
-C
-C     Set surface boundary conditions, e_atmos, vflux, wusurf,
-C     wvsurf, wtsurf, wssurf and swrad, as necessary
-C     (NOTE:
-C      1. These have all been initialised to zero in the main program.
-C      2. The temperature and salinity of inflowing water must be
-C         defined relative to tbias and sbias.):
-C
+!
+!     Set surface boundary conditions, e_atmos, vflux, wusurf,
+!     wvsurf, wtsurf, wssurf and swrad, as necessary
+!     (NOTE:
+!      1. These have all been initialised to zero in the main program.
+!      2. The temperature and salinity of inflowing water must be
+!         defined relative to tbias and sbias.):
+!
       do j=1,jm
         do i=1,im
-C     No conditions necessary for this problem
+!     No conditions necessary for this problem
 !
 !lyo:!wad:!pom2k_bug:tsurf and ssurf were never defined, but should be:
              tsurf(i,j)=tb(i,j,1)
@@ -8107,9 +8107,9 @@ C     No conditions necessary for this problem
 !
         end do
       end do
-C
-C     Initialise elb, etb, dt and aam2d:
-C
+!
+!     Initialise elb, etb, dt and aam2d:
+!
       do j=1,jm
         do i=1,im
           elb(i,j)=(-e_atmos(i,j)-hhi)*fsm(i,j)      !lyo:!wad:
@@ -8158,13 +8158,13 @@ C
       call dens(sb,tb,rho)
 !                                                                      !
 !----------------------------------------------------------------------!
-C
-C     Generated horizontally averaged density field (in this
-C     application, the initial condition for density is a function
-C     of z (the vertical cartesian coordinate) -- when this is not
-C     so, make sure that rmean has been area averaged BEFORE transfer
-C     to sigma coordinates):
-C
+!
+!     Generated horizontally averaged density field (in this
+!     application, the initial condition for density is a function
+!     of z (the vertical cartesian coordinate) -- when this is not
+!     so, make sure that rmean has been area averaged BEFORE transfer
+!     to sigma coordinates):
+!
       do k=1,kbm1
         do j=1,jm
           do i=1,im
@@ -8172,23 +8172,23 @@ C
           end do
         end do
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     (in the seamount problem, the east and west boundaries are open,
-C     while the south and north boundaries are closed through the
-C     specification of the masks fsm, dum and dvm):
-C
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     (in the seamount problem, the east and west boundaries are open,
+!     while the south and north boundaries are closed through the
+!     specification of the masks fsm, dum and dvm):
+!
       rfe=1.e0
       rfw=1.e0
       rfn=1.e0
       rfs=1.e0
-C
+!
       do j=2,jmm1
         uabw(j)=uab(2,j)
         uabe(j)=uab(imm1,j)
-C
-C     Set geostrophically conditioned elevations at the boundaries:
-C
+!
+!     Set geostrophically conditioned elevations at the boundaries:
+!
 !lyo:!wad:Note keep (temporarily) all el* defined wrt MSL - ele, elw,
 !         eln & els were initialized to be =0 in MAIN; then adjust
 !         them later (below) with hhi:
@@ -8196,10 +8196,10 @@ C
         ele(j)=ele(j-1)-cor(imm1,j)*uab(imm1,j)/grav*dy(imm1,j-1)
         elw(j)=elw(j-1)-cor(2,j)*uab(2,j)/grav*dy(2,j-1)
       end do
-C
-C     Adjust boundary elevations so that they are zero in the middle
-C     of the channel:
-C
+!
+!     Adjust boundary elevations so that they are zero in the middle
+!     of the channel:
+!
       elejmid=ele(jmm1/2)
       elwjmid=elw(jmm1/2)
       do j=2,jmm1
@@ -8216,64 +8216,64 @@ C
          ele(j)=(ele(j)-hhi)*fsm(im,j)
          elw(j)=(elw(j)-hhi)*fsm(2,j)
       enddo
-C
-C     Set thermodynamic boundary conditions (for the seamount
-C     problem, and other possible applications, lateral thermodynamic
-C     boundary conditions are set equal to the initial conditions and
-C     are held constant thereafter - users may, of course, create
-C     variable boundary conditions):
-C
+!
+!     Set thermodynamic boundary conditions (for the seamount
+!     problem, and other possible applications, lateral thermodynamic
+!     boundary conditions are set equal to the initial conditions and
+!     are held constant thereafter - users may, of course, create
+!     variable boundary conditions):
+!
       do k=1,kbm1
-C
+!
         do j=1,jm
           tbe(j,k)=tb(im,j,k)
           tbw(j,k)=tb(1,j,k)
           sbe(j,k)=sb(im,j,k)
           sbw(j,k)=sb(1,j,k)
         end do
-C
+!
         do i=1,im
           tbn(i,k)=tb(i,jm,k)
           tbs(i,k)=tb(i,1,k)
           sbn(i,k)=sb(i,jm,k)
           sbs(i,k)=sb(i,1,k)
         end do
-C
+!
       end do
-C
+!
       return
-C
+!
       end
 !                                                                      !
 !----------------------------------------------------------------------!
 !                                                                      !
       subroutine wadsmoladif(xmassflux,ymassflux,ff,sw,fsm,aru,arv,dti2)
 !                                                                      !
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Calculates the antidiffusive velocity used to       *
-C *                reduce the numerical diffusion associated with the  *
-C *                upstream differencing scheme.                       *
-C *                                                                    *
-C *                This is based on a subroutine of Gianmaria Sannino  *
-C *                (Inter-university Computing Consortium, Rome, Italy)*
-C *                and Vincenzo Artale (Italian National Agency for    *
-C *                New Technology and Environment, Rome, Italy),       *
-C *                downloaded from the POM FTP site on 1 Nov. 2001.    *
-C *                The calculations have been simplified by removing   *
-C *                the shock switch option.                            *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Calculates the antidiffusive velocity used to       *
+! *                reduce the numerical diffusion associated with the  *
+! *                upstream differencing scheme.                       *
+! *                                                                    *
+! *                This is based on a subroutine of Gianmaria Sannino  *
+! *                (Inter-university Computing Consortium, Rome, Italy)*
+! *                and Vincenzo Artale (Italian National Agency for    *
+! *                New Technology and Environment, Rome, Italy),       *
+! *                downloaded from the POM FTP site on 1 Nov. 2001.    *
+! *                The calculations have been simplified by removing   *
+! *                the shock switch option.                            *
+! *                                                                    *
+! **********************************************************************
+!
       implicit none
-C
+!
       integer im,jm,kb  !lyo:!wad:kb not required but defined
                         !         in "grid" below
-c
+!
 !     PARAMETER (IM=65,JM=49)
 !     PARAMETER (IM=131,JM=99)
       include 'grid'
-c
+!
       double precision ff(im,jm)
       double precision xmassflux(im,jm),ymassflux(im,jm)
       double precision fsm(im,jm),aru(im,jm),arv(im,jm)
@@ -8282,22 +8282,22 @@ c
       double precision value_min,epsilon
       double precision udx,u2dt,vdy,v2dt,wdz,w2dt
       integer i,j,k,imm1,jmm1
-C
+!
       parameter (value_min=1.e-9,epsilon=1.0e-14)
-C
-c
+!
+!
       imm1=im-1; jmm1=jm-1
-c
-C     Apply temperature and salinity mask:
-C
+!
+!     Apply temperature and salinity mask:
+!
         do i=1,im
           do j=1,jm
             ff(i,j)=ff(i,j)*fsm(i,j)
           end do
         end do
-C
-C     Recalculate mass fluxes with antidiffusion velocity:
-C
+!
+!     Recalculate mass fluxes with antidiffusion velocity:
+!
         do j=2,jmm1
           do i=2,im
             if(ff(i,j).lt.value_min.or.
@@ -8317,7 +8317,7 @@ C
             end if
           end do
         end do
-C
+!
         do j=2,jm
           do i=2,imm1
             if(ff(i,j).lt.value_min.or.
@@ -8336,9 +8336,9 @@ C
             end if
           end do
         end do
-C
+!
       return
-C
+!
       end
 !                                                                      !
 !lyo:!wad:END of WAD-related subroutines.                              !
@@ -8349,21 +8349,21 @@ C
 !rwnd: My procedures
 !
       subroutine ncdf2ic
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up my own problem.                             *
-C *                                                                    *
-C * This example reads IC from NetCDF files, generated by <deleted>    *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up my own problem.                             *
+! *                                                                    *
+! * This example reads IC from NetCDF files, generated by <deleted>    *
+! * Only minimal number of fields are read,                            *
+! * while others are calculated here.  TODO: Read as much as we can    *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision datr(im, jm, kbm1, 2)
       double precision datu(imm1, jm, kbm1, 2)
       double precision datv(im, jmm1, kbm1, 2)
@@ -8377,8 +8377,8 @@ C
       re=6371.E3
 !
       write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
+!
+!--- 1D ---
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"roms_lvl.nc"   ! `roms_lvl` is actually `roms_bry` but the new one which has incorrect velocities but has new sigma-levels.
       write(*,*) "\\",trim(filename)
@@ -8403,7 +8403,7 @@ C--- 1D ---
      $           trim(pfx_dmn)//"roms_ini.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 3D ---
+!--- 3D ---
       call check( nf90_inq_varid(ncid, "temp", varid) )
       call check( nf90_get_var(ncid, varid, t(:,:,kbm1:1:-1)) )
       t(:,:,kb) = t(:,:,kbm1)
@@ -8418,7 +8418,7 @@ C--- 3D ---
      $           trim(pfx_dmn)//"roms_grd.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 2D ---
+!--- 2D ---
       call check( nf90_inq_varid(ncid, "lon_rho", varid) )      ! Read east_u, east_v as well, maybe?
       call check( nf90_get_var(ncid, varid, east_e) )
       write(*, *) "[O] east_e retrieved"
@@ -8443,7 +8443,7 @@ C--- 2D ---
 !     $           trim(pfx_dmn)//"roms_frc.nc"
 !      write(*,*) "\\",trim(filename)
 !      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- (Constant) Wind stress
+!--- (Constant) Wind stress
 !      call check( nf90_inq_varid(ncid, "sustr", varid) )
 !      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
 !      wusurf(1,:) = wusurf(2,:)*.5
@@ -8455,7 +8455,7 @@ C--- (Constant) Wind stress
 !      wvsurf(:,:) = wvsurf(:,:)/rhoref
 !      write(*, *) "[O] Meridional component of momentum flux retrieved"
 
-C      Simulate from zero elevation to avoid artificial waves during spin-up
+!      Simulate from zero elevation to avoid artificial waves during spin-up
 
 !      call check( nf90_close(ncid) )
 
@@ -8559,9 +8559,9 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
 ! rmean must be read in bry
 ! Otherwise you MUST read or calculate rmean yourself. But for that you MUST use t(z) and s(z) that are functions of z-coordiante, not sigma.
       write(*, *) "[+] Finished reading IC."
-C
-C --- print vertical grid distribution
-C
+!
+! --- print vertical grid distribution
+!
       write(6,2)
     2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
       write(6,'(''  '',/)')
@@ -8570,9 +8570,9 @@ C
     3   format((' ',i5,4f10.3))
       end do
       write(6,'(''  '',//)')
-C
-C --- calc. Curiolis Parameter
-C
+!
+! --- calc. Curiolis Parameter
+!
         do j=1,jm
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
@@ -8581,7 +8581,7 @@ C
             dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
@@ -8590,7 +8590,7 @@ C
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
         end do
-C
+!
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
@@ -8599,9 +8599,9 @@ C
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
         end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       !call wadh
       call areas_masks
 !
@@ -8630,9 +8630,9 @@ C
 !        end do
 !      end do
 !!!!!        call slpmax
-C
-C --- calc. surface & lateral BC from climatology
-C
+!
+! --- calc. surface & lateral BC from climatology
+!
 !        do j=1,jm
 !          do i=1,im
 !             tsurf(i,j)=t(i,j,1)
@@ -8643,12 +8643,12 @@ C
 !            end do
 !          end do
 !        end do
-C
-C                    --- EAST & WEST BCs ---
+!
+!                    --- EAST & WEST BCs ---
         do j=1,jm
             ele(j)=0.
             elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
+! --- other vel. BCs (fixed in time) can be specified here
             do k=1,kb
               ubw(j,k)=0.                ! RWND
               ube(j,k)=0.                !
@@ -8660,7 +8660,7 @@ C --- other vel. BCs (fixed in time) can be specified here
               sbe(j,k)=sclim(im,j,k)
             end do
         end do
-C                    --- NORTH & SOUTH BCs ---
+!                    --- NORTH & SOUTH BCs ---
         do i=1,im
               els(i)=0. !elb(i,1)   ! RWND
               eln(i)=0. !elb(i,jm)  !
@@ -8675,9 +8675,9 @@ C                    --- NORTH & SOUTH BCs ---
               sbn(i,k)=sclim(i,jm,k)
             end do
         end do
-C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
+!
+!     Set initial conditions:
+!       and apply free-surface mask ! rwnd:
       do k=1,kb
         t(:,:,k) = t(:,:,k)*fsm(:,:)
         s(:,:,k) = s(:,:,k)*fsm(:,:)
@@ -8690,7 +8690,7 @@ C       and apply free-surface mask ! rwnd:
           end do
         end do
       end do
-C
+!
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
 !     Get tsurf and ssurf
@@ -8701,12 +8701,12 @@ C
 !     $               ' read ICOADS sst and sss.'
 !        call bry(43)
 !      end if
-C
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
+!
+!
+! --- the following grids are needed only for netcdf plotting
+!
+!     Corner of cell points:
+!
       do j=2,jm
         do i=2,im
           east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
@@ -8715,57 +8715,57 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-C
-C
-C     Extrapolate ends (approx.):
-C
+!
+!
+!     Extrapolate ends (approx.):
+!
       do i=2,im
         east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
         north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
       end do
         east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
+!
       do j=2,jm
         east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
         north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
       end do
         north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre: (only needed for CDF plotting)
+!
       do j=1,jm
         do i=1,im-1
           rot(i,j)=0.
@@ -8775,15 +8775,15 @@ C
         end do
        rot(im,j)=rot(im-1,j)
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     set all=0 for closed BCs.
+!     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
       rfs=0.e0  ! Meaningless with RaS boundary conditions.
-C
+!
       return
 
       contains
@@ -8799,21 +8799,21 @@ C
 !rwnd: UNSTRATIFIED TEST CASE
 !
       subroutine ncdf2ic_unstrat
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up unstratified case.                          *
-C *                                                                    *
-C * This example reads IC from NetCDF files, generated by ROMS_tools.  *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up unstratified case.                          *
+! *                                                                    *
+! * This example reads IC from NetCDF files, generated by ROMS_tools.  *
+! * Only minimal number of fields are read,                            *
+! * while others are calculated here.  TODO: Read as much as we can    *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision datr(im, jm, kbm1, 2)
       double precision datu(imm1, jm, kbm1, 2)
       double precision datv(im, jmm1, kbm1, 2)
@@ -8827,8 +8827,8 @@ C
       re=6371.E3
 !
       write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
+!
+!--- 1D ---
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"roms_lvl.nc"   ! `roms_lvl` is actually `roms_bry` but the new one which has incorrect velocities but has new sigma-levels.
       write(*,*) "\\",trim(filename)
@@ -8853,7 +8853,7 @@ C--- 1D ---
      $           trim(pfx_dmn)//"roms_ini.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 3D ---
+!--- 3D ---
 !    Set temperature IC
 !
       t = 15.
@@ -8868,7 +8868,7 @@ C--- 3D ---
      $           trim(pfx_dmn)//"roms_grd.nc"
       write(*,*) "\\",trim(filename)
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 2D ---
+!--- 2D ---
       call check( nf90_inq_varid(ncid, "lon_rho", varid) )      ! Read east_u, east_v as well, maybe?
       call check( nf90_get_var(ncid, varid, east_e) )
       write(*, *) "[O] east_e retrieved"
@@ -8897,7 +8897,7 @@ C--- 2D ---
 !     $           trim(pfx_dmn)//"roms_frc.nc"
 !      write(*,*) "\\",trim(filename)
 !      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- (Constant) Wind stress
+!--- (Constant) Wind stress
 !      call check( nf90_inq_varid(ncid, "sustr", varid) )
 !      call check( nf90_get_var(ncid, varid, wusurf(2:im,:)) )
 !      wusurf(1,:) = wusurf(2,:)*.5
@@ -8909,7 +8909,7 @@ C--- (Constant) Wind stress
 !      wvsurf(:,:) = wvsurf(:,:)/rhoref
 !      write(*, *) "[O] Meridional component of momentum flux retrieved"
 
-C      Simulate from zero elevation to avoid artificial waves during spin-up
+!      Simulate from zero elevation to avoid artificial waves during spin-up
 
 !      call check( nf90_close(ncid) )
 
@@ -8944,9 +8944,9 @@ C      Simulate from zero elevation to avoid artificial waves during spin-up
       call dens(sclim,tclim,rmean)
 !
       write(*, *) "[+] Finished reading IC."
-C
-C --- print vertical grid distribution
-C
+!
+! --- print vertical grid distribution
+!
       write(6,2)
     2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
       write(6,'(''  '',/)')
@@ -8955,9 +8955,9 @@ C
     3   format((' ',i5,4f10.3))
       end do
       write(6,'(''  '',//)')
-C
-C --- calc. Curiolis Parameter
-C
+!
+! --- calc. Curiolis Parameter
+!
         do j=1,jm
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
@@ -8967,7 +8967,7 @@ C
             dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
@@ -8976,7 +8976,7 @@ C
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
         end do
-C
+!
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
@@ -8985,9 +8985,9 @@ C
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
         end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       !call wadh
       call areas_masks
 !
@@ -9009,9 +9009,9 @@ C
 !        end do
 !      end do
 !!!!!        call slpmax
-C
-C --- calc. surface & lateral BC from climatology
-C
+!
+! --- calc. surface & lateral BC from climatology
+!
 !        do j=1,jm
 !          do i=1,im
 !             tsurf(i,j)=t(i,j,1)
@@ -9022,12 +9022,12 @@ C
 !            end do
 !          end do
 !        end do
-C
-C                    --- EAST & WEST BCs ---
+!
+!                    --- EAST & WEST BCs ---
         do j=1,jm
             ele(j)=0.
             elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
+! --- other vel. BCs (fixed in time) can be specified here
             do k=1,kb
               ubw(j,k)=0.                ! RWND
               ube(j,k)=0.                !
@@ -9039,7 +9039,7 @@ C --- other vel. BCs (fixed in time) can be specified here
               sbe(j,k)=sclim(im,j,k)
             end do
         end do
-C                    --- NORTH & SOUTH BCs ---
+!                    --- NORTH & SOUTH BCs ---
         do i=1,im
               els(i)=0. !elb(i,1)   ! RWND
               eln(i)=0. !elb(i,jm)  !
@@ -9054,9 +9054,9 @@ C                    --- NORTH & SOUTH BCs ---
               sbn(i,k)=sclim(i,jm,k)
             end do
         end do
-C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
+!
+!     Set initial conditions:
+!       and apply free-surface mask ! rwnd:
       do k=1,kb
         !t(:,:,k) = t(:,:,k)*fsm(:,:)    ! whut? why?
         !s(:,:,k) = s(:,:,k)*fsm(:,:)    !
@@ -9069,7 +9069,7 @@ C       and apply free-surface mask ! rwnd:
           end do
         end do
       end do
-C
+!
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
       if (BC%wnd) call flux(5)
@@ -9081,12 +9081,12 @@ C
 !     $               ' read ICOADS sst and sss.'
 !        call bry(43)
 !      end if
-C
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
+!
+!
+! --- the following grids are needed only for netcdf plotting
+!
+!     Corner of cell points:
+!
       do j=2,jm
         do i=2,im
           east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
@@ -9095,57 +9095,57 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-C
-C
-C     Extrapolate ends (approx.):
-C
+!
+!
+!     Extrapolate ends (approx.):
+!
       do i=2,im
         east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
         north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
       end do
         east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
+!
       do j=2,jm
         east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
         north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
       end do
         north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre: (only needed for CDF plotting)
+!
       do j=1,jm
         do i=1,im-1
           rot(i,j)=0.
@@ -9155,15 +9155,15 @@ C
         end do
        rot(im,j)=rot(im-1,j)
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     set all=0 for closed BCs.
+!     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
       rfs=0.e0  ! Meaningless with RaS boundary conditions.
-C
+!
       return
 
       contains
@@ -9176,22 +9176,22 @@ C
       end
 !
       subroutine ncdf2ic_pom
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up my own problem.                             *
-C *                                                                    *
-C * This example reads IC from NetCDF files, generated by <deleted>    *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up my own problem.                             *
+! *                                                                    *
+! * This example reads IC from NetCDF files, generated by <deleted>    *
+! * Only minimal number of fields are read,                            *
+! * while others are calculated here.  TODO: Read as much as we can    *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       use date_utility
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       character (len = 256) :: filename
       integer :: YYYY, MM, DD, hh, ii, ss
 !
@@ -9203,8 +9203,8 @@ C
       re=6371.E3
 !
       write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
+!
+!--- 1D ---
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"pom_grd.nc"
       write(*,*) "\\",trim(filename)
@@ -9242,7 +9242,7 @@ C--- 1D ---
      $           trim(pfx_dmn)//"pom_clm.nc"
       write(*,*) "\\",trim(filename)      
       call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-C--- 3D ---
+!--- 3D ---
       write(*,*) "Starting to read IC form ",mi," month."
       call check( nf90_inq_varid(ncid, "Tclim", varid) )
       call check( nf90_get_var(ncid, varid, t, (/1,1,1,mi/),
@@ -9301,9 +9301,9 @@ C--- 3D ---
       enddo; enddo; enddo
 !
       write(*, *) "[+] Initial conditions have been read."
-C
-C --- print vertical grid distribution
-C
+!
+! --- print vertical grid distribution
+!
       write(6,2)
     2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
       write(6,'(''  '',/)')
@@ -9312,9 +9312,9 @@ C
     3   format((' ',i5,4f10.3))
       end do
       write(6,'(''  '',//)')
-C
-C --- calc. Curiolis Parameter
-C
+!
+! --- calc. Curiolis Parameter
+!
         do j=1,jm
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
@@ -9324,7 +9324,7 @@ C
             dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
@@ -9333,7 +9333,7 @@ C
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
         end do
-C
+!
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
@@ -9342,9 +9342,9 @@ C
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
         end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       !call wadh
       call areas_masks
 !
@@ -9497,21 +9497,21 @@ C
       end subroutine ncdf2ic_pom
       
       subroutine ncdf2ic_box
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Sets up my own boxproblem.                          *
-C *                                                                    *
-C * This example reads IC from NetCDF files, generated by <deleted>    *
-C * Only minimal number of fields are read,                            *
-C * while others are calculated here.  TODO: Read as much as we can    *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Sets up my own boxproblem.                          *
+! *                                                                    *
+! * This example reads IC from NetCDF files, generated by <deleted>    *
+! * Only minimal number of fields are read,                            *
+! * while others are calculated here.  TODO: Read as much as we can    *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       double precision datr(im, jm, kbm1, 2)
       double precision datu(imm1, jm, kbm1, 2)
       double precision datv(im, jmm1, kbm1, 2)
@@ -9525,8 +9525,8 @@ C
       re=6371.E3
 !
       write(6,'(/,'' Read grid and initial conditions '',/)')
-C
-C--- 1D ---
+!
+!--- 1D ---
       filename = trim(pth_wrk)//trim(pth_grd)//
      $           trim(pfx_dmn)//"pom_grd.nc"
       write(*,*) "\\",trim(filename)
@@ -9584,9 +9584,9 @@ C--- 1D ---
       enddo; enddo; enddo
 !
       write(*, *) "[+] Finished reading IC."
-C
-C --- print vertical grid distribution
-C
+!
+! --- print vertical grid distribution
+!
       write(6,2)
     2 format(/2x,'k',7x,'z',9x,'zz',9x,'dz',9x,'dzz',/)
       write(6,'(''  '',/)')
@@ -9595,9 +9595,9 @@ C
     3   format((' ',i5,4f10.3))
       end do
       write(6,'(''  '',//)')
-C
-C --- calc. Curiolis Parameter
-C
+!
+! --- calc. Curiolis Parameter
+!
         do j=1,jm
           do i=1,im
             cor(i,j)=2.*7.29E-5*sin(north_e(i,j)*rad)
@@ -9607,7 +9607,7 @@ C
             dt(i,j)=h(i,j)+elb(i,j) ! RWND //PV: h(i,j)
           end do
         end do
-C
+!
         do j=1,jm
           do i=2,im-1
             dx(i,j)=0.5*rad*re*sqrt(((east_e(i+1,j)-east_e(i-1,j))
@@ -9616,7 +9616,7 @@ C
             dx(1,j)=dx(2,j)
             dx(im,j)=dx(im-1,j)
         end do
-C
+!
         do i=1,im
           do j=2,jm-1
             dy(i,j)=0.5*rad*re*sqrt(((east_e(i,j+1)-east_e(i,j-1))
@@ -9625,21 +9625,21 @@ C
             dy(i,1)=dy(i,2)
             dy(i,jm)=dy(i,jm-1)
         end do
-C
-C     Calculate areas and masks:
-C
+!
+!     Calculate areas and masks:
+!
       call areas_masks
-C
-C --- calc. surface & lateral BC from climatology
-C
+!
+! --- calc. surface & lateral BC from climatology
+!
         tsurf = t(:,:,1)
         ssurf = s(:,:,1)
-C
-C                    --- EAST & WEST BCs ---
+!
+!                    --- EAST & WEST BCs ---
         do j=1,jm
             ele(j)=0.
             elw(j)=0.
-C --- other vel. BCs (fixed in time) can be specified here
+! --- other vel. BCs (fixed in time) can be specified here
             do k=1,kb
               ubw(j,k)=0.                ! RWND
               ube(j,k)=0.                !
@@ -9651,7 +9651,7 @@ C --- other vel. BCs (fixed in time) can be specified here
               sbe(j,k)=sclim(im,j,k)
             end do
         end do
-C                    --- NORTH & SOUTH BCs ---
+!                    --- NORTH & SOUTH BCs ---
         do i=1,im
               els(i)=0. !elb(i,1)   ! RWND
               eln(i)=0. !elb(i,jm)  !
@@ -9666,9 +9666,9 @@ C                    --- NORTH & SOUTH BCs ---
               sbn(i,k)=sclim(i,jm,k)
             end do
         end do
-C
-C     Set initial conditions:
-C       and apply free-surface mask ! rwnd:
+!
+!     Set initial conditions:
+!       and apply free-surface mask ! rwnd:
       do k=1,kb
         t(:,:,k) = t(:,:,k)*fsm(:,:)
         s(:,:,k) = s(:,:,k)*fsm(:,:)
@@ -9681,15 +9681,15 @@ C       and apply free-surface mask ! rwnd:
           end do
         end do
       end do
-C
+!
       call dens(sb,tb,rho)
       rmean = rho   
-C
-C
-C --- the following grids are needed only for netcdf plotting
-C
-C     Corner of cell points:
-C
+!
+!
+! --- the following grids are needed only for netcdf plotting
+!
+!     Corner of cell points:
+!
       do j=2,jm
         do i=2,im
           east_c(i,j)=(east_e(i,j)+east_e(i-1,j)
@@ -9698,57 +9698,57 @@ C
      $                   +north_e(i,j-1)+north_e(i-1,j-1))/4.e0
         end do
       end do
-C
-C
-C     Extrapolate ends (approx.):
-C
+!
+!
+!     Extrapolate ends (approx.):
+!
       do i=2,im
         east_c(i,1)=2.*east_c(i,2)-east_c(i,3)
         north_c(i,1)=2.*north_c(i,2)-north_c(i,3)
       end do
         east_c(1,1)=2.*east_c(2,1)-east_c(3,1)
-C
+!
       do j=2,jm
         east_c(1,j)=2.*east_c(2,j)-east_c(3,j)
         north_c(1,j)=2.*north_c(2,j)-north_c(3,j)
       end do
         north_c(1,1)=2.*north_c(1,2)-north_c(1,3)
-C
-C     u-points:
-C
+!
+!     u-points:
+!
       do j=1,jm-1
         do i=1,im
           east_u(i,j)=(east_c(i,j)+east_c(i,j+1))/2.e0
           north_u(i,j)=(north_c(i,j)+north_c(i,j+1))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do i=1,im
         east_u(i,jm)=(east_c(i,jm)*3.e0-east_c(i,jm-1))/2.e0
         north_u(i,jm)=(north_c(i,jm)*3.e0-north_c(i,jm-1))/2.e0
       end do
-C
-C     v-points:
-C
+!
+!     v-points:
+!
       do j=1,jm
         do i=1,im-1
           east_v(i,j)=(east_c(i,j)+east_c(i+1,j))/2.e0
           north_v(i,j)=(north_c(i,j)+north_c(i+1,j))/2.e0
         end do
       end do
-C
-C     Extrapolate ends:
-C
+!
+!     Extrapolate ends:
+!
       do j=1,jm
         east_v(im,j)=(east_c(im,j)*3.e0-east_c(im-1,j))/2.e0
         north_v(im,j)=(north_c(im,j)*3.e0-north_c(im-1,j))/2.e0
       end do
-C
-C     rot is the angle (radians, anticlockwise) of the i-axis relative
-C     to east, averaged to a cell centre: (only needed for CDF plotting)
-C
+!
+!     rot is the angle (radians, anticlockwise) of the i-axis relative
+!     to east, averaged to a cell centre: (only needed for CDF plotting)
+!
       do j=1,jm
         do i=1,im-1
           rot(i,j)=0.
@@ -9758,15 +9758,15 @@ C
         end do
        rot(im,j)=rot(im-1,j)
       end do
-C
-C     Set lateral boundary conditions, for use in subroutine bcond
-C     set all=0 for closed BCs.
-C     Values=0 for vel BC only, =1 is combination of vel+elev.
+!
+!     Set lateral boundary conditions, for use in subroutine bcond
+!     set all=0 for closed BCs.
+!     Values=0 for vel BC only, =1 is combination of vel+elev.
       rfe=0.e0
       rfw=0.e0
       rfn=0.e0
       rfs=0.e0  ! Meaningless with RaS boundary conditions.
-C
+!
       return
 
       contains
@@ -9779,28 +9779,28 @@ C
       end subroutine ncdf2ic_box
 !
       function create_output(nprint) result(ncid)
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  create_output                                       *
-C *                                                                    *
-C * FUNCTION    :  Creates a netCDF file for further output            *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! *                         POM2K SOURCE CODE                          *
+! *                                                                    *
+! * ROUTINE NAME:  create_output                                       *
+! *                                                                    *
+! * FUNCTION    :  Creates a netCDF file for further output            *
+! *                                                                    *
+! **********************************************************************
+!
         use netcdf
         implicit none
-C
+!
         include 'pomNW.c'
-C
+!
         integer i, j, k, ncid, varid, fprint, nprint
         double precision bot_depth(im,jm,kb)
         character(len=256) filename
         integer dim_srho, dim_sw, dim_strim, dim_auxuv
         integer dim_lat, dim_lon, dim_time
         integer ktrim
-C
+!
         write(filename, '(3a,''.'',i4.4,''.nc'')') trim(pth_wrk),
      $             trim(pth_out),trim(title),nprint
 
@@ -9968,9 +9968,9 @@ C
 !        call check( nf90_put_var(ncid, varid, tps) )
         write(*, *) "NetCDF output has been initialized (",ncid,")."
         write(*, *) "Filepath: ",trim(filename)
-C
+!
         return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -9979,39 +9979,39 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end
 !
       subroutine findpsi2nc(ncid, tind)
-C **********************************************************************
-C *                                                                    *
-C * ROUTINE NAME:  findpsi2nc                                          *
-C *                                                                    *
-C * FUNCTION    :  Calculates the stream function, first assuming      *
-C *                zero on the southern boundary and then, using the   *
-C *                values on the western boundary, the stream function *
-C *                is calculated again. If the elevation field is near *
-C *                steady state, the two calculations should agree;    *
-C *                otherwise not.                                      *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * ROUTINE NAME:  findpsi2nc                                          *
+! *                                                                    *
+! * FUNCTION    :  Calculates the stream function, first assuming      *
+! *                zero on the southern boundary and then, using the   *
+! *                values on the western boundary, the stream function *
+! *                is calculated again. If the elevation field is near *
+! *                steady state, the two calculations should agree;    *
+! *                otherwise not.                                      *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       include 'pomNW.c'
-C
+!
       integer i,j, tind, ncid, varid
       character(len=256) filename
-C
+!
       do j=1,jm
         do i=1,im
           psi(i,j)=0.e0
         end do
       end do
-C
-C     Sweep northward:
-C
+!
+!     Sweep northward:
+!
       do j=2,jmm1
         do i=2,im
           psi(i,j+1)=psi(i,j)
@@ -10019,12 +10019,12 @@ C
      $                  *(dy(i,j)+dy(i-1,j))
         end do
       end do
-C
+!
       call check( nf90_inq_varid(ncid, "PSI_nw", varid) )
       call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
-C
-C    Sweep eastward:
-C
+!
+!    Sweep eastward:
+!
       do j=2,jm
         do i=2,imm1
           psi(i+1,j)=psi(i,j)
@@ -10032,12 +10032,12 @@ C
      $                  *(dx(i,j)+dx(i,j-1))
         end do
       end do
-C
+!
       call check( nf90_inq_varid(ncid, "PSI_ew", varid) )
       call check( nf90_put_var(ncid, varid, psi, (/1,1,tind/)) )
-C
+!
       return
-C
+!
       contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -10046,25 +10046,25 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end
-C
+!
       subroutine ncflush(ncid, ri)
-C **********************************************************************
-C *                                                                    *
-C *                         POM2K SOURCE CODE                          *
-C *                                                                    *
-C * ROUTINE NAME:  ncflush                                             *
-C *                                                                    *
-C * FUNCTION    :  Writes a set of outputs to netCDF file              *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! *                         POM2K SOURCE CODE                          *
+! *                                                                    *
+! * ROUTINE NAME:  ncflush                                             *
+! *                                                                    *
+! * FUNCTION    :  Writes a set of outputs to netCDF file              *
+! *                                                                    *
+! **********************************************************************
+!
         use netcdf
         implicit none
-C
+!
         include 'pomNW.c'
-C
+!
         logical :: NOK
         integer :: count
         integer :: i, j, k, ncid, varid, status
@@ -10089,13 +10089,13 @@ C
         call check( nf90_put_var(ncid, varid, time, (/ri/)) )
 !          if ((status.eq.nf90_noerr).or.(count.gt.3)) NOK = .false.
 !        end do
-C
+!
         call intpar_calc(tavg,savg,eavg,mtot,ktot,qavg,atot,vtot)  ! calculate integral parameters (tavg, eavg, qavg, mtot, ktot)
         tavg = tavg/vtot
         savg = savg/vtot
         qavg = qavg/vtot
         eavg = eavg/atot
-C
+!
         call check( nf90_inq_varid(ncid, "Tavg", varid) )
         call check( nf90_put_var(ncid, varid, tavg, (/ri/)) )
 !        call check( nf90_inq_varid(ncid, "Vtot", varid) )
@@ -10138,12 +10138,12 @@ C
         call check( nf90_inq_varid(ncid, "VA", varid) )
         call check( nf90_put_var(ncid, varid, vab, (/1,1,ri/)
      $   ,(/im,jm,1/)) )
-Cc
+!c
         call findpsi2nc(ncid, ri)
         call check( nf90_sync(ncid) )
-C
+!
         return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -10219,7 +10219,7 @@ C
           stop "Stopped"
         end if
           end subroutine check
-C
+!
       end
 !
       subroutine flux(idx)
@@ -10428,9 +10428,9 @@ C
           return
 
       end select
-C
+!
       return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -10439,20 +10439,20 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end
 !
       subroutine flux_roms(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) forcing dataset                *
-C *                and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Reads (if necessary) forcing dataset                *
+! *                and interpolates in time.                           *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       include 'pomNW.c'
 !
       integer, intent (in) :: idx
@@ -10461,15 +10461,15 @@ C
       character(len=256) filename
 
       double precision :: hf_fac = -4.1876e6 ! Heat flux convertion factor
-C
+!
       select case (idx)
 
         case (4) ! Long wave radiation and other fluxes
 
           if (mi.ne.rf_wtsur) then
-C
+!
             rf_wtsur = mi
-C
+!
             filename = trim(pth_wrk)//trim(pth_flx)//
      $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
@@ -10500,9 +10500,9 @@ C
             end if
 
             call check( nf90_close(ncid) )
-C
+!
             write(*,*) "Read wtsurf:  ", mi
-C
+!
           end if
 
           do i=1,im
@@ -10518,13 +10518,13 @@ C
           end do
 !
           return
-C
+!
         case (3) ! Short wave radiation flux
-C
+!
           if (mi.ne.rf_swrad) then
-C
+!
             rf_swrad = mi
-C
+!
             filename = trim(pth_wrk)//trim(pth_flx)//
      $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
@@ -10540,7 +10540,7 @@ C
 
             ! Convert swrad from W/m^2 to K m/s.
             swradb = swradb/hf_fac
-C
+!
             write(*,*) "Read swrad:   ", mi
 
           end if
@@ -10548,13 +10548,13 @@ C
           swrad = swradb+fac*(swradf-swradb)
 
           return
-C
+!
         case (5) ! momentum flux
-C
+!
           if (mi.ne.rf_wsurf) then
-C
+!
             rf_wsurf = mi
-C
+!
             filename = trim(pth_wrk)//trim(pth_flx)//
      $                 trim(pfx_dmn)//"roms_frc.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
@@ -10715,9 +10715,9 @@ C
           return
 
       end select
-C
+!
       return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -10726,20 +10726,20 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end
 !
       subroutine bry_roms(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
-C *                and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
+! *                and interpolates in time.                           *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       integer, intent ( in) :: idx
       integer :: i,j,k, ncid,varid
 
@@ -10747,7 +10747,7 @@ C
 
       include 'pomNW.c'
 
-C
+!
       select case (idx)
 !
           case (0)            ! Read rmean from pom grid provided file.
@@ -10898,9 +10898,9 @@ C
           if (BC%ipl) els(:) = (elsb(:)+fac*(elsf(:)-elsb(:)))*fsm(:,1)
 
           return
-C
+!
         case (3) ! u and v
-C
+!
           if (mi.ne.rf_uv) then
 !        If we move to the next month...
             rf_uv = mi
@@ -10994,9 +10994,9 @@ C
           end if
 
           return
-C
+!
         case (4) ! temperature and salinity
-C
+!
           if (mi.ne.rf_ts) then
 !        If we move to the next month...
             rf_ts = mi
@@ -11165,7 +11165,7 @@ C
           end if
 
           return
-C
+!
           case (43)   ! Surface temperature and salinity from ICOADS
 
           if (mi.ne.rf_sts) then
@@ -11297,11 +11297,11 @@ C
           end if
 !
           return
-C
+!
         end select
-C
+!
         return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -11310,20 +11310,20 @@ C
               stop "Stopped"
             end if
           end subroutine check
-C
+!
       end subroutine bry_roms
 !
       subroutine bry(idx)
-C **********************************************************************
-C *                                                                    *
-C * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
-C *                and interpolates in time.                           *
-C *                                                                    *
-C **********************************************************************
-C
+! **********************************************************************
+! *                                                                    *
+! * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
+! *                and interpolates in time.                           *
+! *                                                                    *
+! **********************************************************************
+!
       use netcdf
       implicit none
-C
+!
       integer, intent ( in) :: idx
       integer :: i,j,k, ncid,varid, dist_num,p
       double precision :: trans_tot, trans_dist
@@ -11332,7 +11332,7 @@ C
 
       include 'pomNW.c'
 
-C
+!
       select case (idx)
 !
           case (0)            ! Read rmean from pom grid provided file. TODO: Maybe it should be better to move this to case 1 and read all rmean, tclim and sclim at the same time?
@@ -11561,9 +11561,9 @@ C
           return
 !
         end select
-C
+!
         return
-C
+!
         contains
           subroutine check(status)
             integer, intent ( in) :: status
@@ -11888,7 +11888,7 @@ C
 !          mtot3 = mtot3-mtot
 !          write(*,*) "Total mass discreapncy between ",
 !     $               "two sum methods is: ",mtot3
-C
+!
         
       end subroutine intpar_calc
 
@@ -11924,7 +11924,7 @@ C
       end subroutine ncclose
 !
 !      include 'pom2k.n'                                       ! *netCDF*
-C
-C     End of source code
-C
-C-----------------------------------------------------------------------
+!
+!     End of source code
+!
+!-----------------------------------------------------------------------
