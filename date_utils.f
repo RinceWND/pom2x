@@ -279,7 +279,7 @@ module Date_Utility
     double precision function time_to_seconds(Time)
       type (T_Time), intent(in) :: Time
       
-      time_to_seconds = Time%seconds + Time%minute*60. + Time%hour*3600.
+      time_to_seconds = Time%seconds + 60.*(Time%minute + Time%hour*60.)
       
     end function time_to_seconds
     

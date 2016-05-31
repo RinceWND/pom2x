@@ -743,7 +743,8 @@
       BC%ssf = .false.
       BC%vap = .false.
       BC%clm = .false.
-!      BC%vel = .true.
+      BC%ele = .false.
+      BC%vel = .false.
       BC%bnd%nth = .false.
       BC%bnd%est = .false.
       BC%bnd%sth = .false.
@@ -781,7 +782,6 @@
       
       read(time_start, '(5x, i2)') m0
       call upd_mnth(day_of_start)
-      
 !
 !lyo:wad:beg:
 !     Overwrite some input constants: see "params" above in runpom08
@@ -9256,10 +9256,12 @@
       call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
-      call check( nf90_inq_varid(ncid, "el", varid) )
-      call check( nf90_get_var(ncid, varid, elb, (/1,1,mi/),
-     &                                         (/im,jm,1/)) )
-      write(*, *) "[O] elevation retrieved"
+      if (IC%el) then
+        call check( nf90_inq_varid(ncid, "el", varid) )
+        call check( nf90_get_var(ncid, varid, elb, (/1,1,mi/),
+     &                                           (/im,jm,1/)) )
+        write(*, *) "[O] elevation retrieved"
+      end if
       call check( nf90_close(ncid) )
       
       filename = trim(pth_wrk)//trim(pth_grd)//
