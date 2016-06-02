@@ -254,6 +254,7 @@
       double precision    slice_b, slice_e  
       
       double precision :: day_of_start
+      type (T_Zone) :: zone
       
 !     Formatting parameters
       character*4 :: sBOLD, sRESET, sULINE
@@ -300,9 +301,9 @@
 !
 !***********************************************************************
 !
-      small=1.e-9           ! Small value
+      small=1.d-9           ! Small value
 !
-      pi=atan(1.e0)*4.e0    ! PI
+      pi=atan(1.d0)*4.d0    ! PI
 !
 !***********************************************************************
 !
@@ -750,8 +751,9 @@
       BC%bnd%sth = .false.
       BC%bnd%wst = .false.
 
-      IC%el = .false.
-      IC%u  = .false.
+      IC%ele = .false.
+      IC%vel = .false.
+      IC%wnd = .false.
 !
 !     End of input of constants
 !***********************************************************************
@@ -8524,7 +8526,7 @@
       elb = 0.
       el  = 0.
 
-      if (IC%el) then
+      if (IC%ele) then
 
         call check( nf90_inq_varid(ncid, "zeta", varid) )
 
@@ -9256,7 +9258,7 @@
       call check( nf90_get_var(ncid, varid, rmean, (/1,1,1,mi/),
      &                                         (/im,jm,kb,1/)) )
       write(*, *) "[O] rmean retrieved"
-      if (IC%el) then
+      if (IC%ele) then
         call check( nf90_inq_varid(ncid, "el", varid) )
         call check( nf90_get_var(ncid, varid, elb, (/1,1,mi/),
      &                                           (/im,jm,1/)) )
@@ -9398,8 +9400,8 @@
 !      rmean = rho   ! remove the line to avoid rmean overriding
       call bry(0)   ! always read rmean
       call bry(1)   ! always read TSclim
-      call bry(11)  ! always get vertical...
-      call bry(12)  ! ...and horizontal boundaries for TS
+      call bry(3)   ! read boundary velocities
+      call bry(4)   ! read boundary TS
       if (BC%wnd) call flux(5)
 !
 !
@@ -11333,7 +11335,6 @@
       character(len=256) filename
 
       include 'pomNW.c'
-
 !
       select case (idx)
 !

@@ -210,16 +210,24 @@ module Date_Utility
     double precision function days_number(TimeStamp)
     
       type (T_TimeStamp) :: TimeStamp
+      integer :: era, yoe, doy, doe
       
-      days_number = int(TimeStamp%date%year*365.           &
-                      + ceiling(TimeStamp%date%year/4.)    &
-                      - ceiling(TimeStamp%date%year/100.)  &
-                      + ceiling(TimeStamp%date%year/400.)  &
-                      + MONTH_DAYS(TimeStamp%date%month) + TimeStamp%date%day)
-                          
-      if ( TimeStamp%date%month>2 .and. Is_Leap_Year(TimeStamp%date%year) ) days_number = days_number + 1
+      if (TimeStamp%date%month <= 2) TimeStamp%date%year = TimeStamp%date%year-1
+      if (TimeStamp%date%year < 0) TimeStamp%date%year = TimeStamp%date%year-399
+      era = TimeStamp%date%year / 400
+      yoe = TimeStamp%date%year - era*400
+      if (TimeStamp%date%month > 2) then
+        TimeStamp%date%month = TimeStamp%date%month - 3
+      else
+        TimeStamp%date%month = TimeStamp%date%month + 9
+      end if
+      doy = (153*(TimeStamp%date%month)+2)/5 + TimeStamp%date%day-1
+      doe = yoe*365 + yoe/4 - yoe/100 + doy
+      days_number = era*146097+doe
       
       days_number = days_number + time_to_days(TimeStamp%time)
+      
+      return
       
     end function days_number
 !___________________________________________________________________
@@ -239,43 +247,6 @@ module Date_Utility
     end function Number_of_Days
 !
 !    
-    function Days_to_Date(Days) result(Date)
-      
-      double precision, intent(in) :: Days
-      integer*2 :: Date(3)
-      integer*2 :: Days_of_Month(N_MONTHS)
-      integer*1 :: leap
-      
-      Days_of_Month = MONTH_DAYS
-      
-      Date(1) = int(Days/365.24)  ! 365.24 - mean year length in days (leap years are taken into account)
-      Date(3) = Days-(Date(1)*365.+ceiling(Date(1)/4.)-ceiling(Date(1)/100.)+ceiling(Date(1)/400.))  ! Tmp storage
-      ! correction variable to fix month detection for leap years
-      leap = 0
-      if (Is_Leap_Year(Date(1))) leap = 1
-      Date(2) = minloc(Days_of_Month, 1, Days_of_Month >= Date(3)-leap)-1
-      
-      Date(3) = floor(float( Date(3) - Days_of_Month(Date(2)) ))
-      if ( Date(2)>2 .and. Is_Leap_Year(Date(1)) ) Date(3) = Date(3) - 1
-      
-    end function Days_to_Date
-!
-!
-    function Days_to_DateTime(Days) result(DateTime)
-      double precision, intent(in) :: Days
-      double precision :: Time
-      integer*2 :: DateTime(6)
-      
-      DateTime(1:3) = Days_to_Date(Days)
-      
-      Time = Days - floor(Days)
-      
-      DateTime(4) = floor(Time*24.)
-      DateTime(5) = floor((Time*24.-DateTime(4))*60.)
-      DateTime(6) = ((Time*24.-DateTime(4))*60.-DateTime(5))*60.+.5 ! 0.5 is to compensate for integer rounding. It makes 60 seconds possible, though.
-      
-    end function Days_to_DateTime
-!
     double precision function time_to_seconds(Time)
       type (T_Time), intent(in) :: Time
       
@@ -297,18 +268,23 @@ module Date_Utility
       double precision :: Time
       integer*1 :: leap
       
-      TimeStamp%date%year = int(Days/365.24)  ! 365.24 - mean year length in days (leap years are taken into account)
-      Time = floor(Days-(TimeStamp%date%year*365.   &
-                  +ceiling(TimeStamp%date%year/4.)  &
-                  -ceiling(TimeStamp%date%year/100.)&
-                  +ceiling(TimeStamp%date%year/400.)))  ! Tmp storage
-      ! correction variable to fix month detection for leap years
-      leap = 0
-      if (Is_Leap_Year(TimeStamp%date%year) .and. Time > 59.) leap = 1
-      TimeStamp%date%month = minloc(MONTH_DAYS, 1, MONTH_DAYS >= Time-leap)-1
+      integer t, era, doe, yoe, doy
       
-      TimeStamp%date%day = floor(Time - float( MONTH_DAYS(TimeStamp%date%month) ))
-      if ( TimeStamp%date%month>2 .and. Is_Leap_Year(TimeStamp%date%year) ) TimeStamp%date%day = TimeStamp%date%day - 1
+      t = int(Days)
+      if (t < 0) t = t-146096
+      era = t/146097
+      doe = t - era*146097
+      yoe = (doe - doe/1460 + doe/36524 - doe/146096)/365
+      TimeStamp%date%year = yoe + era*400
+      doy = doe - (365*yoe + yoe/4 - yoe/100)
+      TimeStamp%date%month = (5*doy + 2)/153
+      TimeStamp%date%day = doy - (153*TimeStamp%date%month + 2)/5 + 1
+      if (TimeStamp%date%month < 10) then
+        TimeStamp%date%month = TimeStamp%date%month + 3
+      else
+        TimeStamp%date%month = TimeStamp%date%month - 9
+      end if
+      if (TimeStamp%date%year <= 2) TimeStamp%date%year = TimeStamp%date%year + 1
       
       TimeStamp%time%seconds = Days - floor(Days)
       TimeStamp%time%hour    = floor(TimeStamp%time%seconds*24.)

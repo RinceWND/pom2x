@@ -316,8 +316,9 @@ C
 
       type Tic
       sequence
-        logical el ! read elevation from file
-        logical u  ! read current velocities (and calculate barotropic velocities)
+        logical ele ! read initial elevation field from clm file
+        logical vel ! read initial current velocities field from clm file
+        logical wnd ! read wind forcing field from frc file ! TODO: incorporate initial fields into ic file
       end type
       type (Tic) IC
 
