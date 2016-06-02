@@ -8,6 +8,11 @@ C     source_c should agree with source in pom08.f.
 C
       character*40 source_c
       parameter(source_c='pom08  2008-04-18')
+!
+! github revision
+      character(len=40) rev
+      include 'pomNW.r'
+!
 C
 C***********************************************************************
 C

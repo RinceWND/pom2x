@@ -849,7 +849,8 @@
 !
 !     Print initial summary:
 !
-      write(6,'(/,'' source   = '',a40)') source
+      write(6,'(/,'' source     = '',a40)') source
+      write(6,'('' git_rev    = '',a40)') rev
       write(6,'('' title      = '',a40/)') title
       write(6,'('' iproblem   = '',i10)') iproblem
       write(6,'('' nwad       = '',i10)') nwad        !lyo:!wad:
@@ -895,6 +896,7 @@
       write(6,'('' ntp        = '',i10)') ntp
       write(6,'('' nbct       = '',i10)') nbct
       write(6,'('' nbcs       = '',i10)') nbcs
+      write(6,'('' npg        = '',i10)') npg
       write(6,'('' ispadv     = '',i10)') ispadv
       write(6,'('' smoth      = '',f10.4)') smoth
       write(6,'('' alpha      = '',f10.4)') alpha
