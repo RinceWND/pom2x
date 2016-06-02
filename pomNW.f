@@ -241,6 +241,7 @@
       integer nsmolar  !lyo:!wad:
       logical lramp
       character*120 netcdf_file
+      character(len=23) stime
 !___________________________________________________________________
 !
       integer*1 bcond_idx
@@ -1979,13 +1980,14 @@
 !
 !     Stop timer
           call cpu_time(slice_e)
-          write(6,4) time,iint,iext,iprint,(slice_e-slice_b)/60.
-    4     format(/
-     $    '**************************************************',
-     $    '**************************************************',
-     $    '*************************'//
-     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//
-     $    ' Time elapsed since prev. output: ',f9.4,' min')
+          call date_and_time(stime(1:8),stime(9:18),stime(19:23))
+          write(6,4) stime(1:8),stime(9:18),stime(19:23)
+     $              ,(slice_e-slice_b)/60.,time,iint,iext,iprint
+    4     format(//
+     $    '==== ',a8,' ',a10,' ',a5,' ==[ ',f9.4,' min ]',
+     $    '==================================================',
+     $    '========================='//
+     $    ' time =',f9.4,', iint =',i8,', iext =',i8,', iprint =',i8,//)
 !
 !     Select print statements in printall as desired:
 !
@@ -1995,9 +1997,9 @@
           
           if (int(iint/fprint)/=nccnt) then
               nccnt = int(iint/fprint)
-              write(*,*) "Output file change (", nccnt, ")"
+              write(*,*) "[-] Output file change (", nccnt, ")"
               call ncclose(ncid)
-              write(*,*) "Previous file closed."
+              write(*,*) "    Previous file closed."
               ncid = create_output(nccnt)
           end if
           call ncflush(ncid
