@@ -215,8 +215,8 @@
 !     New declarations plus ispi,isp2i:
 !
       double precision aam_init,atot
-      double precision cbcmax,cbcmin,darea
-      double precision days,dte2,dvol
+      double precision cbcmax,cbcmin
+      double precision days,dte2
       double precision eavg
       double precision horcon
       double precision ispi,isp2i
@@ -232,7 +232,6 @@
       double precision wadsmoth  !lyo:!wad:
       double precision cflmin    !lyo:_20080415:
       integer fprint
-      integer io(100),jo(100),ko(100)
       integer i,iend,iext,imax,ispadv,isplit,iswtch
       integer j,jmax
       integer k
@@ -255,7 +254,7 @@
       double precision    slice_b, slice_e  
       
       double precision :: day_of_start
-      type (T_Zone) :: zone
+      !type (T_Zone) :: zone
       
 !     Formatting parameters
       character*4 :: sBOLD, sRESET, sULINE
@@ -1621,8 +1620,8 @@
             do i=1,im
               if(abs(vaf(i,j)).ge.vamax) then
                 vamax=abs(vaf(i,j))
-	        imax=i
-	        jmax=j
+                imax=i
+                jmax=j
               endif
             end do
           end do
@@ -2179,11 +2178,11 @@
 
         sec = mod(raw, 60.)
         tmp = int(raw-sec)
-        min = mod(tmp/60., 60.)
+        min = int(mod(tmp/60., 60.))
         tmp = (tmp-min*60)/60
-        h   = mod(tmp/60., 24.)
+        h   = int(mod(tmp/60., 24.))
         tmp = (tmp-h*60)/60
-        d   = mod(tmp/24., 24.)
+        d   = int(mod(tmp/24., 24.))
 
         write(*,"('Time elapsed: ',i4,'d ',i2,'h ',i2,'min ',f9.4,'s')")
      $            d, h, min, sec
@@ -3344,8 +3343,8 @@
       implicit none
       include 'pomNW.c'
       integer i,j,k
-      real d4(im,jm),ddx(im,jm),drho(im,jm,kb),rhou(im,jm,kb)
-      real rho4th(0:im,0:jm,kb),d4th(0:im,0:jm)
+      double precision :: d4(im,jm), ddx(im,jm)
+      double precision :: drho(im,jm,kb), rhou(im,jm,kb)
 
       do k=1,kb
         do j=1,jm
@@ -5175,8 +5174,8 @@
 !
       include 'pomNW.c'
 !
-      double precision rad,re,dlat,dlon,cff
-      integer i,j,k,m
+      double precision rad,re,dlat,dlon
+      integer i,j,k
       character*5 field
       rad=0.01745329
       re=6371.E3
@@ -8371,12 +8370,10 @@
       include 'pomNW.c'
 !
       double precision datr(im, jm, kbm1, 2)
-      double precision datu(imm1, jm, kbm1, 2)
-      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      double precision rad,re,dlat,dlon,cff
-      integer i,j,k,mm,ncid,varid
+      double precision rad,re,dlat,dlon
+      integer i,j,k,ncid,varid
       double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
@@ -8820,13 +8817,10 @@
 !
       include 'pomNW.c'
 !
-      double precision datr(im, jm, kbm1, 2)
-      double precision datu(imm1, jm, kbm1, 2)
-      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      double precision rad,re,dlat,dlon,cff
-      integer i,j,k,mm,ncid,varid
+      double precision rad,re,dlat,dlon
+      integer i,j,k,ncid,varid
       double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
@@ -9199,9 +9193,8 @@
       include 'pomNW.c'
 !
       character (len = 256) :: filename
-      integer :: YYYY, MM, DD, hh, ii, ss
 !
-      double precision rad,re,dlat,dlon,dlnt,cff
+      double precision rad,re,dlat,dlon,dlnt
       integer i,j,k,ncid,varid
       double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
@@ -9520,13 +9513,10 @@
 !
       include 'pomNW.c'
 !
-      double precision datr(im, jm, kbm1, 2)
-      double precision datu(imm1, jm, kbm1, 2)
-      double precision datv(im, jmm1, kbm1, 2)
       character (len = 256) :: filename
 !
-      double precision rad,re,dlat,dlon,cff
-      integer i,j,k,mm,ncid,varid
+      double precision rad,re,dlat,dlon
+      integer i,j,k,ncid,varid
       double precision lom(12)   ! length of month
       data lom /31,28.25,31,30,31,30,31,31,30,31,30,31/
       rad=0.01745329
@@ -9802,7 +9792,7 @@
 !
         include 'pomNW.c'
 !
-        integer i, j, k, ncid, varid, fprint, nprint
+        integer i, j, k, ncid, varid, nprint
         double precision bot_depth(im,jm,kb)
         character(len=256) filename
         integer dim_srho, dim_sw, dim_strim, dim_auxuv
@@ -10010,7 +10000,6 @@
       include 'pomNW.c'
 !
       integer i,j, tind, ncid, varid
-      character(len=256) filename
 !
       do j=1,jm
         do i=1,im
@@ -10075,14 +10064,13 @@
 !
         logical :: NOK
         integer :: count
-        integer :: i, j, k, ncid, varid, status
-        double precision :: vtot,tavg,atot,eavg,qavg,qtot,mtot,mass,ktot
-        double precision :: darea,dvol,savg
-        integer nlyrs, fi, ri ! fi - file index, ri - record index
+        integer :: i, ncid, varid
+        double precision :: vtot,atot,qavg,mtot,ktot
+        double precision :: savg,tavg,eavg
+        integer nlyrs, ri ! fi - file index, ri - record index
         parameter (nlyrs = kbm1)
         integer :: lyrs(nlyrs)
         !data lyrs /1,2,15/
-        character(len=256) filename
 !
         write(*,*) "[-] Writing record #", ri
         count = 0
@@ -10248,7 +10236,7 @@
       double precision :: qq, dq, sst
       character(len=256) filename
 
-      double precision :: hf_fac = -4.1876e6 ! Heat flux convertion factor
+      double precision :: hf_fac = -4.1876d6 ! Heat flux convertion factor
 !
       select case (idx)
 
@@ -10749,7 +10737,7 @@
       implicit none
 !
       integer, intent ( in) :: idx
-      integer :: i,j,k, ncid,varid
+      integer :: i,k,ncid,varid
 
       character(len=256) filename
 
@@ -11332,9 +11320,8 @@
       use netcdf
       implicit none
 !
-      integer, intent ( in) :: idx
-      integer :: i,j,k, ncid,varid, dist_num,p
-      double precision :: trans_tot, trans_dist
+      integer, intent (in) :: idx
+      integer :: k,ncid,varid
 
       character(len=256) filename
 
@@ -11640,7 +11627,7 @@
 
         tmp  = floor(time_in)
         YYYY = YYYY + floor((DD-1+tmp)/365.)
-        DD   = mod((DD+tmp),365.)
+        DD   = int(mod((DD+tmp),365.))
 
         if (DD==0) then
           MM = 12
@@ -11732,7 +11719,7 @@
      $                      as(im,kb), aw(jm,kb),
      $                      trn, tre, trs, trw  ! total boundary section transport
         double precision :: trans_tot, trans_discr
-        integer :: i,j,k,p
+        integer :: k
         
         write(*,*) "[-] Volume conservation:"
         
@@ -11817,11 +11804,13 @@
       
       subroutine intpar_calc(tt, st, pt, mt, kt, qt, at, vt)
         
+        implicit none
         include 'pomNW.c'
         
         double precision, intent(out) :: tt,st,pt,mt,kt,qt,at,vt
-        double precision :: da, dv
+        double precision :: da, dm, dv
         double precision, dimension(im,jm) :: ta,sa,pa,ma,ka,qa,aa,vl
+        integer :: i,j,k
         
         vt = 0.d0
         at = 0.d0
@@ -11849,7 +11838,7 @@
             do k=1,kbm1
               dv = da*dt(i,j)*dz(k)
               vl(i,j) = vl(i,j)+dv
-              dm = fsm(i,j)*(rho(i,j,k)*rhoref+1000.)*dv
+              dm = fsm(i,j)*(rho(i,j,k)*rhoref+1000.d0)*dv  ! What is real(4) here?
               ka(i,j) = ka(i,j)+dm*.5*
      $                  sqrt(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k))
               ma(i,j) = ma(i,j)+dm
