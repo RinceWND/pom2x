@@ -211,6 +211,7 @@
       include 'pomNW.c'
 
       integer, external :: create_output
+!      type (T_TimeStamp) :: DatAA
 !
 !     New declarations plus ispi,isp2i:
 !
@@ -243,7 +244,7 @@
       character(len=23) stime
 !___________________________________________________________________
 !
-      integer*1 bcond_idx
+      integer*1 bcond_idx, bdata_idx
       double precision    bkp_gap
       integer ncid   !rwnd: Ncdf file id.
       integer nccnt  !    : Ncdf file counter.
@@ -754,6 +755,26 @@
       IC%ele = .false.
       IC%vel = .false.
       IC%wnd = .false.
+      
+      BCupd%wnd = "0000-00-00 00:00:00"
+      BCupd%lrd = "0000-00-00 00:00:00"
+      BCupd%srd = "0000-00-00 00:00:00"
+      BCupd%ssf = "0000-00-00 00:00:00"
+      BCupd%vbf = "0000-00-00 00:00:00"
+      BCupd%vap = "0000-00-00 00:00:00"
+      BCupd%clm = "0000-00-00 00:00:00"
+      BCupd%ele = "0000-00-00 00:00:00"
+      BCupd%vel = "0000-00-00 00:00:00"
+      
+      BCflg%wnd = 0.d0
+      BCflg%lrd = 0.d0
+      BCflg%srd = 0.d0
+      BCflg%ssf = 0.d0
+      BCflg%vbf = 0.d0
+      BCflg%vap = 0.d0
+      BCflg%clm = 0.d0
+      BCflg%ele = 0.d0
+      BCflg%vel = 0.d0
 !
 !     End of input of constants
 !***********************************************************************
@@ -767,9 +788,9 @@
 !
       if (time_end /= 'not-set') then
         days = Days_in_between(time_start, time_end)
-        if (days <= 0) then
+        if (days <= 0.) then
           write(*,*) sBOLD,sRED,"[X]",
-     $        " End date cannot be before start date."
+     $        " End date cannot be before start date [",days,"]"
           write(*,*) "    Please, specify time_end variable ",
      $                 "after ", time_start, sRESET
           write(*,*) sBOLD,sRED,
@@ -783,7 +804,8 @@
       day_of_start = Number_of_Days(time_start)
       
       read(time_start, '(5x, i2)') m0
-      call upd_mnth(day_of_start)
+      time_now = Days_to_Stamp(day_of_start+time)
+      call upd_datetime(day_of_start)
 !
 !lyo:wad:beg:
 !     Overwrite some input constants: see "params" above in runpom08
@@ -1160,11 +1182,12 @@
             stop
           end if
           
-          day_of_start = day_of_start + time0
+          !day_of_start = day_of_start + time0 ! Should this really be added?
           
         end if
         
         time_start = Date_since(time_start, time0)
+        time_now = Days_to_Stamp(day_of_start+time0)
         
       end if
 !
@@ -1228,10 +1251,12 @@
 !-----------------------------------------------------------------------
 !     Set timer
       call cpu_time(slice_b)
-!
+      
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 !
         time=dti*float(iint)/86400.d0+time0
+        time_now = Days_to_Stamp(day_of_start+time)
+        print *,time_now
 !
         if(lramp) then
           ramp=time/period
@@ -1250,9 +1275,6 @@
 !     wish to create a subroutine to supply wusurf, wvsurf, wtsurf,
 !     wssurf, swrad and vflux.
 !
-!     Update month
-      call upd_mnth(day_of_start)
-      call clm_warp
 
       if (iproblem>=11 .and. iproblem<=19) then
 !
@@ -1315,14 +1337,9 @@
         end do
       end if
       
-      if (BC%clm) then
-        call bry(0)   ! Update Rmean
-        call bry(1)   ! Update TSclim
-      end if
-      if (BC%wnd) call flux(5)  ! Update wind stress
-      if (BC%ele) call bry(2)   ! Update boundary elevation
-      if (BC%clm) call bry(4)   ! Update boundary TS
-      if (BC%vel) call bry(3)   ! Update current velocity BCs.
+      call bry(bdata_idx)
+      call upd_datetime(day_of_start)
+      call clm_warp
 !
 !lyo:
 !     call powdriver(iprint,nread,z0b,cbcmin,iend/iprint,fsm)
@@ -2115,7 +2132,7 @@
      $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
       close(49)
 !
-      write(6,4) time,iint,iext,iprint
+      write(6,*) time,iint,iext,iprint
 !
 !            call printall !lyo:_20080415:final printing
 !
@@ -5642,7 +5659,7 @@
       double precision p,sef,sp,tp
       double precision l0(im,jm)
       double precision cbcnst,surfl,shiw
-      double precision utau2, df0,df1,df2
+      double precision utau2 ! rwnd: ,df0,df1,df2 ! unused variables
 !
       integer i,j,k,ki
 !
@@ -7459,7 +7476,7 @@
       double precision xflux(im,jm),yflux(im,jm)
       double precision fbmem(im,jm)
       double precision xmassflux(im,jm),ymassflux(im,jm)
-      integer i,j,k,itera,imm1,jmm1
+      integer i,j,itera,imm1,jmm1 ! rwnd: ,k ! unused variable
 !
 !     Calculate horizontal mass fluxes:
 !
@@ -7589,7 +7606,7 @@
 !                                                                      !
       implicit none
 !
-      integer i,j,k
+      integer i,j ! rwnd: ,k !unused variable
 !
       include 'pomNW.c'
 !
@@ -8285,8 +8302,8 @@
       double precision sw,dti2
       double precision mol,abs_1,abs_2
       double precision value_min,epsilon
-      double precision udx,u2dt,vdy,v2dt,wdz,w2dt
-      integer i,j,k,imm1,jmm1
+      double precision udx,u2dt,vdy,v2dt ! rwnd: ,wdz,w2dt ! unused variable
+      integer i,j,imm1,jmm1 ! rwnd: ,k ! unused variable
 !
       parameter (value_min=1.e-9,epsilon=1.0e-14)
 !
@@ -8610,10 +8627,10 @@
 !
 ! Call these before copy TS to boundaries.
 !
-      call bry(0)
-      call bry(1)
-      call bry(11)
-      call bry(12)
+!      call bry(0)
+!      call bry(1)
+!      call bry(11)
+!      call bry(12)
       if (BC%wnd) call flux(5)
 !      Comment the code below to avoid forced closed boundary.
 !      do j=1,jm
@@ -9263,19 +9280,19 @@
       end if
       call check( nf90_close(ncid) )
       
-      filename = trim(pth_wrk)//trim(pth_grd)//
-     $           trim(pfx_dmn)//"pom_frc.nc"
-      write(*,*) "\\",trim(filename)
-      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
-      call check( nf90_inq_varid(ncid, "wU", varid) )
-      call check( nf90_get_var(ncid, varid, wusurf, (/1,1,mi/),
-     &                                            (/im,jm,1/)) )
-      write(*, *) "[O] wusurf retrieved"
-      call check( nf90_inq_varid(ncid, "wV", varid) )
-      call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,mi/),
-     &                                            (/im,jm,1/)) )
-      write(*, *) "[O] wvsurf retrieved"
-      call check( nf90_close(ncid) )
+!      filename = trim(pth_wrk)//trim(pth_grd)//
+!     $           trim(pfx_dmn)//"pom_frc.nc"
+!      write(*,*) "\\",trim(filename)
+!      call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!      call check( nf90_inq_varid(ncid, "wU", varid) )
+!      call check( nf90_get_var(ncid, varid, wusurf, (/1,1,mi/),
+!     &                                            (/im,jm,1/)) )
+!      write(*, *) "[O] wusurf retrieved"
+!      call check( nf90_inq_varid(ncid, "wV", varid) )
+!      call check( nf90_get_var(ncid, varid, wvsurf, (/1,1,mi/),
+!     &                                            (/im,jm,1/)) )
+!      write(*, *) "[O] wvsurf retrieved"
+!      call check( nf90_close(ncid) )
 !
 ! Make sure that cells with fsm=0. have depth h=1. for areas_masks subroutines to perform correctly.
 ! ...or just comment out `call areas_masks` and calculate areas and masks manually.
@@ -9395,11 +9412,28 @@
 !
       call dens(sb,tb,rho)
 !      rmean = rho   ! remove the line to avoid rmean overriding
-      call bry(0)   ! always read rmean
-      call bry(1)   ! always read TSclim
-      call bry(3)   ! read boundary velocities
-      call bry(4)   ! read boundary TS
-      if (BC%wnd) call flux(5)
+!      call bry_sfc(0)   ! always read rmean
+      call bry_sfc(1)   ! always read TSclim
+      
+      if (.true.) then
+        fac = get_Month_IntFactor(time_now)
+        
+        tclim = tclimb+fac*(tclimf-tclimb)
+        sclim = sclimb+fac*(sclimf-sclimb)
+      end if
+      do k=1,kb
+        tclim(:,:,k) = tclim(:,:,k)*fsm(:,:)
+        sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
+      end do
+      ! Override rmean
+      call dens(sclim, tclim, rmean)
+      ! Update surface T and S
+      tsurf = tclim(:,:,1)
+      ssurf = sclim(:,:,1)
+      
+      call bry_sfc(3)   ! read boundary velocities
+      call bry_sfc(4)   ! read boundary TS
+      if (BC%wnd) call bry_sfc(5)
 !
 !
 ! --- the following grids are needed only for netcdf plotting
@@ -9890,9 +9924,9 @@
      $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
           !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
-!          call check( nf90_def_var(ncid, "Rmean", NF90_DOUBLE,
-!     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
-          !call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
+          call check( nf90_def_var(ncid, "rmean", NF90_DOUBLE,
+     $          (/ dim_lon, dim_lat, dim_strim, dim_time /), varid) )
+!          call check( nf90_put_att(ncid, varid, "_FillValue", 0.) )
 
 !          call check( nf90_def_var(ncid, "wusurf", NF90_DOUBLE,
 !     $          (/ dim_lon, dim_lat, dim_time /), varid) )
@@ -10122,6 +10156,9 @@
      $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
           call check( nf90_inq_varid(ncid, "R", varid) )
           call check( nf90_put_var(ncid, varid, rho(:,:,lyrs)
+     $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
+          call check( nf90_inq_varid(ncid, "rmean", varid) )
+          call check( nf90_put_var(ncid, varid, rmean(:,:,lyrs)
      $     ,(/1,1,1,ri/),(/im,jm,nlyrs,1/)) )
         end if
         
@@ -10724,6 +10761,91 @@
           end subroutine check
 !
       end
+!_______________________________________________________________________
+!
+      subroutine bry(bdata_idx)
+!-----------------------------------------------------------------------
+! FUNCTION:   Switches to corresponding bry_* update routine.
+!-----------------------------------------------------------------------
+        use date_utility, only : get_Month_IntFactor
+        
+        implicit none
+        include 'pomNW.c'
+        
+        integer*1, intent(in) :: bdata_idx
+        integer :: ri, k
+        
+        select case (bdata_idx)
+          
+          case (1)
+            if (BC%clm) then
+              if (time >= BCflg%clm) then
+!                call bry_sfc(0)
+                call bry_sfc(1)
+              end if
+              
+              if (.true.) then
+                fac = get_Month_IntFactor(time_now)
+                
+                tclim = tclimb+fac*(tclimf-tclimb)
+                sclim = sclimb+fac*(sclimf-sclimb)
+              end if
+              do k=1,kb
+                tclim(:,:,k) = tclim(:,:,k)*fsm(:,:)
+                sclim(:,:,k) = sclim(:,:,k)*fsm(:,:)
+              end do
+              ! Override rmean
+              call dens(sclim, tclim, rmean)
+              ! Update surface T and S
+              tsurf = tclim(:,:,1)
+              ssurf = sclim(:,:,1)
+              
+            end if
+            if (BC%ele) then
+              if (time >= BCflg%ele) then
+                call bry_sfc(2)
+              end if
+            end if
+            if (BC%vel) then
+              if (time >= BCflg%vel) then
+                call bry_sfc(3)
+              end if
+            end if
+            if (BC%vbf) then
+              if (time >= BCflg%vbf) then
+                call bry_sfc(4)
+              end if
+            end if
+            if (BC%wnd) then
+              if (time >= BCflg%wnd) then
+                call bry_sfc(5)
+              end if
+            end if
+            
+          case (99)
+            if (BC%clm) then
+              call bry_roms(0)
+              call bry_roms(1)
+            end if
+            if (BC%ele) call bry_roms(2)
+            if (BC%vel) call bry_roms(3)
+            if (BC%vbf) call bry_roms(4)
+            if (BC%wnd) call flux_roms(5)
+            
+          case default
+            if (BC%clm) then
+              call bry_clm(0)
+              call bry_clm(1)
+            end if
+            if (BC%ele) call bry_clm(2)
+            if (BC%vel) call bry_clm(3)
+            if (BC%vbf) call bry_clm(4)
+            if (BC%wnd) call flux(5)
+            
+        end select
+        
+      end subroutine bry
+!_______________________________________________________________________
 !
       subroutine bry_roms(idx)
 ! **********************************************************************
@@ -11309,7 +11431,7 @@
 !
       end subroutine bry_roms
 !
-      subroutine bry(idx)
+      subroutine bry_clm(idx)
 ! **********************************************************************
 ! *                                                                    *
 ! * FUNCTION    :  Reads (if necessary) boundary conditions (t,s)      *
@@ -11568,26 +11690,398 @@
             end if
           end subroutine check
 !
-      end subroutine bry
+      end subroutine bry_clm
+!_______________________________________________________________________
 !
-      subroutine upd_mnth(day_offset)
+      subroutine bry_sfc(idx)
+!-----------------------------------------------------------------------
+! FUNCTION: Reads all boundary conditions from ??NNRP2-SFC?? Reanalysis.
+!-----------------------------------------------------------------------
+!
+      use netcdf
+      use date_utility
+      implicit none
+      
+      include 'pomNW.c'
+
+      integer, intent(in) :: idx
+      integer :: ri, tmp
+      
+      integer :: k,ncid,varid
+      character(len=256) filename
+! SFC variables
+      integer :: n, i, j, i1, i2, j1, j2, ni, nj, si, sj, ib, jb, tmpid
+      double precision :: x, x1, x2, x3, x4, y, y1, y2, y3, y4
+      double precision :: f1, f2, f3, f4,       sf, ao
+      double precision :: eeast,ewest,enorth,esouth
+      character(len=4) :: var_name(2)
+      double precision, dimension(:), allocatable :: vlon, vlat
+      double precision, dimension(:,:), allocatable :: dat, uw, vw
+      data var_name /"uflx", "vflx"/
+
+      select case (idx)
+
+        case (0)            ! Read rmean from pom grid provided file. TODO: Maybe it should be better to move this to case 1 and read all rmean, tclim and sclim at the same time?
+          
+          read(time_now, '(5xi2)') ri
+          write(*,*) "-----",ri
+          
+          filename = trim(pth_wrk)//trim(pth_grd)
+     $               //trim(pfx_dmn)//"pom_clm.nc"
+          call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+          call check( nf90_inq_varid(ncid, "Rmean", varid) )
+          call check( nf90_get_var(ncid, varid,
+     $         rmean,(/1,1,1,ri/),(/im,jm,kb,1/)) )
+
+          call check( nf90_close(ncid) )
+
+          do k=1,kbm1
+            rmean(:,:,k) = rmean(:,:,k)*fsm(:,:)
+          end do
+            
+          write(*,*) "[-] Read background density: ", ri
+
+          return
+!
+        case (1) ! Not a boundary condition but climate
+          
+          !read(time_now, '(5xi2)') ri
+          if (.true.) then
+            ri  = get_Month_Int(time_now)
+          end if
+
+          filename = trim(pth_wrk)//trim(pth_bry)//
+     $               trim(pfx_dmn)//"pom_clm.nc"
+          call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
+          call check( nf90_inq_varid(ncid, "Tclim", varid) )
+          call check( nf90_get_var(ncid, varid,
+     $         tclim, (/1,1,1,ri/), (/im,jm,kb,1/)) )
+
+          if (.true.) then
+            call check( nf90_get_var(ncid, varid,
+     $         tclimf, (/1,1,1,modulo(ri+1,12)+1/), (/im,jm,kb,1/)) )
+            tclimb = tclim
+          end if
+            
+          call check( nf90_inq_varid(ncid, "Sclim", varid) )
+          call check( nf90_get_var(ncid, varid,
+     $         sclim, (/1,1,1,ri/), (/im,jm,kb,1/)) )
+     
+          if (.true.) then
+            call check( nf90_get_var(ncid, varid,
+     $         sclimf, (/1,1,1,modulo(ri+1,12)+1/), (/im,jm,kb,1/)) )
+            sclimb = sclim
+          end if
+
+          call check( nf90_close(ncid) )
+          
+          write(*,*) "[-] Read climate:   ", ri
+!
+          return
+
+        case (2) ! elevation (TODO: implement elevation)
+          
+          read(time_now, '(5xi2)') ri
+!
+          filename = trim(pth_wrk)//trim(pth_grd)
+     $               //trim(pfx_dmn)//"pom_bry.nc"
+          call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+
+          if (BC%bnd%nth) then
+            call check( nf90_inq_varid(ncid, "north.el", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  eln,(/1,ri/),(/im,1/)) )
+          end if
+          if (BC%bnd%est) then
+            call check( nf90_inq_varid(ncid, "east.el",  varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  ele,(/1,ri/),(/jm,1/)) )
+          end if
+          if (BC%bnd%sth) then
+            call check( nf90_inq_varid(ncid, "south.el", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  els,(/1,ri/),(/im,1/)) )
+          end if
+          if (BC%bnd%wst) then
+            call check( nf90_inq_varid(ncid, "west.el", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  elw,(/1,ri/),(/im,1/)) )
+          end if
+
+          call check( nf90_close(ncid) )
+
+          write(*,*) "[-] Elevation read. ", ri
+            
+          return
+!
+        case (3) ! u and v
+          
+          read(time_now, '(5xi2)') ri
+!
+          filename = trim(pth_wrk)//trim(pth_grd)
+     $               //trim(pfx_dmn)//"pom_bry.nc"
+          call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+          if (BC%bnd%nth) then
+            call check( nf90_inq_varid(ncid, "north.v", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  vbn,(/1,1,ri/),(/im,kb,1/)) )
+            vabn = 0.
+            do k=1,kbm1
+              vabn(:) = vabn(:) + dz(k)*vbn(:,k)
+            end do
+          end if
+          if (BC%bnd%est) then
+            call check( nf90_inq_varid(ncid, "east.u",  varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  ube,(/1,1,ri/),(/jm,kb,1/)) )
+            uabe = 0.
+            do k=1,kbm1
+              uabe(:) = uabe(:) + dz(k)*ube(:,k)
+            end do
+          end if
+          if (BC%bnd%sth) then
+            call check( nf90_inq_varid(ncid, "south.v", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  vbs,(/1,1,ri/),(/im,kb,1/)) )
+            vabs = 0.
+            do k=1,kbm1
+              vabs(:) = vabs(:) + dz(k)*vbs(:,k)
+            end do
+          end if
+          if (BC%bnd%wst) then
+            call check( nf90_inq_varid(ncid, "west.u", varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                  ube,(/1,1,ri/),(/im,kb,1/)) )
+            uabe = 0.
+            do k=1,kbm1
+              uabe(:) = uabe(:) + dz(k)*ube(:,k)
+            end do
+          end if
+
+          call check( nf90_close(ncid) )
+            
+          write(*,*) "[-] Read boundary velocities:", ri
+            
+          if (BC%bnd%vol) call volConserve
+
+          return
+!
+        case (4) ! vertical TS
+!
+!     Get boundary TS from Tclim and Sclim w/o reading the `clm` file for now.
+          tbn = tclim(:,jm,:)
+          sbn = sclim(:,jm,:)
+          tbe = tclim(im,:,:)
+          sbe = sclim(im,:,:)
+          tbs = tclim(:, 1,:)
+          sbs = sclim(:, 1,:)
+          tbw = tclim( 1,:,:)
+          sbw = sclim( 1,:,:)
+
+          return
+          
+        case (5) ! momentum flux
+          
+          !ri = modulo(int(time/.25), 1460)+1
+          ri = int(Date_to_Day_of_Year(time_now)*4.)
+          
+          do n=1,2
+            filename = trim(pth_wrk)//trim(pth_bry)//"NNRP2-SFC/"
+     $             //var_name(n)//".sfc.gauss."//time_now(1:4)//".nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+          
+            call check( nf90_inq_dimid(ncid, "lon", tmpid) )
+            call check( nf90_inquire_dimension(ncid, tmpid, len = ib) )
+            allocate(vlon(ib))
+            call check( nf90_inq_varid(ncid, "lon", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, vlon) )
+!          where (vlon<180.d0) vlon = vlon+360.d0
+
+            call check( nf90_inq_dimid(ncid, "lat", tmpid) )
+            call check( nf90_inquire_dimension(ncid, tmpid, len = jb) )
+            allocate(vlat(jb))
+            call check( nf90_inq_varid(ncid, "lat", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, vlat ) )
+          
+            ewest  = minval(east_e)
+            eeast  = maxval(east_e)
+            esouth = minval(north_e)
+            enorth = maxval(north_e)
+
+            si = minloc(vlon, 1, vlon>ewest)-1
+            sj = maxloc(vlat, 1, vlat<enorth)-1
+            ni = maxloc(vlon, 1, vlon<eeast)+2-si
+            nj = minloc(vlat, 1, vlat>esouth)+2-sj
+
+            allocate(dat(ni,nj))
+!
+            call check( nf90_inq_varid(ncid, var_name(n), varid) )
+            call check( nf90_get_var(ncid, varid,
+     $                dat(:,nj:1:-1),(/si,sj,ri/),(/ni,nj,1/)) )
+            call check( nf90_get_att(ncid, varid, "scale_factor", sf) )
+            call check( nf90_get_att(ncid, varid, "add_offset", ao) )
+            dat = dat*sf+ao
+            vlat(:) = vlat(jb:1:-1)
+            sj = minloc(vlat, 1, vlat>esouth)-1
+
+            do j=1,jm
+              do i=1,im
+                x = east_e(i,j)
+                y = north_e(i,j)
+                i1 = maxloc(vlon, 1, vlon<=x) - si
+                i2 = minloc(vlon, 1, vlon>x)- si
+                j1 = maxloc(vlat, 1, vlat<=y) - sj
+                j2 = minloc(vlat, 1, vlat>y)- sj
+                x1 = vlon(i1+si)
+                x2 = vlon(i2+si)
+                y1 = vlat(j1+sj)
+                y2 = vlat(j2+sj)
+                f1 = dat(i1+1,j1+1)
+                f2 = dat(i2+1,j1+1)
+                f3 = dat(i2+1,j2+1)
+                f4 = dat(i1+1,j2+1)
+                call blint(x1,x2,x2,x1,y1,y1,y2,y2,
+     $                       f1,f2,f3,f4,x,y,wvsurf(i,j))
+              end do
+            end do
+            call check( nf90_close(ncid) )
+
+
+            deallocate(dat)
+            deallocate(vlon)
+            deallocate(vlat)
+            
+          end do
+          
+          allocate(uw(im,jm))
+          allocate(vw(im,jm))
+          
+          uw = wusurf
+          vw = wvsurf
+          
+          wusurf = uw*cos(rot)-vw*sin(rot)
+          wvsurf = uw*sin(rot)+vw*cos(rot)
+          
+          deallocate(uw)
+          deallocate(vw)
+
+          wusurf = -wusurf/rhoref
+          wvsurf = -wvsurf/rhoref
+          
+          write(*,*) "[-] Read momentum flux:", ri
+
+          return
+!
+        end select
+!
+        return
+!
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*)  status
+            if(status /= nf90_noerr) then
+              write(*,*) "NetCDF error at subroutine `bry`: ", status
+              stop "Stopped"
+            end if
+          end subroutine check
+          
+          subroutine blint(x1,x2,x3,x4,y1,y2,y3,y4,f1,f2,f3,f4,x,y,f)
+            double precision, intent(in) :: x1,x2,x3,x4,y1,y2,y3,y4
+            double precision, intent(in) :: f1,f2,f3,f4,x,y
+            double precision, intent(out) :: f
+            
+            double precision :: a1,a2,a3,a4,b1,b2,b3,b4,A,B,C,t,s
+!
+! Bilinear interpolation subroutine.
+! (Xi,Yi,fi) = data grid & values surounding model point (x,y)
+! f = interpolated value at the model grid point.
+!
+            a1 =  x1-x2+x3-x4
+            a2 = -x1      +x4
+            a3 = -x1+x2
+            a4 =  x1         -x
+            b1 =  y1-y2+y3-y4
+            b2 = -y1      +y4
+            b3 = -y1+y2
+            b4 =  y1         -y
+
+            A =  a3*b1-a1*b3
+            B =  b2*a3+b1*a4-a1*b4-a2*b3
+            C = -a2*b4+a4*b2
+            if (abs(A*C).gt.0.002*B**2) then
+              t = (-B-sqrt(B*B-4.*A*C))/(2.*A)
+            else
+              t = C/abs(B)
+            endif
+
+            A = a2*b1-a1*b2
+            B = b3*a2+b1*a4-a1*b4-a3*b2
+            C = -a3*b4+a4*b3
+            if (abs(A*C).gt.0.002*B**2) then
+              s = (-B+sqrt(B*B-4.*A*C))/(2.*A)
+            else
+              s = -C/abs(B)
+            end if
+
+            f = f1*(1.-t)*(1.-s)+f2*t*(1.-s)+f3*s*t+f4*(1.-t)*s
+            return
+          end subroutine blint
+!
+      end subroutine bry_sfc
+!____________________________________________________________________
+!
+      subroutine upd_datetime(day_offset)
         
         use date_utility
         
         implicit none
         include 'pomNW.c'
 
-        double precision :: day, day_offset, rng(2)
-!        type(T_TimeStamp) :: date
-!        type(T_Zone) :: zone
-!
-        day = get_Day_of_Year(day_offset+time)
-        mi  = get_Month(day_offset+time)
-        rng = get_Month_Range(day_offset+time)
+        double precision :: day_offset, utim(9) ! rwnd: , rng(2) !unused variable
+        double precision :: updtim, plus
+        character(len=26) :: updstr, prestr
+        character(len=19) :: ustr(9)
+        integer*1 :: i
+        type(T_TimeStamp) :: datetime
+        type(T_Zone) :: zone
         
-        fac = (day-rng(1))/(rng(2)-rng(1))  ! TODO: Insead of time here should be day of year (type of double)
+        equivalence(ustr, BCupd)
+        equivalence(utim, BCflg)
+        
+!        datetime = Days_to_TimeStamp(day_offset+time, zone)
+        !time_now = Days_to_Stamp(day_offset+time)    ! TODO: Take timezone into account when updating BCs.
+                
+        do i=1,9
+          updstr = ustr(i) ! BCupd%wnd
+          updtim = utim(i) ! BCflg%wnd
 
-      end
+          if (time >= updtim) then
+            !prestr = Days_to_Stamp(day_offset+time) ! TODO: Use prestr or time_now? The former isn't stored anywhere except here.
+            if (i==1 .and. BC%ipl) then
+              utim(i) = updtim + get_Month_IntDays(time_now)
+            else
+              plus = Days_plus(time_now, updstr)
+              if (plus == 0.) then
+                utim(i) = huge(0._8)
+              else
+                utim(i) = updtim + plus ! TODO: Maybe use upddays*(nint(updtim/upddays)+1) ?
+              end if
+            end if
+          end if
+        end do
+        
+        return
+        
+!        day = get_Day_of_Year(day_offset+time)
+!        mi  = get_Month(day_offset+time)
+!        rng = get_Month_Range(day_offset+time)
+        
+!        fac = (day-rng(1))/(rng(2)-rng(1))  ! TODO: Insead of time here should be day of year (type of double)
+
+      end subroutine upd_datetime
 !
       subroutine clm_warp()
 !

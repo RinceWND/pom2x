@@ -223,13 +223,13 @@ C
 C     Character variables:
 C
       character*26
-     $  time_start, time_end
+     $  time_start, time_end, time_now
 C
       character*40
      $  source,title
 C
       common/blkchar/
-     $  time_start, time_end, source, title
+     $  time_start, time_end, time_now, source, title
 C
 !                                                                      !
 !----------------------------------------------------------------------!
@@ -311,23 +311,67 @@ C
         logical     lrd ! flag for long wave radiation
         logical     srd ! flag for short wave radiation
         logical     ssf ! flag for sea surface T and S
-        logical     vap ! flag for surface evapouration
+        logical     vbf ! flag for vertical boundary T and S
+        logical     vap ! flag for surface evaporation
         logical     clm ! variable climatological background (tclim,sclim,rmean)
         logical     ele ! elevation flag
         logical     vel ! velocities flag
         type (Tbnd) bnd ! variable vertical boundaries
       end type                  ! rwnd:
       type (Tbc) BC
+              
+      type Tup  ! update intervals (crontab-like but timespans, not pattern matching: '0000-01-00 00:00:00' - every month)
+      sequence
+        character(len=19) clm ! variable climatological background (tclim,sclim,rmean)
+        character(len=19) wnd ! wind forcing
+        character(len=19) lrd ! long wave radiation
+        character(len=19) srd ! short wave radiation
+        character(len=19) ssf ! sea surface T and S
+        character(len=19) vbf ! vertical boundary T and S
+        character(len=19) vap ! surface evaporation
+        character(len=19) ele ! elevation
+        character(len=19) vel ! velocities
+      end type
+      type (Tup) BCupd
+
+      type TupFlag  ! update flags
+      sequence
+        double precision clm ! variable climatological background (tclim,sclim,rmean)
+        double precision wnd ! wind forcing
+        double precision lrd ! long wave radiation
+        double precision srd ! short wave radiation
+        double precision ssf ! sea surface T and S
+        double precision vbf ! vertical boundary T and S
+        double precision vap ! surface evaporation
+        double precision ele ! elevation
+        double precision vel ! velocities
+      end type
+      type (TupFlag) BCflg
+              
+      type TupRec  ! update records
+      sequence
+        integer wnd ! wind forcing
+        integer lrd ! long wave radiation
+        integer srd ! short wave radiation
+        integer ssf ! sea surface T and S
+        integer vbf ! vertical boundary T and S
+        integer vap ! surface evaporation
+        integer clm ! variable climatological background (tclim,sclim,rmean)
+        integer ele ! elevation
+        integer vel ! velocities
+      end type
+      type (TupRec) BCrec
 
       type Tic
       sequence
         logical ele ! read initial elevation field from clm file
         logical vel ! read initial current velocities field from clm file
         logical wnd ! read wind forcing field from frc file ! TODO: incorporate initial fields into ic file
+        logical padding(4)
       end type
       type (Tic) IC
 
-      common/flags/ BC, IC
+      common/flags/ BC, IC, BCflg, BCupd
 C-----------------------------------------------------------------------
 C
 C     End of common blocks
