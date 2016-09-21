@@ -4,7 +4,8 @@ module Date_Utility
   public :: Date_since, Days_in_between, get_Month, Number_of_Days
   public :: get_Month_Int, get_Month_IntDays, get_Month_IntFactor
   public :: Days_to_Stamp, Days_to_TimeStamp, Days_plus, Date_to_Day_of_Year
-  public :: T_TimeStamp, T_Zone
+  public :: day_of_year
+  public :: T_TimeStamp, T_Zone, T_Date, T_Time
   integer*1, parameter :: N_MONTHS = 13
   integer*2, parameter :: MONTH_DAYS(N_MONTHS) = (/ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 /)
 !  integer*2, parameter :: YEAR_OFFSET = 1900
@@ -181,6 +182,11 @@ module Date_Utility
                             TimeStamp%time%minute,  " ",            &
                             sign, TimeStamp%zone%hour, ":",         &
                                   TimeStamp%zone%minute, "   "
+      elseif ( mode=="d" ) then
+        write(TimeStamp_Build, '(i4,i0.2,i0.2)')     &
+                            TimeStamp%date%year,    &
+                            TimeStamp%date%month,   &
+                            TimeStamp%date%day
       else
         write(TimeStamp_Build,                                      &
          '(i4,a,i0.2,a,i0.2,a,i0.2,a,i0.2,a,i0.2,a,a1,i0.2,a,i0.2)')&
@@ -311,15 +317,16 @@ module Date_Utility
     end function Days_to_TimeStamp
 !______________________________________________________________________________
 !
-    character(len=26) function Days_to_Stamp(Days)
+    character(len=26) function Days_to_Stamp(Days, form)
       
       double precision, intent(in) :: Days
+      character(len=1), intent(in) :: form
       type (T_TimeStamp) :: TimeStamp
       type (T_Zone)      :: TimeZone
       
       TimeStamp = Days_to_TimeStamp(Days, TimeZone)
 
-      Days_to_Stamp = TimeStamp_Build(TimeStamp, 'e')
+      Days_to_Stamp = TimeStamp_Build(TimeStamp, form)
       
     end function
 !______________________________________________________________________________
@@ -438,27 +445,40 @@ module Date_Utility
       integer :: doy
       
       TimeStamp = TimeStamp_Parse(TimeStampString)
-      if (TimeStamp%date%month > 2) then
-        TimeStamp%date%month = int(TimeStamp%date%month - 3, 1)
+                
+      Date_to_Day_of_Year = day_of_year(TimeStamp)
+      
+    end function Date_to_Day_of_Year
+!___________________________________________________________________________________
+!
+    double precision function day_of_year(TimeStamp)
+    
+      type(T_TimeStamp), intent(in) :: TimeStamp
+      type(T_TimeStamp)             :: TimeStampTmp
+      double precision  :: tim
+      integer :: doy
+      
+      TimeStampTmp = TimeStamp
+      if (TimeStampTmp%date%month > 2) then
+        TimeStampTmp%date%month = int(TimeStampTmp%date%month - 3, 1)
       else
-        TimeStamp%date%month = int(TimeStamp%date%month + 9, 1)
+        TimeStampTmp%date%month = int(TimeStampTmp%date%month + 9, 1)
       end if
-      doy = (153*(TimeStamp%date%month)+2)/5 + TimeStamp%date%day-1
+      doy = (153*(TimeStampTmp%date%month)+2)/5 + TimeStampTmp%date%day-1
       if (doy>=306) then
         doy = doy-305
       else
         doy = doy+60
       end if
-      if (Is_Leap_Year(TimeStamp%date%year).and.TimeStamp%date%month<10) doy=doy+1
+      if (Is_Leap_Year(TimeStampTmp%date%year).and.TimeStampTmp%date%month<10) doy=doy+1
       
-      tim = ( ( TimeStamp%time%seconds/60. + &
-                TimeStamp%time%minute )/60. + &
-                TimeStamp%time%hour )/24.
-!      write(*,*) tim
+      tim = ( ( TimeStampTmp%time%seconds/60. + &
+                TimeStampTmp%time%minute )/60. + &
+                TimeStampTmp%time%hour )/24.
                 
-      Date_to_Day_of_Year = real(doy, 8) + tim
+      day_of_year = real(doy, 8) + tim
       
-    end function Date_to_Day_of_Year
+    end function day_of_year
 !___________________________________________________________________________________
 !
     integer function get_Month(Time)

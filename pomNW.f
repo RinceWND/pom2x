@@ -253,8 +253,7 @@
 !     target point coordinates
       integer tgt_lon, tgt_lat, tgt_sig
       double precision    slice_b, slice_e  
-      
-      double precision :: day_of_start
+
       !type (T_Zone) :: zone
       
 !     Formatting parameters
@@ -804,7 +803,8 @@
       day_of_start = Number_of_Days(time_start)
       
       read(time_start, '(5x, i2)') m0
-      time_now = Days_to_Stamp(day_of_start+time)
+      time_now = Days_to_Stamp(day_of_start+time, "e")
+      read(time_start, '(5x, i2)') mi
       call upd_datetime(day_of_start)
 !
 !lyo:wad:beg:
@@ -1187,7 +1187,7 @@
         end if
         
         time_start = Date_since(time_start, time0)
-        time_now = Days_to_Stamp(day_of_start+time0)
+        time_now = Days_to_Stamp(day_of_start+time0, "e")
         
       end if
 !
@@ -1223,13 +1223,13 @@
      $            ,int(modulo(float(iint)/float(iprint)
      $                       ,float(fprint)/float(iprint)))+1)
 !
-      write(*,*) "Creating target point output..."
-      filename = trim(pth_wrk)//trim(pth_out)//
-     $             trim(title)//"_tgt.csv"
-      open(49, file=filename)
-      call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";",
-     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
+!      write(*,*) "Creating target point output..."
+!      filename = trim(pth_wrk)//trim(pth_out)//
+!     $             trim(title)//"_tgt.csv"
+!      open(49, file=filename)
+!      call time2date(time, time_start, timestamp)
+!      write(49,*) timestamp, ";",
+!     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
 !
 !-----------------------------------------------------------------------
 !
@@ -1255,7 +1255,7 @@
       do 9000 iint=1,iend      !  Begin internal (3-D) mode
 !
         time=dti*float(iint)/86400.d0+time0
-        time_now = Days_to_Stamp(day_of_start+time)
+        time_now = Days_to_Stamp(day_of_start+time, "e")
         print *,time_now
 !
         if(lramp) then
@@ -1985,12 +1985,12 @@
         if(iint.ge.iswtch) iprint=nint(prtd2*24.d0*3600.d0/dti)
 !
 !     Target point output
-        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
-!          call ncTgtFlush(49)
-          call time2date(time, time_start, timestamp)
-          write(49,*) timestamp, ";",
-     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
-        end if
+!        if(mod(iint,3).eq.0.or.vamax.gt.vmaxl) then    ! Print it every three internal steps
+!!          call ncTgtFlush(49)
+!          call time2date(time, time_start, timestamp)
+!          write(49,*) timestamp, ";",
+!     $ u(tgt_lon,tgt_lat,tgt_sig), ";", v(tgt_lon,tgt_lat,tgt_sig)
+!        end if
 !
         if(mod(iint,iprint).eq.0.or.vamax.gt.vmaxl) then
 !
@@ -2070,9 +2070,10 @@
 !          call write_netcdf(netcdf_file,2)                    ! *netCDF*
 !            endif
 !
-          if(vamax.gt.vmaxl) then
+          if(vamax > vmaxl) then
 !
-            write(6,4) time,iint,iext,iprint
+            write(6,4) stime(1:8),stime(9:18),stime(19:23)
+     $              ,(slice_e-slice_b)/60.,time,iint,iext,iprint
 !
 !            call printall
             call ncflush(ncid
@@ -2101,11 +2102,12 @@
 !
         endif
 !
-        if (mod(time,bkp_gap).eq.0) then
-          if (iint.ne.iend) then
+        if (mod(time,bkp_gap) == 0) then
+          if (iint /= iend) then
+            if (int(time/bkp_gap) == 1) then  ! HARDCODED for operational run (create only the first restart file). Do not forget to change bkp_gap to suit your needs!
             write(*,*) "[*] Backing up..."
-            open(71,file=trim(pth_wrk)//trim(pth_bkp)
-     $                 //trim(title)//'.restart.bkp',
+            open(71,file=trim(pth_wrk)//trim(pth_bkp)//trim(title)//'.'
+     $           //Days_to_Stamp(day_of_start+time,"d")//'.restart.bkp',
      $              form='unformatted',position='rewind')
             write(71) time,
      $        wubot,wvbot,aam2d,ua,uab,va,vab,el,elb,et,etb,egb,
@@ -2113,6 +2115,7 @@
      $        km,kh,kq,l,q2,q2b,aam,q2l,q2lb,
      $        wetmask,wmarsh    ! WAD
             close(71)
+            end if
           end if
         end if
 !
@@ -2127,10 +2130,10 @@
 !   Finish target point output
 !      call ncTgtFlush(49)
       call ncclose(ncid)
-      call time2date(time, time_start, timestamp)
-      write(49,*) timestamp, ";",
-     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
-      close(49)
+!      call time2date(time, time_start, timestamp)
+!      write(49,*) timestamp, ";",
+!     $ t(tgt_lon,tgt_lat,tgt_sig), ";", s(tgt_lon,tgt_lat,tgt_sig)
+!      close(49)
 !
       write(6,*) time,iint,iext,iprint
 !
@@ -9250,7 +9253,7 @@
       call check( nf90_get_var(ncid, varid, north_e) )
       write(*, *) "[O] latitude retrieved"
       call check( nf90_close(ncid) )
-      
+
 !     Override hmax parameter
       hmax = maxval(h)
 
@@ -9433,7 +9436,6 @@
       
       call bry_sfc(3)   ! read boundary velocities
       call bry_sfc(4)   ! read boundary TS
-      if (BC%wnd) call bry_sfc(5)
 !
 !
 ! --- the following grids are needed only for netcdf plotting
@@ -9530,7 +9532,7 @@
         end if
       end subroutine check
       end subroutine ncdf2ic_pom
-      
+!
       subroutine ncdf2ic_box
 ! **********************************************************************
 ! *                                                                    *
@@ -10822,6 +10824,16 @@
               end if
             end if
             
+          case (20)
+            !call bry_oper
+            call frc_oper
+            
+          case (21)
+            if (BC%ele) call bry_roms(2)
+            if (BC%vel) call bry_roms(3)
+            if (BC%vbf) call bry_roms(4)
+            if (BC%wnd) call flux_roms(5)
+
           case (99)
             if (BC%clm) then
               call bry_roms(0)
@@ -10845,6 +10857,1094 @@
         end select
         
       end subroutine bry
+!_______________________________________________________________________
+!
+      subroutine field_extrafill(fld, im, jm, fillval)
+        
+        implicit none
+        
+        integer, intent(in) :: im,jm
+        double precision, dimension(im,jm), intent(inout) :: fld
+        double precision, intent(in) :: fillval
+        
+        double precision, dimension(im,jm) :: tf, tfb
+        double precision :: mask_v
+        integer :: i,j,k , mask_n,mask_c
+        
+          
+        mask_n = 0
+
+        tf = fld
+
+        mask_n = count(tf(:,:).eq.fillval)
+
+        do while (mask_n>0)
+
+          do i=1,im
+            do j=1,jm
+
+              if (tf(i,j)==fillval) then
+                mask_c = 0
+                mask_v = 0.
+                if (i>1.and.i<im) then
+                  if (tf(i-1,j  )/=fillval) then
+                    mask_v = mask_v+tf(i-1,j  )
+                    mask_c = mask_c+1
+                  end if
+                  if (tf(i+1,j  )/=fillval) then
+                    mask_v = mask_v+tf(i+1,j  )
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (j>1.and.j<jm) then
+                  if (tf(i  ,j-1)/=fillval) then
+                    mask_v = mask_v+tf(i  ,j-1)
+                    mask_c = mask_c+1
+                  end if
+                  if (tf(i  ,j+1)/=fillval) then
+                    mask_v = mask_v+tf(i  ,j+1)
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (i>1.and.j>1) then
+                  if (tf(i-1,j-1)/=fillval) then
+                    mask_v = mask_v+tf(i-1,j-1)
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (i>1.and.j<jm) then
+                  if (tf(i-1,j+1)/=fillval) then
+                    mask_v = mask_v+tf(i-1,j+1)
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (i<im.and.j>1) then
+                  if (tf(i+1,j-1)/=fillval) then
+                    mask_v = mask_v+tf(i+1,j-1)
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (i<im.and.j<jm) then
+                  if (tf(i+1,j+1)/=fillval) then
+                    mask_v = mask_v+tf(i+1,j+1)
+                    mask_c = mask_c+1
+                  end if
+                end if
+                if (mask_c>0) then
+                  fld(i,j) = mask_v/float(mask_c)
+                  mask_n   = mask_n-1
+                end if
+              end if
+
+            end do
+          end do
+          tf = fld
+        end do
+        
+      end subroutine field_extrafill
+!_______________________________________________________________________
+!
+      subroutine frc_oper
+        
+        use netcdf
+        use date_utility, only: Days_to_Stamp
+        
+        implicit none
+        
+        integer :: bcond_idx,bdata_idx,iproblem,nadv,nbcs,nbct,npg
+        double precision :: bkp_gap,days,fsplt,prtd1,prtd2,swtch
+        
+        character(len=256) :: filename
+        character(len=26)  :: timestamp
+        integer :: ncid,tmpid
+        
+        include 'pomNW.c'
+        include 'params'
+        
+        timestamp = Days_to_Stamp(day_of_start, "d")
+        
+        filename = trim(pth_wrk)//trim(pth_flx)//
+     $             "pom_frc_"//timestamp(1:8)//"_00.nc"
+        
+        call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+     
+        if (BC%wnd) then
+          if (time > BCflg%wnd) then
+            call check( nf90_inq_varid(ncid, "sustr", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, wusurf) )
+            write(*,*) "[O] Meridional wind stress -> wusurf"
+            wusurf = -dum*wusurf/rhoref
+            call check( nf90_inq_varid(ncid, "svstr", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, wvsurf) )
+            write(*,*) "[O] Zonal wind stress -> wvsurf"
+            wvsurf = -dvm*wvsurf/rhoref
+            ! taper wind stress along the land boundary
+            !   loop over interior points
+            wusurf(2:im-1,2:jm-1) = (
+     $                               dum(2:im-1,1:jm-2)
+     $                              +dum(2:im-1,3:jm)
+     $                              +dum(1:im-2,2:jm-1)
+     $                              +dum(3:im  ,2:jm-1)
+     $                              )/4.*wusurf(2:im-1,2:jm-1)
+            wvsurf(2:im-1,2:jm-1) = (
+     $                               dvm(2:im-1,1:jm-2)
+     $                              +dvm(2:im-1,3:jm)
+     $                              +dvm(1:im-2,2:jm-1)
+     $                              +dvm(3:im  ,2:jm-1)
+     $                              )/4.*wvsurf(2:im-1,2:jm-1)
+            !   loop over boundary points
+            !     north
+            wusurf(2:im-1,jm) = (
+     $                           dum(2:im-1,jm-1)
+     $                          +dum(1:im-2,jm  )
+     $                          +dum(3:im  ,jm  )
+     $                          )/3.*wusurf(2:im-1,jm)
+            wvsurf(2:im-1,jm) = (
+     $                           dvm(2:im-1,jm-1)
+     $                          +dvm(1:im-2,jm  )
+     $                          +dvm(3:im  ,jm  )
+     $                          )/3.*wvsurf(2:im-1,jm)
+            !     east
+            wusurf(im,2:jm-1) = (
+     $                           dum(im-1,2:jm-1)
+     $                          +dum(im  ,1:jm-2)
+     $                          +dum(im  ,3:jm  )
+     $                          )/3.*wusurf(im,2:jm-1)
+            wvsurf(im,2:jm-1) = (
+     $                           dvm(im-1,2:jm-1)
+     $                          +dvm(im  ,1:jm-2)
+     $                          +dvm(im  ,3:jm  )
+     $                          )/3.*wvsurf(im,2:jm-1)
+            !     south
+            wusurf(2:im-1,1) = (
+     $                           dum(2:im-1,2)
+     $                          +dum(1:im-2,1)
+     $                          +dum(3:im  ,1)
+     $                          )/3.*wusurf(2:im-1,1)
+            wvsurf(2:im-1,1) = (
+     $                           dvm(2:im-1,2)
+     $                          +dvm(1:im-2,1)
+     $                          +dvm(3:im  ,1)
+     $                          )/3.*wvsurf(2:im-1,1)
+            !     west
+            wusurf(1,2:jm-1) = (
+     $                           dum(2,2:jm-1)
+     $                          +dum(1,1:jm-2)
+     $                          +dum(1,3:jm  )
+     $                          )/3.*wusurf(1,2:jm-1)
+            wvsurf(1,2:jm-1) = (
+     $                           dvm(2,2:jm-1)
+     $                          +dvm(1,1:jm-2)
+     $                          +dvm(1,3:jm  )
+     $                          )/3.*wvsurf(1,2:jm-1)
+            !   and corner points
+            wusurf(1,1) = (dum(2,1)+dum(1,2))/2.*wusurf(1,1)
+            wvsurf(1,1) = (dvm(2,1)+dvm(1,2))/2.*wvsurf(1,1)
+            wusurf(im,1) = (dum(im-1,1)+dum(im,2))/2.*wusurf(im,1)
+            wvsurf(im,1) = (dvm(im-1,1)+dvm(im,2))/2.*wvsurf(im,1)
+            wusurf(im,jm) = (dum(im-1,jm)+dum(im,jm-1))/2.*wusurf(im,jm)
+            wvsurf(im,jm) = (dvm(im-1,jm)+dvm(im,jm-1))/2.*wvsurf(im,jm)
+            wusurf(1,jm) = (dum(1,jm-1)+dum(2,jm))/2.*wusurf(1,jm)
+            wvsurf(1,jm) = (dvm(1,jm-1)+dvm(2,jm))/2.*wvsurf(1,jm)
+          end if
+        end if
+     
+        if (BC%lrd) then
+          if (time > BCflg%lrd) then
+            call check( nf90_inq_varid(ncid, "shflux", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, wtsurf) )
+            write(*, *) "[O] Latent heat flux -> wtsurf"
+            wtsurf = fsm*wtsurf/(rhoref*3986.d0)
+          end if
+        end if
+        
+        if (BC%srd) then
+          if (time > BCflg%srd) then
+            call check( nf90_inq_varid(ncid, "swrad", tmpid) )
+            call check( nf90_get_var(ncid, tmpid, swrad) )
+            write(*, *) "[O] Downward shortwave radiation -> swrad"
+            swrad = -fsm*swrad/(rhoref*3986.d0)
+          end if
+        end if
+        
+        call check( nf90_close( ncid ) )
+        
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*)  status
+            if(status /= nf90_noerr) then
+              write(*,*) "NetCDF error at subroutine `frc_oper`: "
+     $                  , status
+              stop "Stopped"
+            end if
+          end subroutine check
+        
+      end subroutine frc_oper
+!_______________________________________________________________________
+!
+      subroutine bry_oper
+        
+        use date_utility
+        use netcdf
+        
+        implicit none
+        include 'pomNW.c'
+        
+        integer :: i,j,k,ncid,tmpid
+        type(T_TimeStamp) :: TS
+
+        character(len=256) :: filename
+        character(len=4)   :: day_number
+        
+        integer :: si, sj, sk, soi, soj, sni, snj
+        character*5 :: vars_2D(1)
+        character*5 :: vars_3D(5)
+        double precision, dimension(:),   pointer :: p_sz, p_szz
+        double precision, dimension(:,:), pointer :: p_slon,p_slat,
+     $     p_slon_u,p_slon_v,p_slat_u,p_slat_v,p_sh,p_sfsm,p_sdum,p_sdvm
+        common/roms/ si,sj,sk,soi,soj,sni,snj,p_slon,p_slat,p_slon_u,
+     $   p_slon_v,p_slat_u,p_slat_v,p_sz,p_szz,p_sh,p_sfsm,p_sdum,p_sdvm
+        double precision, allocatable, dimension(:),   target :: sz, szz
+        double precision, allocatable, dimension(:,:), target ::
+     $  slon, slat, slon_u, slon_v, slat_u, slat_v, sh, sfsm, sdum, sdvm
+     
+        integer :: i1,i2,i3,i4,j1,j2,j3,j4,k11,k21,k31,k41
+        integer :: k12,k22,k32,k42,var_i, ri, id_x,id_y,id_r,id_w
+        double precision :: x1,x2,x3,x4,y1,y2,y3,y4,z11,z21,z31,z41
+        double precision :: z12,z22,z32,z42,f1,f2,f3,f4,v1,v2,fillval
+        double precision :: sest,swst,ssth,snth,val,x,y,zv
+        double precision, allocatable, dimension(:,:)   :: dat2d
+        double precision, allocatable, dimension(:,:,:) :: dat3d
+     
+        data vars_2D /"zeta"/
+        data vars_3D /"u", "v", "w", "temp", "salt"/
+
+!
+! Get filename based on the time_start timestamp
+!
+        TS = Days_to_Timestamp(day_of_start+time, TS%zone)
+        write(day_number, '(i0.4)') int(day_of_year(TS))+1
+        filename = trim(pth_wrk)//trim(pth_bry)//
+     $             trim(pfx_dmn)//"roms_his_"//day_number//".nc"
+        write(*,*) "    File to read from: `",trim(filename),"`"
+!
+! Determine the record number
+!
+        ri = TS%time%hour+1
+!
+! Open the file
+!
+        call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+!
+! Simple check whether ROMS grid has already been read or not.
+!
+        if (si == 0) then ! si is zero so read the grid
+        
+          write(6,'(/,'' Retrieve ROMS grid '',/)')
+!
+! Get dimensions
+!
+          call check( nf90_inq_dimid(ncid, "s_w",     tmpid) )
+          call check( nf90_inquire_dimension(ncid, tmpid, len=sk) )
+          call check( nf90_inq_dimid(ncid, "eta_rho", tmpid) )
+          call check( nf90_inquire_dimension(ncid, tmpid, len=sj) )
+          call check( nf90_inq_dimid(ncid, "xi_rho",  tmpid) )
+          call check( nf90_inquire_dimension(ncid, tmpid, len=si) )
+!
+! Allocate vertictal coordinates arrays
+!
+          allocate( sz(sk) )
+          allocate( szz(sk) )
+          
+          p_sz  => sz
+          p_szz => szz
+!
+! Allocate horizontal coordinates arrays
+!
+          allocate( slon(si,sj) )
+          allocate( slat(si,sj) )
+          allocate( slon_u(si,sj) )
+          allocate( slat_u(si,sj) )
+          allocate( slon_v(si,sj) )
+          allocate( slat_v(si,sj) )
+          
+          p_slon   => slon
+          p_slat   => slat
+          p_slon_u => slon_u
+          p_slat_u => slat_u
+          p_slon_v => slon_v
+          p_slat_v => slat_v
+!
+! Get horizontal coordinates
+!
+!   at rho-points
+!
+          call check( nf90_inq_varid(ncid, "lon_rho", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slon ) )
+          call check( nf90_inq_varid(ncid, "lat_rho", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slat ) )
+!
+!   at cell corners
+!
+      ! skip this
+!
+!   at u-points
+!
+          call check( nf90_inq_varid(ncid, "lon_u", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slon_u(1:si-1,:)) )
+          call check( nf90_inq_varid(ncid, "lat_u", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slat_u(1:si-1,:)) )
+!
+!   at v-points
+!
+          call check( nf90_inq_varid(ncid, "lon_v", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slon_v(:,1:sj-1)) )
+          call check( nf90_inq_varid(ncid, "lat_v", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, slat_v(:,1:sj-1)) )
+!
+! Fill in residual (unused by pom) values (just in case)
+!
+          slon_u(:,sj) = 2.*slon_u(:,sj-1) - slon_u(:,sj-2)
+          slat_u(:,sj) = 2.*slat_u(:,sj-1) - slat_u(:,sj-2)
+          slon_v(si,:) = 2.*slon_u(si-1,:) - slon_u(si-2,:)
+          slat_v(si,:) = 2.*slat_v(si-1,:) - slat_v(si-2,:)
+!
+! Find (rectangular) subsection boundariy indexes and its size
+!
+          swst = minval(east_e)
+          sest = maxval(east_e)
+          ssth = minval(north_e)
+          snth = maxval(north_e)
+          
+          soi = minloc(slon(:,1), 1, slon(:,1)>swst)-1
+          soj = minloc(slat(1,:), 1, slat(1,:)>ssth)-1
+          sni = maxloc(slon(:,1), 1, slon(:,1)<sest)+1-soi
+          snj = maxloc(slat(1,:), 1, slat(1,:)<snth)+1-soj
+!
+! Get vertical coordinates and calculate layers thicknesses
+!
+          call check( nf90_inq_varid(ncid, "Cs_w", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, sz(kb:1:-1) ) )
+          write(*, *) "[O] Cs_w -> sz"
+          !sdz(1:kb-1) = sz(1:kb-1)-sz(2:kb)
+          !sdz(kb)     = 0.
+          !write(*, *) "    Derived dz from z."
+      
+          call check( nf90_inq_varid(ncid, "Cs_r", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, szz(kb-1:1:-1) ) )
+          write(*, *) "[O] Cs_r -> szz"
+          szz(kb) = 2.*szz(kb-1) - szz(kb-2)
+          !sdzz(1:kb-2) = szz(1:kb-2)-szz(2:kb-1)
+          !sdzz(kb-1)   = sdzz(kb-2)
+          !sdzz(kb)     = 0.
+          !write(*, *) "    Derived sdzz from szz."
+!
+! Allocate additional data arrays
+!
+          allocate(   sh(si,sj) )
+          allocate( sfsm(si,sj) )
+          allocate( sdum(si,sj) )
+          allocate( sdvm(si,sj) )
+          
+          p_sh   => sh
+          p_sfsm => sfsm
+          p_sdum => sdum
+          p_sdvm => sdvm
+!
+! Get the bathymetry
+!
+          call check( nf90_inq_varid(ncid, "h", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, sh) )
+          write(*, *) "[O] Bathymetry -> h"
+!
+! Get free surface masks
+!
+          call check( nf90_inq_varid(ncid, "mask_rho", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, sfsm) )
+          write(*, *) "[O] free surface mask at rho point -> sfsm"
+          call check( nf90_inq_varid(ncid, "mask_u", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, sdum(1:sni-1,:) ) )
+          write(*, *) "[O] free surface mask at u point -> sdum"
+          call check( nf90_inq_varid(ncid, "mask_v", tmpid) )
+          call check( nf90_get_var(ncid, tmpid, sdvm(:,1:snj-1)) )
+          write(*, *) "[O] free surface mask at v point -> sdvm"
+!
+! Fill in residual points
+!
+          sdum(si,:) = sdum(si-1,:)
+          sdvm(:,sj) = sdvm(:,sj-1)
+          
+        end if
+!
+! Get the BCs
+!
+!   allocate local variables
+!
+!        allocate( sele(sni, snj) )
+!        allocate( su(sni, snj, sk) )
+!        allocate( sv(sni, snj, sk) )
+!        allocate( sw(sni, snj, sk) )
+!        allocate( stemp(sni, snj, sk) )
+!        allocate( ssalt(sni, snj, sk) )
+!
+! Read and interpolate to model grid boudaries
+!
+!   allocate temporary 2D-array
+!
+        allocate(dat2d(sni,snj))
+!
+! Loop for each 2D variable
+!
+        do var_i = 1, 1
+!
+          call check( nf90_inq_varid(ncid,trim(vars_2D(var_i)),tmpid) )
+          call check( nf90_get_var(ncid, tmpid,
+     $                dat2d(:,:),(/soi,soj,ri/),(/sni,snj,1/)) )
+          call check( nf90_get_att(ncid, tmpid, '_FillValue', fillval))
+          !call check( nf90_get_att(ncid, varid, "scale_factor", sf) )
+          !call check( nf90_get_att(ncid, varid, "add_offset", ao) )
+          !dat = dat*sf+ao
+          !vlat(:) = vlat(jb:1:-1)
+          !sj = minloc(vlat, 1, vlat>esouth)-1
+     
+          call field_extrafill(dat2d, sni, snj, fillval)
+
+          do j=1,jm
+! west
+            x =  east_e(1,j)
+            y = north_e(1,j)
+            i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+            i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+            j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+            j2 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+            x1 = slon(i1+soi,j1+soj)
+            x2 = slon(i2+soi,j2+soj)
+            y1 = slat(i1+soi,j1+soj)
+            y2 = slat(i2+soi,j2+soj)
+            f1 = dat2d(i1+1,j1+1)
+            f2 = dat2d(i2+1,j1+1)
+            f3 = dat2d(i2+1,j2+1)
+            f4 = dat2d(i1+1,j2+1)
+            call blint(x1,x2,x2,x1,y1,y1,y2,y2,
+     $                      f1,f2,f3,f4,x,y,elw(j))
+! east
+            x =  east_e(im,j)
+            y = north_e(im,j)
+            i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+            i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+            j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+            j2 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+            x1 = slon(i1+soi,j1+soj)
+            x2 = slon(i2+soi,j2+soj)
+            y1 = slat(i1+soi,j1+soj)
+            y2 = slat(i2+soi,j2+soj)
+            f1 = dat2d(i1+1,j1+1)
+            f2 = dat2d(i2+1,j1+1)
+            f3 = dat2d(i2+1,j2+1)
+            f4 = dat2d(i1+1,j2+1)
+            call blint(x1,x2,x2,x1,y1,y1,y2,y2,
+     $                      f1,f2,f3,f4,x,y,ele(j))
+          end do
+!
+          do i=1,im
+! south
+            x =  east_e(i,1)
+            y = north_e(i,1)
+            i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+            i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+            j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+            j2 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+            x1 = slon(i1+soi,j1+soj)
+            x2 = slon(i2+soi,j2+soj)
+            y1 = slat(i1+soi,j1+soj)
+            y2 = slat(i2+soi,j2+soj)
+            f1 = dat2d(i1+1,j1+1)
+            f2 = dat2d(i2+1,j1+1)
+            f3 = dat2d(i2+1,j2+1)
+            f4 = dat2d(i1+1,j2+1)
+            call blint(x1,x2,x2,x1,y1,y1,y2,y2,
+     $                      f1,f2,f3,f4,x,y,els(i))
+! north
+            x =  east_e(i,jm)
+            y = north_e(i,jm)
+            i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+            i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+            j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+            j2 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+            x1 = slon(i1+soi,j1+soj)
+            x2 = slon(i2+soi,j2+soj)
+            y1 = slat(i1+soi,j1+soj)
+            y2 = slat(i2+soi,j2+soj)
+            f1 = dat2d(i1+1,j1+1)
+            f2 = dat2d(i2+1,j1+1)
+            f3 = dat2d(i2+1,j2+1)
+            f4 = dat2d(i1+1,j2+1)
+            call blint(x1,x2,x2,x1,y1,y1,y2,y2,
+     $                      f1,f2,f3,f4,x,y,eln(i))
+          end do
+          
+        end do
+!
+!   deallocate temporary array
+        deallocate(dat2d)
+!
+!   allocate temporary 3D-array
+!
+        allocate(dat3d(sni,snj,sk))
+!
+! Loop for each 3D variable
+!
+        do var_i = 1, 5
+!
+          call check( nf90_inq_varid(ncid,trim(vars_3D(var_i)),tmpid) )
+          call check( nf90_get_var(ncid, tmpid,
+     $       dat3d(:,:,sk-1:1:-1),(/soi,soj,1,ri/),(/sni,snj,sk-1,1/)) )
+          call check( nf90_get_att(ncid, tmpid, '_FillValue', fillval))
+          !call check( nf90_get_att(ncid, varid, "scale_factor", sf) )
+          !call check( nf90_get_att(ncid, varid, "add_offset", ao) )
+          !dat = dat*sf+ao
+     
+          do k=1,kb
+            call field_extrafill(dat3d(:,:,k),sni,snj,fillval)
+          end do
+
+          do j=1,jm
+            do k=1,kb
+! west
+              select case (var_i) ! Varúð! Is this correct?
+                case (1)
+                  x =  east_u(1,j)
+                  y = north_u(1,j)
+                case (2)
+                  x =  east_v(1,j)
+                  y = north_v(1,j)
+                case default
+                  x =  east_e(1,j)
+                  y = north_e(1,j)
+              end select
+              zv = zz(k)*h(1,j)
+              i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+              i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+              i3 = i2
+              i4 = i1
+              j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+              j2 = j1
+              j3 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+              j4 = j3
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)>=zv)
+              k12 = maxloc(szz, 1, szz*sh(i1+soi,j1+soj)< zv)
+              k21 = minloc(szz, 1, szz*sh(i2+soi,j2+soj)>=zv)
+              k22 = maxloc(szz, 1, szz*sh(i2+soi,j2+soj)< zv)
+              k31 = minloc(szz, 1, szz*sh(i3+soi,j3+soj)>=zv)
+              k32 = maxloc(szz, 1, szz*sh(i3+soi,j3+soj)< zv)
+              k41 = minloc(szz, 1, szz*sh(i4+soi,j4+soj)>=zv)
+              k42 = maxloc(szz, 1, szz*sh(i4+soi,j4+soj)< zv)
+              x1 = slon(i1+soi,j1+soj)
+              x2 = slon(i2+soi,j2+soj)
+              x3 = slon(i3+soi,j3+soj)
+              x4 = slon(i4+soi,j4+soj)
+              y1 = slat(i1+soi,j1+soj)
+              y2 = slat(i2+soi,j2+soj)
+              y3 = slat(i3+soi,j3+soj)
+              y4 = slat(i4+soi,j4+soj)
+              
+              if (k11==0) then
+                z11 = 0
+                k11 = 1
+              else
+                z11 = szz(k11)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k12==sk) then
+                z12 = -sh(i1+soi,j1+soj)
+                k12 = sk
+              else
+                z12= szz(k12)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k21==0) then
+                z21 = 0
+                k21 = 1
+              else
+                z21= szz(k21)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k22==sk) then
+                z22 = -sh(i2+soi,j2+soj)
+                k22 = sk
+              else
+                z22= szz(k22)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k31==0) then
+                z31 = 0
+                k31 = 1
+              else
+                z31= szz(k31)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k32==sk) then
+                z32 = -sh(i3+soi,j3+soj)
+                k32 = sk
+              else
+                z32= szz(k32)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k41==0) then
+                z41 = 0
+                k41 = 1
+              else
+                z41= szz(k41)*sh(i4+soi,j4+soj)
+              end if
+              
+              if (k42==sk) then
+                z42 = -sh(i4+soi,j4+soj)
+                k42 = sk
+              else
+                z42= szz(k42)*sh(i4+soi,j4+soj)
+              end if
+              
+              f1 = dat3d(i1+1,j1+1,k11)
+              f2 = dat3d(i4+1,j4+1,k41)
+              f3 = dat3d(i4+1,j4+1,k42)
+              f4 = dat3d(i1+1,j1+1,k12)
+              call blint(y1,y4,y4,y1,z11,z41,z42,z12,
+     $                      f1,f2,f3,f4,y,zv,v1)
+              f1 = dat3d(i2+1,j2+1,k21)
+              f2 = dat3d(i3+1,j3+1,k31)
+              f3 = dat3d(i3+1,j3+1,k32)
+              f4 = dat3d(i2+1,j2+1,k22)
+              call blint(y2,y3,y3,y2,z21,z31,z32,z22,
+     $                      f1,f2,f3,f4,y,zv,v2)
+              call blint(y2,y3,y3,y2,z22,z32,z31,z21,
+     $                      f4,f3,f2,f1,y,zv,v2)
+              call lint(x1,x2,v1,v2,x,val) ! Varúð! x1 and x2 may not represent exact x-coordinates in case of curvilinear grids.
+
+              select case (var_i)
+                case (1)
+                  ubw(j,k) = val
+                case (2)
+                  vbw(j,k) = val
+                case (3)
+                  !wbw(j,k) = val
+                case (4)
+                  tbw(j,k) = val
+                case (5)
+                  sbw(j,k) = val
+              end select
+! east
+              select case (var_i) ! Varúð! Is this correct?
+                case (1)
+                  x =  east_u(im,j)
+                  y = north_u(im,j)
+                case (2)
+                  x =  east_v(im,j)
+                  y = north_v(im,j)
+                case default
+                  x =  east_e(im,j)
+                  y = north_e(im,j)
+              end select
+              zv= zz(k)*h(im,j)
+              i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+              i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+              i3 = i2
+              i4 = i1
+              j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+              j2 = j1
+              j3 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+              j4 = j3
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)>=zv)
+              k12 = maxloc(szz, 1, szz*sh(i1+soi,j1+soj)< zv)
+              k21 = minloc(szz, 1, szz*sh(i2+soi,j2+soj)>=zv)
+              k22 = maxloc(szz, 1, szz*sh(i2+soi,j2+soj)< zv)
+              k31 = minloc(szz, 1, szz*sh(i3+soi,j3+soj)>=zv)
+              k32 = maxloc(szz, 1, szz*sh(i3+soi,j3+soj)< zv)
+              k41 = minloc(szz, 1, szz*sh(i4+soi,j4+soj)>=zv)
+              k42 = maxloc(szz, 1, szz*sh(i4+soi,j4+soj)< zv)
+              x1 = slon(i1+soi,j1+soj)
+              x2 = slon(i2+soi,j2+soj)
+              x3 = slon(i3+soi,j3+soj)
+              x4 = slon(i4+soi,j4+soj)
+              y1 = slat(i1+soi,j1+soj)
+              y2 = slat(i2+soi,j2+soj)
+              y3 = slat(i3+soi,j3+soj)
+              y4 = slat(i4+soi,j4+soj)
+              
+              if (k11==0) then
+                z11 = 0
+                k11 = 1
+              else
+                z11 = -szz(k11)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k12==sk) then
+                z12 = -sh(i1+soi,j1+soj)
+                k12 = sk
+              else
+                z12= -szz(k12)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k21==0) then
+                z21 = 0
+                k21 = 1
+              else
+                z21= -szz(k21)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k22==sk) then
+                z22 = -sh(i2+soi,j2+soj)
+                k22 = sk
+              else
+                z22= -szz(k22)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k31==0) then
+                z31 = 0
+                k31 = 1
+              else
+                z31= -szz(k31)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k32==sk) then
+                z32 = -sh(i3+soi,j3+soj)
+                k32 = sk
+              else
+                z32= -szz(k32)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k41==0) then
+                z41 = 0
+                k41 = 1
+              else
+                z41= -szz(k41)*sh(i4+soi,j4+soj)
+              end if
+              
+              if (k42==sk) then
+                z42 = -sh(i4+soi,j4+soj)
+                k42 = sk
+              else
+                z42= -szz(k42)*sh(i4+soi,j4+soj)
+              end if
+              
+              f1 = dat3d(i1+1,j1+1,k11)
+              f2 = dat3d(i4+1,j4+1,k41)
+              f3 = dat3d(i4+1,j4+1,k42)
+              f4 = dat3d(i1+1,j1+1,k12)
+              call blint(y1,y4,y4,y1,z11,z41,z42,z12,
+     $                      f1,f2,f3,f4,y,zv,v1)
+              f1 = dat3d(i2+1,j2+1,k21)
+              f2 = dat3d(i3+1,j3+1,k31)
+              f3 = dat3d(i3+1,j3+1,k32)
+              f4 = dat3d(i2+1,j2+1,k22)
+              call blint(y2,y3,y3,y2,z21,z31,z32,z22,
+     $                      f1,f2,f3,f4,y,zv,v2)
+              call lint(x1,x2,v1,v2,x,val)
+
+              select case (var_i)
+                case (1)
+                  ube(j,k) = val
+                case (2)
+                  vbe(j,k) = val
+                case (3)
+                  !wbe(j,k) = val
+                case (4)
+                  tbe(j,k) = val
+                case (5)
+                  sbe(j,k) = val
+              end select
+            end do
+          end do
+!
+          do i=1,im
+            do k=1,kb
+! south
+              select case (var_i) ! Varúð! Is this correct?
+                case (1)
+                  x =  east_u(i,1)
+                  y = north_u(i,1)
+                case (2)
+                  x =  east_v(i,1)
+                  y = north_v(i,1)
+                case default
+                  x =  east_e(i,1)
+                  y = north_e(i,1)
+              end select
+              zv= zz(k)*h(i,1)
+              i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+              i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+              i3 = i2
+              i4 = i1
+              j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+              j2 = j1
+              j3 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+              j4 = j3
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)> zv)
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)>=zv)
+              k12 = maxloc(szz, 1, szz*sh(i1+soi,j1+soj)< zv)
+              k21 = minloc(szz, 1, szz*sh(i2+soi,j2+soj)>=zv)
+              k22 = maxloc(szz, 1, szz*sh(i2+soi,j2+soj)< zv)
+              k31 = minloc(szz, 1, szz*sh(i3+soi,j3+soj)>=zv)
+              k32 = maxloc(szz, 1, szz*sh(i3+soi,j3+soj)< zv)
+              k41 = minloc(szz, 1, szz*sh(i4+soi,j4+soj)>=zv)
+              k42 = maxloc(szz, 1, szz*sh(i4+soi,j4+soj)< zv)
+              x1 = slon(i1+soi,j1+soj)
+              x2 = slon(i2+soi,j2+soj)
+              x3 = slon(i3+soi,j3+soj)
+              x4 = slon(i4+soi,j4+soj)
+              y1 = slat(i1+soi,j1+soj)
+              y2 = slat(i2+soi,j2+soj)
+              y3 = slat(i3+soi,j3+soj)
+              y4 = slat(i4+soi,j4+soj)
+              
+              if (k11==0) then
+                z11 = 0
+                k11 = 1
+              else
+                z11 = -szz(k11)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k12==sk) then
+                z12 = -sh(i1+soi,j1+soj)
+                k12 = sk
+              else
+                z12= -szz(k12)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k21==0) then
+                z21 = 0
+                k21 = 1
+              else
+                z21= -szz(k21)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k22==sk) then
+                z22 = -sh(i2+soi,j2+soj)
+                k22 = sk
+              else
+                z22= -szz(k22)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k31==0) then
+                z31 = 0
+                k31 = 1
+              else
+                z31= -szz(k31)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k32==sk) then
+                z32 = -sh(i3+soi,j3+soj)
+                k32 = sk
+              else
+                z32= -szz(k32)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k41==0) then
+                z41 = 0
+                k41 = 1
+              else
+                z41= -szz(k41)*sh(i4+soi,j4+soj)
+              end if
+              
+              if (k42==sk) then
+                z42 = -sh(i4+soi,j4+soj)
+                k42 = sk
+              else
+                z42= -szz(k42)*sh(i4+soi,j4+soj)
+              end if
+              
+              f1 = dat3d(i1+1,j1+1,k11)
+              f2 = dat3d(i4+1,j4+1,k41)
+              f3 = dat3d(i4+1,j4+1,k42)
+              f4 = dat3d(i1+1,j1+1,k12)
+              call blint(y1,y4,y4,y1,z11,z41,z42,z12,
+     $                      f1,f2,f3,f4,y,zv,v1)
+              f1 = dat3d(i2+1,j2+1,k21)
+              f2 = dat3d(i3+1,j3+1,k31)
+              f3 = dat3d(i3+1,j3+1,k32)
+              f4 = dat3d(i2+1,j2+1,k22)
+              call blint(y2,y3,y3,y2,z21,z31,z32,z22,
+     $                      f1,f2,f3,f4,y,zv,v2)
+              call lint(y1,y2,v1,v2,y,val)
+
+              select case (var_i)
+                case (1)
+                  ubw(j,k) = val
+                case (2)
+                  vbw(j,k) = val
+                case (3)
+                  !wbw(j,k) = val
+                case (4)
+                  tbw(j,k) = val
+                case (5)
+                  sbw(j,k) = val
+              end select
+! north
+              select case (var_i) ! Varúð! Is this correct?
+                case (1)
+                  x =  east_u(i,jm)
+                  y = north_u(i,jm)
+                case (2)
+                  x =  east_v(i,jm)
+                  y = north_v(i,jm)
+                case default
+                  x =  east_e(i,jm)
+                  y = north_e(i,jm)
+              end select
+              zv= zz(k)*h(i,jm)
+              i1 = maxloc(slon(:,1), 1, slon(:,1)<=x)-soi
+              i2 = minloc(slon(:,1), 1, slon(:,1)> x)-soi
+              i3 = i2
+              i4 = i1
+              j1 = maxloc(slat(1,:), 1, slat(1,:)<=y)-soj
+              j2 = j1
+              j3 = minloc(slat(1,:), 1, slat(1,:)> y)-soj
+              j4 = j3
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)> zv)
+              k11 = minloc(szz, 1, szz*sh(i1+soi,j1+soj)>=zv)
+              k12 = maxloc(szz, 1, szz*sh(i1+soi,j1+soj)< zv)
+              k21 = minloc(szz, 1, szz*sh(i2+soi,j2+soj)>=zv)
+              k22 = maxloc(szz, 1, szz*sh(i2+soi,j2+soj)< zv)
+              k31 = minloc(szz, 1, szz*sh(i3+soi,j3+soj)>=zv)
+              k32 = maxloc(szz, 1, szz*sh(i3+soi,j3+soj)< zv)
+              k41 = minloc(szz, 1, szz*sh(i4+soi,j4+soj)>=zv)
+              k42 = maxloc(szz, 1, szz*sh(i4+soi,j4+soj)< zv)
+              x1 = slon(i1+soi,j1+soj)
+              x2 = slon(i2+soi,j2+soj)
+              x3 = slon(i3+soi,j3+soj)
+              x4 = slon(i4+soi,j4+soj)
+              y1 = slat(i1+soi,j1+soj)
+              y2 = slat(i2+soi,j2+soj)
+              y3 = slat(i3+soi,j3+soj)
+              y4 = slat(i4+soi,j4+soj)
+              
+              if (k11==0) then
+                z11 = 0
+                k11 = 1
+              else
+                z11 = -szz(k11)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k12==sk) then
+                z12 = -sh(i1+soi,j1+soj)
+                k12 = sk
+              else
+                z12 = -szz(k12)*sh(i1+soi,j1+soj)
+              end if
+              
+              if (k21==0) then
+                z21 = 0
+                k21 = 1
+              else
+                z21 = -szz(k21)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k22==sk) then
+                z22 = -sh(i2+soi,j2+soj)
+                k22 = sk
+              else
+                z22 = -szz(k22)*sh(i2+soi,j2+soj)
+              end if
+              
+              if (k31==0) then
+                z31 = 0
+                k31 = 1
+              else
+                z31 = -szz(k31)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k32==sk) then
+                z32 = -sh(i3+soi,j3+soj)
+                k32 = sk
+              else
+                z32 = -szz(k32)*sh(i3+soi,j3+soj)
+              end if
+              
+              if (k41==0) then
+                z41 = 0
+                k41 = 1
+              else
+                z41 = -szz(k41)*sh(i4+soi,j4+soj)
+              end if
+              
+              if (k42==sk) then
+                z42 = -sh(i4+soi,j4+soj)
+                k42 = sk
+              else
+                z42 = -szz(k42)*sh(i4+soi,j4+soj)
+              end if
+              
+              f1 = dat3d(i1+1,j1+1,k11)
+              f2 = dat3d(i4+1,j4+1,k41)
+              f3 = dat3d(i4+1,j4+1,k42)
+              f4 = dat3d(i1+1,j1+1,k12)
+              call blint(y1,y4,y4,y1,z11,z41,z42,z12,
+     $                      f1,f2,f3,f4,y,zv,v1)
+              f1 = dat3d(i2+1,j2+1,k21)
+              f2 = dat3d(i3+1,j3+1,k31)
+              f3 = dat3d(i3+1,j3+1,k32)
+              f4 = dat3d(i2+1,j2+1,k22)
+              call blint(y2,y3,y3,y2,z21,z31,z32,z22,
+     $                      f1,f2,f3,f4,y,zv,v2)
+              call lint(y1,y2,v1,v2,y,val)
+
+              select case (var_i)
+                case (1)
+                  ubw(j,k) = val
+                case (2)
+                  vbw(j,k) = val
+                case (3)
+                  !wbw(j,k) = val
+                case (4)
+                  tbw(j,k) = val
+                case (5)
+                  sbw(j,k) = val
+              end select
+              
+            end do
+          end do
+          
+        end do
+        
+        deallocate(dat3d)
+        
+        call check( nf90_close(ncid) )
+        
+        call check( nf90_create("/home/rincewnd/n.nc",
+     $                          NF90_CLASSIC_MODEL,ncid) )
+        call check( nf90_def_dim(ncid, "s_r", kb, id_r) )
+        call check( nf90_def_dim(ncid, "s_w", kb, id_w) )
+        call check( nf90_def_dim(ncid, "lat", jm, id_x) )
+        call check( nf90_def_dim(ncid, "lon", im, id_y) )
+        call check( nf90_def_var(ncid, "eln", NF90_DOUBLE,
+     $          (/ id_x /), tmpid) )
+        call check( nf90_def_var(ncid, "ele", NF90_DOUBLE,
+     $          (/ id_y /), tmpid) )
+        call check( nf90_def_var(ncid, "els", NF90_DOUBLE,
+     $          (/ id_x /), tmpid) )
+        call check( nf90_def_var(ncid, "elw", NF90_DOUBLE,
+     $          (/ id_y /), tmpid) )
+        call check( nf90_def_var(ncid, "ubn", NF90_DOUBLE,
+     $          (/ id_x, id_r /), tmpid) )
+        call check( nf90_def_var(ncid, "ube", NF90_DOUBLE,
+     $          (/ id_y, id_r /), tmpid) )
+        call check( nf90_def_var(ncid, "ubs", NF90_DOUBLE,
+     $          (/ id_x, id_r /), tmpid) )
+        call check( nf90_def_var(ncid, "ubw", NF90_DOUBLE,
+     $          (/ id_y, id_r /), tmpid) )
+        call check( nf90_put_var(ncid, tmpid, ubw) )
+        call check(nf90_close(ncid))
+        
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*) status
+            if(status /= nf90_noerr) then
+              stop "Stopped"
+            end if
+          end subroutine check
+        
+      end subroutine bry_oper
 !_______________________________________________________________________
 !
       subroutine bry_roms(idx)
@@ -11459,7 +12559,7 @@
             
             write(*,*) mi
 
-            filename = trim(pth_wrk)//trim(pth_grd)
+            filename = trim(pth_wrk)//trim(pth_clm)
      $                 //trim(pfx_dmn)//"pom_clm.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 
@@ -11501,7 +12601,7 @@
 
             rf_clm = mi
 
-            filename = trim(pth_wrk)//trim(pth_bry)//
+            filename = trim(pth_wrk)//trim(pth_clm)//
      $                 trim(pfx_dmn)//"pom_clm.nc"
             call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !
@@ -11726,7 +12826,7 @@
           read(time_now, '(5xi2)') ri
           write(*,*) "-----",ri
           
-          filename = trim(pth_wrk)//trim(pth_grd)
+          filename = trim(pth_wrk)//trim(pth_clm)
      $               //trim(pfx_dmn)//"pom_clm.nc"
           call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 
@@ -11751,7 +12851,7 @@
             ri  = get_Month_Int(time_now)
           end if
 
-          filename = trim(pth_wrk)//trim(pth_bry)//
+          filename = trim(pth_wrk)//trim(pth_clm)//
      $               trim(pfx_dmn)//"pom_clm.nc"
           call check( nf90_open(filename, NF90_NOWRITE, ncid) )
 !
@@ -11983,54 +13083,176 @@
             integer, intent ( in) :: status
 !            if (DBG) write(*,*)  status
             if(status /= nf90_noerr) then
-              write(*,*) "NetCDF error at subroutine `bry`: ", status
+              write(*,*) "NetCDF error at subroutine `bry_sfc`: "
+     $                  , status
               stop "Stopped"
             end if
           end subroutine check
+!
+      end subroutine bry_sfc
+!____________________________________________________________________
+!
+      subroutine bry_op(idx)
+!-----------------------------------------------------------------------
+! FUNCTION: Reads all boundary conditions from preprocessed file.
+!-----------------------------------------------------------------------
+!
+      use netcdf
+      use date_utility
+      implicit none
+      
+      include 'pomNW.c'
+
+      integer, intent(in) :: idx
+      integer :: ri, tmp
+      
+      integer :: k,ncid,varid
+      character(len=256) :: filename
+      character(len=3)   :: dn
+
+      integer :: n, i, j, i1, i2, j1, j2, ni, nj, si, sj, ib, jb, tmpid
+      double precision :: x, x1, x2, x3, x4, y, y1, y2, y3, y4
+      double precision :: f1, f2, f3, f4,       sf, ao
+      double precision :: eeast,ewest,enorth,esouth
+      character(len=4) :: var_name(2)
+      double precision, dimension(:), allocatable :: vlon, vlat
+      double precision, dimension(:,:), allocatable :: dat, uw, vw
+      data var_name /"uflx", "vflx"/
+
+      select case (idx)
+
+        case (2) ! elevation (TODO: implement elevation)
           
-          subroutine blint(x1,x2,x3,x4,y1,y2,y3,y4,f1,f2,f3,f4,x,y,f)
-            double precision, intent(in) :: x1,x2,x3,x4,y1,y2,y3,y4
-            double precision, intent(in) :: f1,f2,f3,f4,x,y
-            double precision, intent(out) :: f
+          write(*,*) "[!] Elevation is not present in these boundaries."
             
-            double precision :: a1,a2,a3,a4,b1,b2,b3,b4,A,B,C,t,s
+          return
+!
+        case (3) ! u and v
+          
+          write(*,*)"[!] Current velocities are not used for these BCs."
+            
+          return
+!
+        case (4) ! vertical TS
+!
+          write(*,*)"[!] TS-fields are not present in these boundaries."
+          
+          return
+          
+        case (5) ! momentum flux
+          
+          !ri = modulo(int(time/.25), 1460)+1
+          ri = int(Date_to_Day_of_Year(time_now)*4.)
+          write(dn, '(i3.0)') ri
+          
+            filename = trim(pth_wrk)//trim(pth_bry)//
+     $             trim(pfx_dmn)//"pom_bry."//dn//".nc"
+            call check( nf90_open(filename, NF90_NOWRITE, ncid) )
+          
+            call check( nf90_inq_dimid(ncid, "xi_rho",  tmpid) )
+            call check( nf90_inq_varid(ncid, "lon_rho", tmpid) )
+
+            call check( nf90_inq_dimid(ncid, "eta_rho", tmpid) )
+            call check( nf90_inq_varid(ncid, "lat_rho", tmpid) )
+          
+!
+            call check( nf90_inq_varid(ncid, "sustr", varid) )
+            call check( nf90_get_var(ncid,varid,wusurf,(/1,1,ri/),
+     $                               (/im,jm,1/)))
+            wusurf = -wusurf/rhoref
+            call check( nf90_inq_varid(ncid, "svstr", varid) )
+            call check( nf90_get_var(ncid,varid,wvsurf,(/1,1,ri/),
+     $                               (/im,jm,1/)))
+            wvsurf = -wvsurf/rhoref
+            call check( nf90_inq_varid(ncid, "SST", varid) )
+            call check( nf90_get_var(ncid,varid,tsurf,(/1,1,ri/),
+     $                               (/im,jm,1/)))
+            
+            ! TODO: other variables
+            
+            call check( nf90_close(ncid) )
+            
+          deallocate(vw)
+
+          wusurf = -wusurf/rhoref
+          wvsurf = -wvsurf/rhoref
+          
+          write(*,*) "[-] Read momentum flux:", ri
+
+          return
+!
+        end select
+!
+        return
+!
+        contains
+          subroutine check(status)
+            integer, intent ( in) :: status
+!            if (DBG) write(*,*)  status
+            if(status /= nf90_noerr) then
+              write(*,*) "NetCDF error at subroutine `bry_op`: "
+     $                  , status
+              stop "Stopped"
+            end if
+          end subroutine check
+!
+      end subroutine bry_op
+!____________________________________________________________________
+!
+      subroutine blint(x1,x2,x3,x4,y1,y2,y3,y4,f1,f2,f3,f4,x,y,f)
+        double precision, intent(in) :: x1,x2,x3,x4,y1,y2,y3,y4
+        double precision, intent(in) :: f1,f2,f3,f4,x,y
+        double precision, intent(out) :: f
+
+        double precision :: a1,a2,a3,a4,b1,b2,b3,b4,A,B,C,t,s
 !
 ! Bilinear interpolation subroutine.
 ! (Xi,Yi,fi) = data grid & values surounding model point (x,y)
 ! f = interpolated value at the model grid point.
 !
-            a1 =  x1-x2+x3-x4
-            a2 = -x1      +x4
-            a3 = -x1+x2
-            a4 =  x1         -x
-            b1 =  y1-y2+y3-y4
-            b2 = -y1      +y4
-            b3 = -y1+y2
-            b4 =  y1         -y
+        a1 =  x1-x2+x3-x4
+        a2 = -x1      +x4
+        a3 = -x1+x2
+        a4 =  x1         -x
+        b1 =  y1-y2+y3-y4
+        b2 = -y1      +y4
+        b3 = -y1+y2
+        b4 =  y1         -y
 
-            A =  a3*b1-a1*b3
-            B =  b2*a3+b1*a4-a1*b4-a2*b3
-            C = -a2*b4+a4*b2
-            if (abs(A*C).gt.0.002*B**2) then
-              t = (-B-sqrt(B*B-4.*A*C))/(2.*A)
-            else
-              t = C/abs(B)
-            endif
+        A =  a3*b1-a1*b3
+        B =  b2*a3+b1*a4-a1*b4-a2*b3
+        C = -a2*b4+a4*b2
+        if (abs(A*C).gt.0.002*B**2) then
+          t = (-B-sqrt(B*B-4.*A*C))/(2.*A)
+        else
+          t = C/abs(B)
+        endif
 
-            A = a2*b1-a1*b2
-            B = b3*a2+b1*a4-a1*b4-a3*b2
-            C = -a3*b4+a4*b3
-            if (abs(A*C).gt.0.002*B**2) then
-              s = (-B+sqrt(B*B-4.*A*C))/(2.*A)
-            else
-              s = -C/abs(B)
-            end if
+        A = a2*b1-a1*b2
+        B = b3*a2+b1*a4-a1*b4-a3*b2
+        C = -a3*b4+a4*b3
+        if (abs(A*C).gt.0.002*B**2) then
+          s = (-B+sqrt(B*B-4.*A*C))/(2.*A)
+        else
+          s = -C/abs(B)
+        end if
 
-            f = f1*(1.-t)*(1.-s)+f2*t*(1.-s)+f3*s*t+f4*(1.-t)*s
-            return
-          end subroutine blint
-!
-      end subroutine bry_sfc
+        f = f1*(1.-t)*(1.-s)+f2*t*(1.-s)+f3*s*t+f4*(1.-t)*s
+        return
+      end subroutine blint
+!____________________________________________________________________
+!      
+      subroutine lint(x1, x2, f1, f2, x, f)
+        
+        implicit none
+        
+        double precision, intent(in)  :: x1, x2, f1, f2, x
+        double precision, intent(out) :: f
+        double precision              :: t
+        
+        f = f1 + (f2-f1)*(x-x1)/(x2-x1)
+        
+      end subroutine lint
 !____________________________________________________________________
 !
       subroutine upd_datetime(day_offset)
@@ -12058,7 +13280,7 @@
           updstr = ustr(i) ! BCupd%wnd
           updtim = utim(i) ! BCflg%wnd
 
-          if (time >= updtim) then
+          if (time > updtim) then
             !prestr = Days_to_Stamp(day_offset+time) ! TODO: Use prestr or time_now? The former isn't stored anywhere except here.
             if (i==1 .and. BC%ipl) then
               utim(i) = updtim + get_Month_IntDays(time_now)

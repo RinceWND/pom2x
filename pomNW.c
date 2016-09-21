@@ -279,15 +279,17 @@ C
 !rwnd: Path paramters
 !
       character*224 pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
-     $ , ptf_rst, pth_dbg
+     $ , ptf_rst, pth_dbg, pth_clm
       character*32 pfx_dmn, pfx_dbg
       common/pth/ pth_wrk, pth_grd, pth_flx, pth_bry, pth_out, pth_bkp
-     $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg
+     $ , ptf_rst, pfx_dmn, pth_dbg, pfx_dbg, pth_clm
 !
+      double precision :: day_of_start
+
       double precision    fac  ! fac - interpolation factor
       integer mi,m0! mi  - month for interpolation, m0 - month offset for clim cycle
       integer clm_cycle !- climatological cycle
-      common/misc/ fac, mi, m0, clm_cycle
+      common/misc/ day_of_start, fac, mi, m0, clm_cycle
 !
       integer rf_ts, rf_sts, rf_uv, rf_swrad, rf_wtsur, rf_wsurf
      $ , rf_el, rf_clm, rf_rmn
